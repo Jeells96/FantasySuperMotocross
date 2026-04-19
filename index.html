@@ -222,25 +222,10 @@ const RIDERS = [
 const POS_PTS = {1:15,2:14,3:13,4:12,5:11,6:10,7:9,8:8,9:7,10:6,11:5,12:4,13:3,14:2,
 15:1,16:1,17:1,18:1,19:1,20:1,21:1,22:1};
 
-const ROUNDS = [
-{rnd:1,  date:“Jan 10”,  venue:“Anaheim”,        stadium:“Angel Stadium”},
-{rnd:2,  date:“Jan 17”,  venue:“San Diego”,      stadium:“Snapdragon Stadium”},
-{rnd:3,  date:“Jan 24”,  venue:“Anaheim”,        stadium:“Angel Stadium”},
-{rnd:4,  date:“Jan 31”,  venue:“Houston”,        stadium:“NRG Stadium”},
-{rnd:5,  date:“Feb 7”,   venue:“Glendale”,       stadium:“State Farm Stadium”},
-{rnd:6,  date:“Feb 14”,  venue:“Seattle”,        stadium:“Lumen Field”},
-{rnd:7,  date:“Feb 21”,  venue:“Arlington”,      stadium:“AT&T Stadium”},
-{rnd:8,  date:“Feb 28”,  venue:“Daytona”,        stadium:“Daytona International Speedway”},
-{rnd:9,  date:“Mar 7”,   venue:“Indianapolis”,   stadium:“Lucas Oil Stadium”},
-{rnd:10, date:“Mar 21”,  venue:“Birmingham”,     stadium:“Protective Stadium”},
-{rnd:11, date:“Mar 28”,  venue:“Detroit”,        stadium:“Ford Field”},
-{rnd:12, date:“Apr 4”,   venue:“St. Louis”,      stadium:“The Dome at America’s Center”},
-{rnd:13, date:“Apr 11”,  venue:“Nashville”,      stadium:“Nissan Stadium”},
-{rnd:14, date:“Apr 18”,  venue:“Cleveland”,      stadium:“Huntington Bank Field”},
-{rnd:15, date:“Apr 25”,  venue:“Philadelphia”,   stadium:“Lincoln Financial Field”},
-{rnd:16, date:“May 2”,   venue:“Denver”,         stadium:“Empower Field at Mile High”},
-{rnd:17, date:“May 9”,   venue:“Salt Lake City”, stadium:“Rice-Eccles Stadium”},
-];
+// 17 generic rounds — venue/date populated from parsed PDF per round, so this
+// stays year-agnostic. Just change TOTAL_ROUNDS if a future season has more/fewer.
+const TOTAL_ROUNDS = 17;
+const ROUNDS = Array.from({length: TOTAL_ROUNDS}, (_, i) => ({rnd: i + 1}));
 
 // ── STORAGE ────────────────────────────────────────────────────────────────────
 const LS_KEY = “fsx-league-v1”;
@@ -451,13 +436,19 @@ return (
   </div>
 
   <div style={{marginTop:28}}>
-    <div className="section-header">2026 Schedule</div>
+    <div className="section-header">Season Progress</div>
     <div className="round-pills">
-      {ROUNDS.map(r=>(
-        <div key={r.rnd} className={"round-pill" + (results[r.rnd]?" done":"") + (r.rnd===14 && !results[r.rnd] ?" current":"")}>
-          R{r.rnd} {r.venue}
-        </div>
-      ))}
+      {ROUNDS.map(r=>{
+        const saved = results[r.rnd];
+        const nextIncomplete = ROUNDS.find(x => !results[x.rnd]);
+        const isCurrent = !saved && nextIncomplete && nextIncomplete.rnd === r.rnd;
+        const label = saved && saved.venue ? "R"+r.rnd+" "+saved.venue : "R"+r.rnd;
+        return (
+          <div key={r.rnd} className={"round-pill" + (saved?" done":"") + (isCurrent?" current":"")}>
+            {label}
+          </div>
+        );
+      })}
     </div>
   </div>
 </div>
@@ -811,9 +802,12 @@ return (
               lineHeight: 1
             }}>R{r.rnd}</span>
             <div style={{minWidth:0,flex:1}}>
-              <div style={{fontWeight:700,fontSize:".98rem",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.venue}</div>
+              <div style={{fontWeight:700,fontSize:".98rem",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                {saved && saved.venue ? saved.venue : "Round " + r.rnd}
+              </div>
               <div style={{color:"var(--muted)",fontSize:".78rem"}}>
-                {r.date}{saved && saved.wildcardPos ? " · WC: P"+saved.wildcardPos : ""}
+                {saved && saved.date ? saved.date : "No results yet"}
+                {saved && saved.wildcardPos ? " · WC: P"+saved.wildcardPos : ""}
               </div>
             </div>
           </div>
@@ -853,7 +847,7 @@ return (
             ) : (
               // Unsaved: paste URL → parse → preview → save
               <div>
-                <label className="input-label">PDF URL for R{r.rnd} — {r.venue}</label>
+                <label className="input-label">PDF URL for Round {r.rnd}</label>
                 <input className="text-input" value={url}
                   onChange={e => setUrl(r.rnd, e.target.value)}
                   placeholder="https://s3.amazonaws.com/assets.liveracemedia.com/..."/>
