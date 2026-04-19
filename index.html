@@ -653,36 +653,44 @@ return (
 
 // ── RESULTS ────────────────────────────────────────────────────────────────────
 function ResultsPage({teams, results, updateResults, apiKey, updateApiKey, showToast}) {
-const [pdfUrl, setPdfUrl] = useState(””);
-const [parsing, setParsing] = useState(false);
-const [parsed, setParsed] = useState(null);
-const [wildcardPos, setWildcardPos] = useState(””);
-const [selectedRound, setSelectedRound] = useState(null);
-const [viewRound, setViewRound] = useState(null);
 const [keyInput, setKeyInput] = useState(apiKey);
+const [expandedRound, setExpandedRound] = useState(null);
+const [urlsByRound, setUrlsByRound] = useState({});
+const [parsedByRound, setParsedByRound] = useState({});
+const [wildcardByRound, setWildcardByRound] = useState({});
+const [parsingRound, setParsingRound] = useState(null);
 
 useEffect(() => { setKeyInput(apiKey); }, [apiKey]);
 
-const done = Object.keys(results).map(Number).sort((a,b)=>a-b);
+// Auto-expand the next incomplete round on first mount
+useEffect(() => {
+const next = ROUNDS.find(r => !results[r.rnd]);
+if (next) setExpandedRound(next.rnd);
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
-const randomizeWC = () => {
+const setUrl = (rnd, url) => setUrlsByRound(s => ({…s, [rnd]: url}));
+const setParsedFor = (rnd, data) => setParsedByRound(s => ({…s, [rnd]: data}));
+const setWildcard = (rnd, wc) => setWildcardByRound(s => ({…s, [rnd]: wc}));
+
+const randomizeWC = (rnd) => {
 const p = Math.floor(Math.random()*13)+10;
-setWildcardPos(String(p));
-showToast(“🎲 Wildcard: Position “ + p + “!”);
+setWildcard(rnd, String(p));
+showToast(“🎲 Wildcard: P” + p);
 };
 
-const handleParse = async () => {
+const handleParse = async (rnd) => {
 if (!apiKey) { showToast(“⚠️ Save your Anthropic API key first”); return; }
-if (!pdfUrl.trim()) { showToast(“Enter a PDF URL”); return; }
-setParsing(true); setParsed(null);
+const url = (urlsByRound[rnd]||””).trim();
+if (!url) { showToast(“Paste a PDF URL for Round “ + rnd); return; }
+setParsingRound(rnd);
+setParsedFor(rnd, null);
 try {
-const raw = await parsePdf(pdfUrl.trim(), apiKey);
-// Match names to rider DB
-const matched = (raw.results||[]).map(r=>{
+const raw = await parsePdf(url, apiKey);
+const matched = (raw.results||[]).map(r => {
 const parts = r.name.trim().split(/\s+/);
 const last = parts[parts.length-1].toLowerCase();
 const first = parts[0].toLowerCase();
-// Try exact full name match first, then last+first, then just last
 let db = RIDERS.find(rd => rd.name.toLowerCase() === r.name.trim().toLowerCase());
 if (!db) {
 db = RIDERS.find(rd => {
@@ -693,32 +701,27 @@ return rdLast===last && rdFirst===first;
 });
 }
 if (!db) {
-db = RIDERS.find(rd => {
-const rdLast = rd.name.split(/\s+/).pop().toLowerCase();
-return rdLast===last;
-});
+db = RIDERS.find(rd => rd.name.split(/\s+/).pop().toLowerCase() === last);
 }
-return {…r, riderId:db?.id||null, displayName:db?.name||r.name};
+return {…r, riderId: db?.id||null, displayName: db?.name||r.name};
 });
-setParsed({…raw, results:matched});
-// Auto-suggest next incomplete round
-const nextRound = ROUNDS.find(r => !results[r.rnd]);
-if (nextRound && !selectedRound) setSelectedRound(nextRound.rnd);
+setParsedFor(rnd, {…raw, results: matched});
 showToast(“✅ Parsed! “ + raw.venue + “ — “ + matched.length + “ finishers”);
 } catch(e) {
 showToast(“❌ Parse failed: “ + e.message);
 }
-setParsing(false);
+setParsingRound(null);
 };
 
-const handleSubmit = () => {
-if (!parsed) { showToast(“No parsed results to save”); return; }
-if (!selectedRound) { showToast(“Select a round number”); return; }
-const wc = wildcardPos ? parseInt(wildcardPos) : null;
-if (wc !== null && (wc<10||wc>22)) { showToast(“Wildcard must be 10–22”); return; }
+const handleSave = (rnd) => {
+const parsed = parsedByRound[rnd];
+if (!parsed) { showToast(“Parse the PDF first”); return; }
+const wcRaw = wildcardByRound[rnd];
+const wc = wcRaw ? parseInt(wcRaw) : null;
+if (wc !== null && (isNaN(wc) || wc<10 || wc>22)) { showToast(“Wildcard must be 10–22”); return; }
 const newResults = {
 …results,
-[selectedRound]: {
+[rnd]: {
 venue: parsed.venue,
 date: parsed.date,
 results: parsed.results.filter(r=>r.riderId).map(r=>({riderId:r.riderId,position:r.position,holeshot:!!r.holeshot})),
@@ -726,14 +729,28 @@ wildcardPos: wc
 }
 };
 updateResults(newResults);
-showToast(“✅ Round “ + selectedRound + “ (” + parsed.venue + “) saved!”);
-setParsed(null); setPdfUrl(””); setWildcardPos(””); setSelectedRound(null);
+showToast(“✅ Round “ + rnd + “ saved!”);
+// Clear working state for this round
+setParsedFor(rnd, null);
+setUrl(rnd, “”);
+setWildcard(rnd, “”);
+// Auto-advance to next incomplete round
+const next = ROUNDS.find(r => !newResults[r.rnd]);
+setExpandedRound(next ? next.rnd : null);
+};
+
+const handleDelete = (rnd) => {
+if (!confirm(“Delete Round “ + rnd + “ results? This cannot be undone.”)) return;
+const nr = {…results};
+delete nr[rnd];
+updateResults(nr);
+showToast(“Round “ + rnd + “ deleted”);
 };
 
 return (
 <div>
 <div className="page-title">Race <span className="accent">Results</span></div>
-<div className="page-sub">Paste the AMA PDF URL to auto-import race results</div>
+<div className="page-sub">Tap a round below · paste its PDF URL · parse · set wildcard · save</div>
 
 ```
   <button className="btn btn-link" style={{marginBottom:18}}
@@ -743,7 +760,7 @@ return (
 
   {/* API Key */}
   <div className="card">
-    <div className="section-header">Anthropic API Key (for PDF parsing)</div>
+    <div className="section-header">Anthropic API Key</div>
     <p style={{color:"var(--muted)",fontSize:".88rem",marginBottom:12}}>
       Required to auto-parse PDF results. Get your key at <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>. Stored locally in your browser only.
     </p>
@@ -755,127 +772,144 @@ return (
     {apiKey && <div style={{color:"var(--green)",fontSize:".85rem",marginTop:8}}>✅ API key saved</div>}
   </div>
 
-  {/* PDF Input */}
-  <div className="card">
-    <div className="section-header">Import Race PDF</div>
-    <div style={{marginBottom:12}}>
-      <label className="input-label">AMA Results PDF URL</label>
-      <input className="text-input" value={pdfUrl} onChange={e=>setPdfUrl(e.target.value)}
-        placeholder="https://s3.amazonaws.com/assets.liveracemedia.com/...pdf"/>
-    </div>
-    <div className="btn-row">
-      <button className="btn btn-primary" onClick={handleParse} disabled={parsing||!apiKey}>
-        {parsing?"Parsing...":"Parse PDF"}
-      </button>
-    </div>
-    {parsing && <div className="loading"><div className="spinner"/><span>Fetching and parsing results...</span></div>}
-  </div>
+  {/* Round-by-round slots */}
+  <div className="section-header" style={{marginTop:22}}>Round-by-Round Import</div>
 
-  {/* Parsed results */}
-  {parsed && (
-    <div className="card">
-      <div className="section-header">{parsed.venue} — {parsed.date}</div>
+  {ROUNDS.map(r => {
+    const saved = results[r.rnd];
+    const isExpanded = expandedRound === r.rnd;
+    const isParsing = parsingRound === r.rnd;
+    const url = urlsByRound[r.rnd] || "";
+    const parsed = parsedByRound[r.rnd];
+    const wildcard = wildcardByRound[r.rnd] || "";
 
-      <label className="input-label" style={{marginBottom:8}}>Assign to Round</label>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-        {ROUNDS.map(r=>{
-          const isDone = !!results[r.rnd];
-          const isActive = selectedRound===r.rnd;
-          return (
-            <div key={r.rnd}
-              className={"round-chip" + (isActive?" active":isDone?" done":"")}
-              onClick={()=>setSelectedRound(r.rnd)}>
-              R{r.rnd} · {r.venue}{isDone?" ✓":""}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="wildcard-box">
-        <div className="wc-label">Wildcard Position (+15 pts)</div>
-        <div className="wc-pos">{wildcardPos?"P"+wildcardPos:"—"}</div>
-        <div className="btn-row" style={{marginTop:10}}>
-          <button className="btn btn-gold btn-sm" onClick={randomizeWC}>🎲 Randomize (10–22)</button>
-          <input className="text-input" value={wildcardPos} onChange={e=>setWildcardPos(e.target.value)}
-            placeholder="Or type pos" style={{width:140,padding:"6px 10px"}}/>
-        </div>
-      </div>
-
-      <label className="input-label" style={{marginBottom:8}}>Finishing Order</label>
-      <div className="results-list">
-        {parsed.results.map(r=>(
-          <div key={r.position} className="result-item">
-            <div className="result-pos">P{r.position}</div>
-            <div>
-              {r.displayName}
-              {!r.riderId && <span style={{color:"var(--red)",fontSize:".72rem",marginLeft:6}}>⚠ unmatched</span>}
-            </div>
-            <div style={{display:"flex",gap:4}}>
-              {r.holeshot && <span className="hs-tag">HS</span>}
-              {wildcardPos && r.position===parseInt(wildcardPos) && <span className="wc-tag">WC</span>}
+    return (
+      <div key={r.rnd} style={{
+        background: "var(--panel)",
+        border: "1px solid " + (saved ? "rgba(0,230,118,.4)" : "var(--border)"),
+        borderRadius: 8,
+        marginBottom: 10,
+        overflow: "hidden",
+        transition: "border-color .2s"
+      }}>
+        {/* Header */}
+        <div onClick={() => setExpandedRound(isExpanded ? null : r.rnd)} style={{
+          padding: "13px 15px",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10
+        }}>
+          <div style={{display:"flex",alignItems:"center",gap:12,minWidth:0,flex:1}}>
+            <span style={{
+              fontFamily: "'Barlow Condensed',sans-serif",
+              fontWeight: 900,
+              fontSize: "1.35rem",
+              color: saved ? "var(--green)" : "var(--accent)",
+              minWidth: 48,
+              lineHeight: 1
+            }}>R{r.rnd}</span>
+            <div style={{minWidth:0,flex:1}}>
+              <div style={{fontWeight:700,fontSize:".98rem",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.venue}</div>
+              <div style={{color:"var(--muted)",fontSize:".78rem"}}>
+                {r.date}{saved && saved.wildcardPos ? " · WC: P"+saved.wildcardPos : ""}
+              </div>
             </div>
           </div>
-        ))}
-      </div>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+            {saved && <span style={{color:"var(--green)",fontSize:".72rem",fontWeight:700,letterSpacing:".08em"}}>✅ SAVED</span>}
+            <span style={{color:"var(--muted)",fontSize:"1.1rem"}}>{isExpanded?"▾":"▸"}</span>
+          </div>
+        </div>
 
-      <button className="btn btn-success" style={{width:"100%",marginTop:14}} onClick={handleSubmit}>
-        ✅ Save Round {selectedRound||"?"} Results
-      </button>
-    </div>
-  )}
+        {/* Expanded body */}
+        {isExpanded && (
+          <div style={{padding:"14px 15px 16px",borderTop:"1px solid var(--border)",background:"var(--bg2)"}}>
+            {saved ? (
+              // Saved: show finishing order + delete
+              <div>
+                <div className="results-list">
+                  {saved.results.map(res => {
+                    const rider = RIDERS.find(rd => rd.id === res.riderId);
+                    return (
+                      <div key={res.position} className="result-item">
+                        <div className="result-pos">P{res.position}</div>
+                        <div>{rider?.name||"Unknown"}</div>
+                        <div style={{display:"flex",gap:4}}>
+                          {res.holeshot && <span className="hs-tag">HS</span>}
+                          {saved.wildcardPos === res.position && <span className="wc-tag">WC</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="btn-row">
+                  <button className="btn btn-danger btn-sm" onClick={() => handleDelete(r.rnd)}>
+                    🗑 Delete & Re-import
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // Unsaved: paste URL → parse → preview → save
+              <div>
+                <label className="input-label">PDF URL for R{r.rnd} — {r.venue}</label>
+                <input className="text-input" value={url}
+                  onChange={e => setUrl(r.rnd, e.target.value)}
+                  placeholder="https://s3.amazonaws.com/assets.liveracemedia.com/..."/>
+                <div className="btn-row">
+                  <button className="btn btn-primary btn-sm" onClick={() => handleParse(r.rnd)} disabled={isParsing || !apiKey}>
+                    {isParsing ? "Parsing..." : "Parse PDF"}
+                  </button>
+                </div>
+                {isParsing && <div className="loading"><div className="spinner"/><span>Fetching results...</span></div>}
 
-  {/* Completed rounds */}
-  {done.length>0 && (
-    <div className="card">
-      <div className="section-header">Completed Rounds</div>
-      {done.map(rnd=>{
-        const rr = results[rnd];
-        return (
-          <div key={rnd}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-              padding:"10px 0",borderBottom:"1px solid var(--border)",gap:10,flexWrap:"wrap"}}>
-              <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-                <span style={{color:"var(--green)",fontWeight:700}}>Rnd {rnd}</span>
-                <span>{rr.venue}</span>
-                <span style={{color:"var(--muted)",fontSize:".82rem"}}>{rr.date}</span>
-                {rr.wildcardPos && <span style={{color:"var(--gold)",fontSize:".82rem"}}>WC: P{rr.wildcardPos}</span>}
-              </div>
-              <div style={{display:"flex",gap:6}}>
-                <button className="btn btn-secondary btn-sm"
-                  onClick={()=>setViewRound(viewRound===rnd?null:rnd)}>
-                  {viewRound===rnd?"Hide":"View"}
-                </button>
-                <button className="btn btn-sm" style={{background:"rgba(255,23,68,.12)",color:"var(--red)",border:"1px solid rgba(255,23,68,.3)"}}
-                  onClick={()=>{
-                    if (!confirm("Delete Round " + rnd + " results?")) return;
-                    const nr={...results};delete nr[rnd];updateResults(nr);showToast("Round " + rnd + " deleted");
-                  }}>
-                  Del
-                </button>
-              </div>
-            </div>
-            {viewRound===rnd && (
-              <div className="results-list" style={{marginTop:8,marginBottom:8}}>
-                {rr.results.map(r=>{
-                  const rider = RIDERS.find(rd=>rd.id===r.riderId);
-                  return (
-                    <div key={r.position} className="result-item">
-                      <div className="result-pos">P{r.position}</div>
-                      <div>{rider?.name||"Unknown"}</div>
-                      <div style={{display:"flex",gap:4}}>
-                        {r.holeshot&&<span className="hs-tag">HS</span>}
-                        {rr.wildcardPos===r.position&&<span className="wc-tag">WC</span>}
+                {parsed && (
+                  <div style={{marginTop:14}}>
+                    <div style={{color:"var(--green)",fontSize:".88rem",fontWeight:700,marginBottom:8}}>
+                      ✓ Parsed: {parsed.venue} — {parsed.date}
+                    </div>
+
+                    <div className="wildcard-box">
+                      <div className="wc-label">Wildcard Position (+15 pts)</div>
+                      <div className="wc-pos">{wildcard?"P"+wildcard:"—"}</div>
+                      <div className="btn-row" style={{marginTop:8}}>
+                        <button className="btn btn-gold btn-sm" onClick={() => randomizeWC(r.rnd)}>🎲 Randomize (10–22)</button>
+                        <input className="text-input" value={wildcard}
+                          onChange={e => setWildcard(r.rnd, e.target.value)}
+                          placeholder="Or type 10–22" style={{width:140,padding:"6px 10px"}}/>
                       </div>
                     </div>
-                  );
-                })}
+
+                    <label className="input-label" style={{marginBottom:8}}>Finishing Order (preview)</label>
+                    <div className="results-list">
+                      {parsed.results.map(res => (
+                        <div key={res.position} className="result-item">
+                          <div className="result-pos">P{res.position}</div>
+                          <div>
+                            {res.displayName}
+                            {!res.riderId && <span style={{color:"var(--red)",fontSize:".72rem",marginLeft:6}}>⚠ unmatched</span>}
+                          </div>
+                          <div style={{display:"flex",gap:4}}>
+                            {res.holeshot && <span className="hs-tag">HS</span>}
+                            {wildcard && res.position === parseInt(wildcard) && <span className="wc-tag">WC</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button className="btn btn-success" style={{width:"100%",marginTop:14}} onClick={() => handleSave(r.rnd)}>
+                      ✅ Save Round {r.rnd} Results
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        );
-      })}
-    </div>
-  )}
+        )}
+      </div>
+    );
+  })}
 </div>
 ```
 
