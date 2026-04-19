@@ -685,20 +685,23 @@ option:disabled {
 
 ```
 <div class="panel">
-  <h2>Injury Replacement</h2>
+  <h2>Injury Standby</h2>
+  <div class="small" style="margin-bottom:8px;">
+    Assign a backup rider to a drafted rider. The standby scores <strong>only for rounds where the original rider didn't race.</strong> Add a standby when someone's injured — no need to remove it, the scoring handles it automatically.
+  </div>
   <div class="toolbar">
     <select id="injuryTeamSelect"></select>
     <select id="injuryOriginalRiderSelect"></select>
     <select id="injuryReplacementSelect"></select>
-    <button class="btn" id="addReplacementBtn">Add Replacement</button>
+    <button class="btn" id="addReplacementBtn">Add Standby</button>
   </div>
   <div class="toolbar">
     <select id="returnTeamSelect"></select>
     <select id="returnOriginalRiderSelect"></select>
-    <button class="btn secondary" id="restoreRiderBtn">Restore Original</button>
+    <button class="btn secondary" id="restoreRiderBtn">Remove Standby</button>
   </div>
-  <div class="small">
-    Replacement must come from undrafted available riders. When the original rider returns, the team switches back.
+  <div class="small muted">
+    Standby must come from undrafted riders. Removing a standby just clears the backup — the original rider is always on the team.
   </div>
 </div>
 ```
@@ -1039,13 +1042,58 @@ function getUndraftedAvailableRiders(){
   return state.riders.filter(r => !drafted.has(r.id) && !activeRep.has(r.id));
 }
 function getTeamCurrentRiders(teamId){
+  // Returns the 2 drafted (original) riders. If an active injury replacement exists,
+  // it's attached as a "standby" — used only for rounds where the original didn't race.
   const reps = state.replacements.filter(r => r.teamId===teamId && r.active);
   const picks = state.draftPicks.filter(p => p.teamId===teamId).sort((a,b)=>a.round-b.round);
   return picks.slice(0,2).map(pick => {
     const rep = reps.find(r => r.originalRiderId===pick.riderId);
-    return rep
-      ? { riderId:rep.replacementRiderId, displayName:riderById(rep.replacementRiderId)?.name||"Unknown", isReplacement:true, originalRiderId:pick.riderId }
-      : { riderId:pick.riderId, displayName:riderById(pick.riderId)?.name||"Unknown", isReplacement:false, originalRiderId:pick.riderId };
+    return {
+      riderId: pick.riderId,
+      displayName: riderById(pick.riderId)?.name || "Unknown",
+      originalRiderId: pick.riderId,
+      // NEW: standby backup (only scores when original doesn't race)
+      standbyRiderId: rep ? rep.replacementRiderId : null,
+      standbyName: rep ? (riderById(rep.replacementRiderId)?.name || "Unknown") : null,
+      hasStandby: !!rep,
+      // Kept for compatibility in other call sites — now always false
+      isReplacement: false
+    };
+  });
+}
+
+// Given a team and a round's result data, return the EFFECTIVE rider for each slot
+// (original if they raced, otherwise the standby if one's assigned and they raced, else original with 0 pts)
+function getTeamEffectiveRidersForRound(teamId, roundResult){
+  const slots = getTeamCurrentRiders(teamId);
+  const positions = roundResult?.positions || {};
+  return slots.map(slot => {
+    if(positions[slot.originalRiderId]){
+      // Original raced — use original
+      return {
+        riderId: slot.originalRiderId,
+        displayName: slot.displayName,
+        usedStandby: false,
+        originalName: slot.displayName
+      };
+    }
+    if(slot.standbyRiderId && positions[slot.standbyRiderId]){
+      // Original didn't race, standby did — use standby
+      return {
+        riderId: slot.standbyRiderId,
+        displayName: slot.standbyName,
+        usedStandby: true,
+        originalName: slot.displayName
+      };
+    }
+    // Neither raced — default to original with 0 pts
+    return {
+      riderId: slot.originalRiderId,
+      displayName: slot.displayName,
+      usedStandby: false,
+      didNotRace: true,
+      originalName: slot.displayName
+    };
   });
 }
 function getTeamOriginalRiders(teamId){
@@ -1070,7 +1118,7 @@ function recalcAllRoundPoints(){
     const tp = {};
     state.teams.forEach(team => {
       let total = 0;
-      getTeamCurrentRiders(team.id).forEach(slot => {
+      getTeamEffectiveRidersForRound(team.id, rr).forEach(slot => {
         const finish = rr.positions[slot.riderId];
         if(finish){
           total += pointsForFinish(finish);
@@ -1102,15 +1150,21 @@ function computeStandings(){
 
 // Build full breakdown for a specific team across all rounds with results
 function computeTeamBreakdown(teamId){
-  const riders = getTeamCurrentRiders(teamId);
   const breakdown = [];
   for(let rn = 1; rn <= state.meta.totalRounds; rn++){
     const rr = state.roundResults[rn];
     if(!rr || !rr.positions) continue;
-    const riderLines = riders.map(slot => {
+    const effectiveRiders = getTeamEffectiveRidersForRound(teamId, rr);
+    const riderLines = effectiveRiders.map(slot => {
       const finish = rr.positions[slot.riderId];
       if(!finish){
-        return { name: slot.displayName, finish: null, base: 0, hs: 0, wc: 0, total: 0, isReplacement: slot.isReplacement };
+        return {
+          name: slot.displayName,
+          finish: null, base: 0, hs: 0, wc: 0, total: 0,
+          usedStandby: false,
+          didNotRace: true,
+          originalName: slot.originalName
+        };
       }
       const base = pointsForFinish(finish);
       const hs = rr.holeshotRiderId === slot.riderId ? 5 : 0;
@@ -1119,7 +1173,8 @@ function computeTeamBreakdown(teamId){
         name: slot.displayName,
         finish, base, hs, wc,
         total: base + hs + wc,
-        isReplacement: slot.isReplacement
+        usedStandby: slot.usedStandby,
+        originalName: slot.originalName
       };
     });
     const roundTotal = riderLines.reduce((s,r)=>s+r.total, 0);
@@ -1210,7 +1265,7 @@ function renderInjurySelectors(){
   const retOrig = document.getElementById("returnOriginalRiderSelect");
 
   const avail = getUndraftedAvailableRiders().sort((a,b)=>a.name.localeCompare(b.name)).map(r=>`<option value="${r.id}">${escHtml(r.name)}</option>`).join("");
-  injRep.innerHTML = `<option value="">Select Replacement</option>${avail}`;
+  injRep.innerHTML = `<option value="">Select Standby</option>${avail}`;
 
   if(injTeamId){
     const opts = getTeamOriginalRiders(injTeamId).map(r=>`<option value="${r.id}">${escHtml(r.name)}</option>`).join("");
@@ -1225,9 +1280,9 @@ function renderInjurySelectors(){
       const rep = riderById(r.replacementRiderId);
       return `<option value="${r.originalRiderId}">${escHtml(orig?.name||"?")} → ${escHtml(rep?.name||"?")}</option>`;
     }).join("");
-    retOrig.innerHTML = `<option value="">Select Active Replacement</option>${opts}`;
+    retOrig.innerHTML = `<option value="">Select Active Standby</option>${opts}`;
   }else{
-    retOrig.innerHTML = `<option value="">Select Active Replacement</option>`;
+    retOrig.innerHTML = `<option value="">Select Active Standby</option>`;
   }
 }
 
@@ -1401,8 +1456,8 @@ function openTeamBreakdownPopup(teamId){
   `;
 
   const rostersLine = currentRiders.map(r => {
-    const tag = r.isReplacement ? ' <span class="muted">(IR sub)</span>' : '';
-    return `<span class="chip">${escHtml(r.displayName)}${tag}</span>`;
+    const standby = r.hasStandby ? ` <span class="muted" style="font-size:11px;">(↔ ${escHtml(r.standbyName)} standby)</span>` : '';
+    return `<span class="chip">${escHtml(r.displayName)}${standby}</span>`;
   }).join("");
 
   let bodyHtml = `
@@ -1415,11 +1470,14 @@ function openTeamBreakdownPopup(teamId){
     bodyHtml += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:700;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Weekly Breakdown</div>';
     bodyHtml += breakdown.map(rd => {
       const riderLines = rd.riders.map(r => {
+        const subTag = r.usedStandby
+          ? ` <span class="muted" style="font-size:10px;">(sub for ${escHtml(r.originalName)})</span>`
+          : '';
         if(r.finish === null){
           return `<div class="rider-line">
             <div class="rider-bits">
-              <div class="rider-main">${escHtml(r.name)}${r.isReplacement ? ' <span class="muted" style="font-size:10px;">(sub)</span>' : ''}</div>
-              <div class="rider-breakdown">did not finish / not in results</div>
+              <div class="rider-main">${escHtml(r.name)}</div>
+              <div class="rider-breakdown">did not race this round</div>
             </div>
             <div class="rider-sum muted">0</div>
           </div>`;
@@ -1429,7 +1487,7 @@ function openTeamBreakdownPopup(teamId){
         if(r.wc) bits.push(`<span class="bonus-wc">+15 WC</span>`);
         return `<div class="rider-line">
           <div class="rider-bits">
-            <div class="rider-main">${escHtml(r.name)}${r.isReplacement ? ' <span class="muted" style="font-size:10px;">(sub)</span>' : ''}</div>
+            <div class="rider-main">${escHtml(r.name)}${subTag}</div>
             <div class="rider-breakdown">${bits.join(' • ')}</div>
           </div>
           <div class="rider-sum">${r.total}</div>
@@ -1486,24 +1544,24 @@ function addReplacement(){
   const teamId = Number(document.getElementById("injuryTeamSelect").value);
   const origId = Number(document.getElementById("injuryOriginalRiderSelect").value);
   const repId = Number(document.getElementById("injuryReplacementSelect").value);
-  if(!teamId||!origId||!repId){ logMessage("Select team, original rider, and replacement.", "error"); return; }
-  if(state.replacements.find(r=>r.teamId===teamId&&r.originalRiderId===origId&&r.active)){ logMessage("Already has active replacement.", "error"); return; }
-  if(!getUndraftedAvailableRiders().some(r=>r.id===repId)){ logMessage("Replacement must be from undrafted available riders.", "error"); return; }
+  if(!teamId||!origId||!repId){ logMessage("Select team, original rider, and standby.", "error"); return; }
+  if(state.replacements.find(r=>r.teamId===teamId&&r.originalRiderId===origId&&r.active)){ logMessage("That rider already has an active standby.", "error"); return; }
+  if(!getUndraftedAvailableRiders().some(r=>r.id===repId)){ logMessage("Standby must be from undrafted available riders.", "error"); return; }
   state.replacements.push({ teamId, originalRiderId:origId, replacementRiderId:repId, active:true });
   saveState(); recalcAllRoundPoints(); renderAll();
   const team = teamById(teamId)?.name;
   const orig = riderById(origId)?.name;
   const rep = riderById(repId)?.name;
-  logMessage(`${team}: ${rep} subbed in for ${orig}`, "success");
+  logMessage(`${team}: ${rep} is now standby for ${orig}`, "success");
 }
 function restoreOriginalRider(){
   const teamId = Number(document.getElementById("returnTeamSelect").value);
   const origId = Number(document.getElementById("returnOriginalRiderSelect").value);
   const rep = state.replacements.find(r=>r.teamId===teamId&&r.originalRiderId===origId&&r.active);
-  if(!rep){ logMessage("No active replacement found.", "error"); return; }
+  if(!rep){ logMessage("No active standby found.", "error"); return; }
   rep.active = false;
   saveState(); recalcAllRoundPoints(); renderAll();
-  logMessage(`${teamById(teamId)?.name}: ${riderById(origId)?.name} restored.`, "success");
+  logMessage(`${teamById(teamId)?.name}: standby removed from ${riderById(origId)?.name}`, "success");
 }
 
 // ═══════════════════════════════════════════════════
@@ -1812,24 +1870,13 @@ function submitResults(){
     }
   }
 
-  const teamPoints = {};
-  state.teams.forEach(team=>{
-    let total = 0;
-    getTeamCurrentRiders(team.id).forEach(slot=>{
-      const finish = positions[slot.riderId];
-      if(finish){
-        total += pointsForFinish(finish);
-        if(holeshotRiderId===slot.riderId) total += 5;
-        if(Number(finish)===wildcard) total += 15;
-      }
-    });
-    teamPoints[team.id] = total;
-  });
-
   state.roundResults[round] = {
     submitted:true, round,
-    positions, holeshotRiderId, wildcardPosition:wildcard, teamPoints
+    positions, holeshotRiderId, wildcardPosition:wildcard, teamPoints: {}
   };
+
+  // Let recalcAllRoundPoints compute teamPoints using the effective-rider logic
+  recalcAllRoundPoints();
 
   if(round>=state.meta.currentRound && round<state.meta.totalRounds){
     state.meta.currentRound = round+1;
