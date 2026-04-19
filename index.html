@@ -526,42 +526,6 @@
     .log-entry.log-warn    .log-text { color: #ffd66a; }
     .log-entry.log-info    .log-text { color: var(--text); }
 
-    /* ─── DRAFT ORDER REORDER ─── */
-    .draft-order-row {
-      display: grid;
-      grid-template-columns: 36px 1fr 44px 44px;
-      gap: 8px;
-      align-items: center;
-      padding: 8px 4px;
-      margin-bottom: 4px;
-      background: var(--panel-2);
-      border: 1px solid var(--border-2);
-      border-radius: 10px;
-    }
-    .draft-order-pick {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 900;
-      font-size: 16px;
-      color: var(--muted);
-      text-align: center;
-    }
-    .draft-order-team {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 700;
-      font-size: 15px;
-      letter-spacing: .3px;
-    }
-    .draft-order-row .btn-mini {
-      padding: 8px 10px;
-      font-size: 13px;
-      text-align: center;
-      min-width: 40px;
-    }
-    .draft-order-row .btn-mini:disabled {
-      opacity: .3;
-      cursor: not-allowed;
-    }
-
     /* ─── CONNECTION STATUS ─── */
     .conn-dot {
       display: inline-block;
@@ -868,12 +832,10 @@
     <span class="chev">▼</span>
   </summary>
   <div class="settings-body">
-    <div class="small" style="margin-bottom:10px;">
-      Tap a dropdown to change which team picks in that slot. Changes save automatically.
-    </div>
     <div id="draftOrderInputs"></div>
-    <div style="margin-top:12px;">
-      <button class="btn secondary" id="randomizeDraftOrderBtn">🎲 Randomize Order</button>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn green" id="saveDraftOrderBtn">Save Draft Order</button>
+      <button class="btn secondary" id="randomizeDraftOrderBtn">🎲 Randomize</button>
     </div>
   </div>
 </details>
@@ -1104,8 +1066,8 @@ let state = deepClone(DEFAULT_STATE);
 // Debounce timer for re-renders triggered by remote updates
 let renderDebounce = null;
 
-// Snapshot of state at the last successful render — used to skip no-op re-renders
-let lastRenderedSerialized = "";
+// Flag to suppress remote re-renders while we're mid-write (avoid flicker)
+let localWritePending = false;
 
 function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
 
@@ -1128,9 +1090,11 @@ function writeLocalCache(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(sta
 // saveState: writes to Firestore + local cache
 function saveState(){
   writeLocalCache();
-  lastRenderedSerialized = JSON.stringify(state);
+  localWritePending = true;
   LEAGUE_DOC.set(state)
+    .then(() => { localWritePending = false; })
     .catch(err => {
+      localWritePending = false;
       setConnStatus("offline");
       console.error("Firestore write failed:", err);
     });
@@ -1159,45 +1123,43 @@ function mergeRemoteState(data){
 function startFirestoreListener(){
   setConnStatus("connecting");
 
-  lastRenderedSerialized = JSON.stringify(state);
-
   LEAGUE_DOC.onSnapshot(
     { includeMetadataChanges: true },
+    // Success — new data from Firestore
     (doc) => {
+      // fromCache=true means Firestore is serving from offline cache, not server.
+      // Don't treat a cached "doc doesn't exist" as authoritative — server might have it.
       const fromCache = doc.metadata.fromCache;
-      const hasPendingWrites = doc.metadata.hasPendingWrites;
-
       setConnStatus(fromCache ? "syncing" : "live");
 
-      // Skip echoes of our own local writes that haven't been acked yet
-      if(hasPendingWrites) return;
+      if(localWritePending) return; // our own write in flight — skip to avoid flicker
 
       if(doc.exists){
-        const remoteSerialized = JSON.stringify(doc.data());
-        // Skip if this snapshot matches what we already have rendered
-        if(remoteSerialized === lastRenderedSerialized) return;
-
+        // Remote has data — adopt it as truth.
         state = mergeRemoteState(doc.data());
         writeLocalCache();
-        lastRenderedSerialized = JSON.stringify(state);
       } else if(!fromCache) {
+        // SERVER confirmed doc doesn't exist (first-ever load on this project).
+        // Only seed if the local cache has meaningful data.
+        // This prevents a fresh browser from wiping out existing Firestore data.
         const localHasData = state.draftPicks.length > 0
                           || Object.keys(state.roundResults).length > 0
                           || state.replacements.length > 0;
         if(localHasData){
-          saveState();
+          saveState(); // push local data up as initial seed
         }
-        return;
-      } else {
-        return;
+        // else: leave Firestore empty, keep local DEFAULT_STATE. Nothing to render differently.
       }
+      // If doc doesn't exist but fromCache=true: do NOTHING. Wait for server confirmation.
 
+      // Debounced re-render
       clearTimeout(renderDebounce);
       renderDebounce = setTimeout(() => {
         recalcAllRoundPoints();
         renderAll();
       }, 120);
     },
+    // Error — Firestore unavailable
     (err) => {
       console.error("Firestore listener error:", err);
       setConnStatus("offline");
@@ -1207,8 +1169,6 @@ function startFirestoreListener(){
   window.addEventListener("online",  () => setConnStatus("live"));
   window.addEventListener("offline", () => setConnStatus("offline"));
 }
-
-// (legacy helper removed)
 
 function riderById(id){ return state.riders.find(r => r.id === Number(id)); }
 function teamById(id){ return state.teams.find(t => t.id === Number(id)); }
@@ -2408,7 +2368,7 @@ function renderSettingsPage(){
     </div>
   `).join("");
 
-  document.getElementById("draftOrderInputs").innerHTML = state.draftOrder.map((tid,idx)=>`
+  document.getElementById("draftOrderInputs").innerHTML = getRoundOrder(1).map((tid,idx)=>`
     <div style="display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center;margin-bottom:10px;">
       <div><strong>Pick ${idx+1}</strong></div>
       <select class="draft-order-select" data-slot="${idx}">
@@ -2417,29 +2377,8 @@ function renderSettingsPage(){
     </div>
   `).join("");
 
-  // Wire each select to save on change
-  document.querySelectorAll(".draft-order-select").forEach(sel => {
-    sel.onchange = saveDraftOrderFromSelects;
-  });
-
   renderRiderPool();
   renderAliases();
-}
-
-function saveDraftOrderFromSelects(){
-  const order = [];
-  document.querySelectorAll(".draft-order-select").forEach(sel=>order.push(Number(sel.value)));
-  if(new Set(order).size !== state.teams.length){
-    logMessage("Each team must appear exactly once in the draft order.", "error");
-    return;
-  }
-  state.draftOrder = order;
-  saveState();
-  // Skip renderAll — no need to rebuild the settings page, we just updated it.
-  // Only re-render the Now Picking banner and Round Totals header.
-  renderNowPicking();
-  renderRoundTotals();
-  logMessage("Draft order updated.", "success");
 }
 
 function saveTeamNames(){
@@ -2449,6 +2388,15 @@ function saveTeamNames(){
   });
   saveState(); renderAll();
   logMessage("Team names saved.", "success");
+}
+
+function saveDraftOrder(){
+  const order = [];
+  document.querySelectorAll(".draft-order-select").forEach(sel=>order.push(Number(sel.value)));
+  if(new Set(order).size !== state.teams.length){ logMessage("Draft order must contain each team exactly once.", "error"); return; }
+  state.draftOrder = order;
+  saveState(); renderAll();
+  logMessage("Draft order saved.", "success");
 }
 
 function randomizeDraftOrder(){
@@ -2696,6 +2644,7 @@ function wireEvents(){
   document.getElementById("wildcardInput").oninput = updateResultsPreview;
   document.getElementById("resultsRoundSelect").onchange = updateResultsPreview;
   document.getElementById("saveTeamsBtn").onclick = saveTeamNames;
+  document.getElementById("saveDraftOrderBtn").onclick = saveDraftOrder;
   document.getElementById("randomizeDraftOrderBtn").onclick = randomizeDraftOrder;
   document.getElementById("clearAllBtn").onclick = clearAllData;
 
