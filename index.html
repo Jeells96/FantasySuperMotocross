@@ -156,7 +156,7 @@
 
       display: grid;
 
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(2, 1fr);
 
       gap: 8px;
 
@@ -1214,7 +1214,7 @@
 
         <button class="global-save-btn" id="globalSaveBtn" onclick="manualSaveToFirebase()">
 
-          <span class="save-icon">💾</span> Save to Firebase
+          <span class="save-icon">💾</span> Save
 
           <span class="unsaved-dot" id="unsavedDot"></span>
 
@@ -2017,7 +2017,7 @@ function manualSaveToFirebase(){
       setConnStatus("offline");
       logMessage("Firebase save failed — changes are stored locally.", "error");
       console.error("Firestore write failed:", err);
-      if(btn){ btn.disabled = false; btn.innerHTML = '<span class="save-icon">💾</span> Save to Firebase <span class="unsaved-dot visible" id="unsavedDot"></span>'; }
+      if(btn){ btn.disabled = false; btn.innerHTML = '<span class="save-icon">💾</span> Save <span class="unsaved-dot visible" id="unsavedDot"></span>'; }
     });
 }
 
@@ -2026,14 +2026,14 @@ function markUnsaved(){
   const dot = document.getElementById("unsavedDot");
   const btn = document.getElementById("globalSaveBtn");
   if(dot){ dot.className = "unsaved-dot visible"; }
-  if(btn && !btn.disabled){ btn.innerHTML = '<span class="save-icon">💾</span> Save to Firebase <span class="unsaved-dot visible" id="unsavedDot"></span>'; }
+  if(btn && !btn.disabled){ btn.innerHTML = '<span class="save-icon">💾</span> Save <span class="unsaved-dot visible" id="unsavedDot"></span>'; }
 }
 
 function markSaved(){
   const btn = document.getElementById("globalSaveBtn");
   if(btn){ btn.disabled = false; btn.innerHTML = '<span class="save-icon">✅</span> Saved! <span class="unsaved-dot" id="unsavedDot"></span>'; }
   setTimeout(() => {
-    if(btn){ btn.innerHTML = '<span class="save-icon">💾</span> Save to Firebase <span class="unsaved-dot" id="unsavedDot"></span>'; btn.disabled = false; }
+    if(btn){ btn.innerHTML = '<span class="save-icon">💾</span> Save <span class="unsaved-dot" id="unsavedDot"></span>'; btn.disabled = false; }
   }, 2500);
 }
 
