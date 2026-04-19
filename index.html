@@ -695,6 +695,10 @@
   <section id="draftPage" class="page">
     <div class="panel">
       <h2>Draft Board</h2>
+      <div id="nowPickingBanner" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(255,77,26,.10);border:1px solid rgba(255,77,26,.35);border-radius:10px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;" id="nowPickingPick"></div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--accent);" id="nowPickingName"></div>
+      </div>
       <div class="small muted" style="margin-bottom:10px;">
         Tap a rider to pick them for a team. First pick on a team = Round 1, second = Round 2.
       </div>
@@ -823,8 +827,9 @@
   </summary>
   <div class="settings-body">
     <div id="draftOrderInputs"></div>
-    <div style="margin-top:12px;">
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn green" id="saveDraftOrderBtn">Save Draft Order</button>
+      <button class="btn secondary" id="randomizeDraftOrderBtn">🎲 Randomize</button>
     </div>
   </div>
 </details>
@@ -1374,33 +1379,133 @@ function renderDraftControls(){
   renderInjurySelectors();
 }
 
+// Returns the pool of riders eligible as a standby for a given original rider.
+// R1 original → any rider (no restrictions, even already locked R2 picks)
+// R2 original → undrafted riders + any rider picked only in R2 (regardless of how many times)
+function getStandbyPool(teamId, originalRiderId){
+  const activeStandbys = new Set(
+    state.replacements.filter(r => r.active).map(r => r.replacementRiderId)
+  );
+  // Which round was the original rider drafted in for this team?
+  const pick = state.draftPicks.find(p => p.teamId === teamId && p.riderId === originalRiderId);
+  const pickRound = pick ? pick.round : null;
+
+  if(pickRound === 1){
+    // Round 1 rider injured → any rider except those already active as a standby elsewhere
+    return state.riders.filter(r => r.id !== originalRiderId && !activeStandbys.has(r.id));
+  } else {
+    // Round 2 rider injured → undrafted OR picked only in round 2
+    const r1Ids = new Set(state.draftPicks.filter(p => p.round === 1).map(p => p.riderId));
+    return state.riders.filter(r => {
+      if(r.id === originalRiderId) return false;
+      if(activeStandbys.has(r.id)) return false;
+      if(r1Ids.has(r.id)) return false; // R1 protected riders excluded
+      return true; // undrafted or R2-drafted (any count) are both OK
+    });
+  }
+}
+
 function renderInjurySelectors(){
-  const injTeamId = Number(document.getElementById("injuryTeamSelect").value||0);
-  const retTeamId = Number(document.getElementById("returnTeamSelect").value||0);
-  const injOrig = document.getElementById("injuryOriginalRiderSelect");
-  const injRep = document.getElementById("injuryReplacementSelect");
-  const retOrig = document.getElementById("returnOriginalRiderSelect");
+  const injTeamId  = Number(document.getElementById("injuryTeamSelect").value||0);
+  const injOrigId  = Number(document.getElementById("injuryOriginalRiderSelect").value||0);
+  const retTeamId  = Number(document.getElementById("returnTeamSelect").value||0);
+  const injOrig    = document.getElementById("injuryOriginalRiderSelect");
+  const injRep     = document.getElementById("injuryReplacementSelect");
+  const retOrig    = document.getElementById("returnOriginalRiderSelect");
 
-  const avail = getUndraftedAvailableRiders().sort((a,b)=>a.name.localeCompare(b.name)).map(r=>`<option value="${r.id}">${escHtml(r.name)}</option>`).join("");
-  injRep.innerHTML = `<option value="">Select Standby</option>${avail}`;
-
+  // Original rider selector
   if(injTeamId){
-    const opts = getTeamOriginalRiders(injTeamId).map(r=>`<option value="${r.id}">${escHtml(r.name)}</option>`).join("");
+    const teamRiders = getTeamOriginalRiders(injTeamId);
+    const opts = teamRiders.map(r => {
+      const pick = state.draftPicks.find(p => p.teamId===injTeamId && p.riderId===r.id);
+      const rnd = pick ? ` (R${pick.round})` : "";
+      return `<option value="${r.id}">${escHtml(r.name)}${rnd}</option>`;
+    }).join("");
     injOrig.innerHTML = `<option value="">Select Original Rider</option>${opts}`;
-  }else{
+  } else {
     injOrig.innerHTML = `<option value="">Select Original Rider</option>`;
   }
 
+  // Standby pool — depends on which original rider is selected and their draft round
+  if(injTeamId && injOrigId){
+    const pool = getStandbyPool(injTeamId, injOrigId).sort((a,b)=>a.name.localeCompare(b.name));
+    const pick = state.draftPicks.find(p => p.teamId===injTeamId && p.riderId===injOrigId);
+    const isR1 = pick?.round === 1;
+    const label = isR1
+      ? "Any rider available (R1 replacement — no restrictions)"
+      : "Undrafted or R2 riders available";
+    injRep.innerHTML = `<option value="">${escHtml(label)}</option>` +
+      pool.map(r => {
+        const status = getRiderStatus(r.id);
+        const tag = status === "AVAILABLE" ? "" :
+                    status === "TOP 10 PROTECTED" ? " [R1 pick]" :
+                    status === "PICKED ONCE" ? " [R2 ×1]" :
+                    status === "LOCKED" ? " [R2 ×2]" : "";
+        return `<option value="${r.id}">${escHtml(r.name)}${tag}</option>`;
+      }).join("");
+  } else {
+    injRep.innerHTML = `<option value="">Select original rider first</option>`;
+  }
+
+  // Remove standby selectors
   if(retTeamId){
     const opts = state.replacements.filter(r=>r.teamId===retTeamId&&r.active).map(r=>{
       const orig = riderById(r.originalRiderId);
-      const rep = riderById(r.replacementRiderId);
+      const rep  = riderById(r.replacementRiderId);
       return `<option value="${r.originalRiderId}">${escHtml(orig?.name||"?")} → ${escHtml(rep?.name||"?")}</option>`;
     }).join("");
     retOrig.innerHTML = `<option value="">Select Active Standby</option>${opts}`;
-  }else{
+  } else {
     retOrig.innerHTML = `<option value="">Select Active Standby</option>`;
   }
+}
+
+function renderNowPicking(){
+  const banner   = document.getElementById("nowPickingBanner");
+  const pickEl   = document.getElementById("nowPickingPick");
+  const nameEl   = document.getElementById("nowPickingName");
+  if(!banner) return;
+
+  // Build the full snake draft sequence: R1 in order, R2 reversed
+  const r1Order = [...state.draftOrder];
+  const r2Order = [...state.draftOrder].reverse();
+  const fullOrder = [...r1Order, ...r2Order]; // 20 picks total for 10 teams
+
+  // Find the first slot not yet filled
+  let nextPickIndex = -1;
+  for(let i = 0; i < fullOrder.length; i++){
+    const teamId = fullOrder[i];
+    const round  = i < state.teams.length ? 1 : 2;
+    const hasPick = state.draftPicks.some(p => p.teamId===teamId && p.round===round);
+    if(!hasPick){ nextPickIndex = i; break; }
+  }
+
+  if(nextPickIndex === -1){
+    // Draft complete
+    banner.style.display = "block";
+    pickEl.textContent   = "Draft Complete";
+    nameEl.textContent   = "All picks have been made";
+    banner.style.background = "rgba(45,212,110,.08)";
+    banner.style.borderColor = "rgba(45,212,110,.3)";
+    nameEl.style.color   = "var(--green)";
+    return;
+  }
+
+  const teamId   = fullOrder[nextPickIndex];
+  const round    = nextPickIndex < state.teams.length ? 1 : 2;
+  const pickNum  = nextPickIndex + 1;
+  // Label: 1.1, 1.2 ... 1.10, 2.1 ... 2.10
+  const roundNum  = round;
+  const pickInRound = (nextPickIndex % state.teams.length) + 1;
+  const pickLabel = `Pick ${roundNum}.${pickInRound}`;
+  const team     = teamById(teamId);
+
+  banner.style.display = "block";
+  banner.style.background    = "rgba(255,77,26,.10)";
+  banner.style.borderColor   = "rgba(255,77,26,.35)";
+  nameEl.style.color         = "var(--accent)";
+  pickEl.textContent  = `Now Picking — ${pickLabel}`;
+  nameEl.textContent  = team?.name || "Unknown";
 }
 
 function renderRiderGrid(){
@@ -1426,6 +1531,7 @@ function renderRiderGrid(){
   document.querySelectorAll(".rider-card").forEach(c=>{
     c.onclick = () => openRiderPopup(Number(c.dataset.riderId));
   });
+  renderNowPicking();
 }
 
 function openRiderPopup(riderId){
@@ -1660,15 +1766,20 @@ function clearDraftOnly(){
 function addReplacement(){
   const teamId = Number(document.getElementById("injuryTeamSelect").value);
   const origId = Number(document.getElementById("injuryOriginalRiderSelect").value);
-  const repId = Number(document.getElementById("injuryReplacementSelect").value);
+  const repId  = Number(document.getElementById("injuryReplacementSelect").value);
   if(!teamId||!origId||!repId){ logMessage("Select team, original rider, and standby.", "error"); return; }
-  if(state.replacements.find(r=>r.teamId===teamId&&r.originalRiderId===origId&&r.active)){ logMessage("That rider already has an active standby.", "error"); return; }
-  if(!getUndraftedAvailableRiders().some(r=>r.id===repId)){ logMessage("Standby must be from undrafted available riders.", "error"); return; }
+  if(state.replacements.find(r=>r.teamId===teamId&&r.originalRiderId===origId&&r.active)){
+    logMessage("That rider already has an active standby.", "error"); return;
+  }
+  const pool = getStandbyPool(teamId, origId);
+  if(!pool.some(r=>r.id===repId)){
+    logMessage("That rider isn't eligible as a standby for this slot.", "error"); return;
+  }
   state.replacements.push({ teamId, originalRiderId:origId, replacementRiderId:repId, active:true });
   saveState(); recalcAllRoundPoints(); renderAll();
   const team = teamById(teamId)?.name;
   const orig = riderById(origId)?.name;
-  const rep = riderById(repId)?.name;
+  const rep  = riderById(repId)?.name;
   logMessage(`${team}: ${rep} is now standby for ${orig}`, "success");
 }
 function restoreOriginalRider(){
@@ -2189,6 +2300,19 @@ function saveDraftOrder(){
   logMessage("Draft order saved.", "success");
 }
 
+function randomizeDraftOrder(){
+  // Fisher-Yates shuffle
+  const order = [...state.teams.map(t=>t.id)];
+  for(let i = order.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  state.draftOrder = order;
+  saveState(); renderAll();
+  const names = order.map(id => teamById(id)?.name || id).join(" → ");
+  logMessage(`Draft order randomized: ${names}`, "success");
+}
+
 function clearAllData(){
   customConfirm(
     "This will wipe ALL league data — draft picks, replacements, team names, rider pool, race results, standings, aliases, and message log. This cannot be undone.",
@@ -2326,6 +2450,7 @@ function wireEvents(){
   document.getElementById("addReplacementBtn").onclick = addReplacement;
   document.getElementById("restoreRiderBtn").onclick = restoreOriginalRider;
   document.getElementById("injuryTeamSelect").onchange = renderInjurySelectors;
+  document.getElementById("injuryOriginalRiderSelect").onchange = renderInjurySelectors;
   document.getElementById("returnTeamSelect").onchange = renderInjurySelectors;
   document.getElementById("riderSearch").oninput = renderRiderGrid;
   document.getElementById("statusFilter").onchange = renderRiderGrid;
@@ -2369,6 +2494,7 @@ function wireEvents(){
   document.getElementById("resultsRoundSelect").onchange = updateResultsPreview;
   document.getElementById("saveTeamsBtn").onclick = saveTeamNames;
   document.getElementById("saveDraftOrderBtn").onclick = saveDraftOrder;
+  document.getElementById("randomizeDraftOrderBtn").onclick = randomizeDraftOrder;
   document.getElementById("clearAllBtn").onclick = clearAllData;
 
   // NEW: rider pool
