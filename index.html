@@ -1950,6 +1950,7 @@ let renderDebounce = null;
 // Flag to suppress remote re-renders while we're mid-write (avoid flicker)
 
 let localWritePending = false;
+let firebaseWritePending = false; // only true during an active manual Firebase write
 
 function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
 
@@ -1984,24 +1985,26 @@ function writeLocalCache(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(sta
 // ─── Firebase persistence ────────────────────────────────────────────────────
 
 // saveState: writes ONLY to local cache — Firebase save requires manual trigger
+// IMPORTANT: never sets localWritePending so the Firestore listener always loads remote data
 function saveState(){
   writeLocalCache();
   markUnsaved();
+  // localWritePending intentionally NOT set here
 }
 
 // manualSaveToFirebase: called by the global Save button — pushes to Firestore
 function manualSaveToFirebase(){
   const btn = document.getElementById("globalSaveBtn");
   if(btn){ btn.disabled = true; btn.innerHTML = '<span class="save-icon">⏳</span> Saving…'; }
-  localWritePending = true;
+  firebaseWritePending = true;
   LEAGUE_DOC.set(state)
     .then(() => {
-      localWritePending = false;
+      firebaseWritePending = false;
       markSaved();
       logMessage("Saved to Firebase.", "success");
     })
     .catch(err => {
-      localWritePending = false;
+      firebaseWritePending = false;
       setConnStatus("offline");
       logMessage("Firebase save failed — changes are stored locally.", "error");
       console.error("Firestore write failed:", err);
@@ -2073,7 +2076,7 @@ function startFirestoreListener(){
 
       setConnStatus("live");
 
-      if(localWritePending) return; // our own write is in flight — skip to avoid flicker
+      if(firebaseWritePending) return; // our own Firebase write is in flight — skip to avoid flicker
 
       if(doc.exists){
 
