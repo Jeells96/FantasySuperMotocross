@@ -162,6 +162,9 @@ th { font-family: 'Barlow Condensed', sans-serif; font-size: 12px; text-transfor
 tr:last-child td { border-bottom: 0; }
 tr:hover td { background: rgba(255,255,255,.018); }
 tbody tr:nth-child(1) td:last-child { color: var(--gold); }
+.standings-row { cursor: pointer; transition: background .15s; }
+.standings-row:hover td { background: rgba(255,77,26,.05); }
+.standings-row::after { content: ''; }
 
 /* ─── RANK BADGES ─── */
 .rank-badge {
@@ -231,6 +234,9 @@ input:focus, select:focus, textarea:focus { border-color: rgba(255,77,26,.5); }
   border-color: rgba(240,69,69,.4);
 }
 .btn.red:hover { box-shadow: 0 4px 16px rgba(240,69,69,.15); }
+.btn-mini {
+  padding: 6px 10px; font-size: 11px; letter-spacing: .4px;
+}
 
 .small { font-size: 12px; color: var(--muted); line-height: 1.55; }
 .muted { color: var(--muted); }
@@ -249,30 +255,130 @@ input:focus, select:focus, textarea:focus { border-color: rgba(255,77,26,.5); }
 .round-current { color: var(--accent); }
 
 /* ─── RIDER CARDS ─── */
-.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 10px; }
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
 .rider-card {
   background: var(--panel-2); border: 1px solid var(--border-2);
-  border-radius: 12px; padding: 14px; cursor: pointer;
+  border-radius: 10px; padding: 10px 10px;
+  cursor: pointer;
   transition: .18s ease;
+  display: flex; flex-direction: column; gap: 6px;
+  min-height: 70px;
 }
 .rider-card:hover { transform: translateY(-2px); border-color: var(--border); background: var(--panel-3); }
-.rider-name { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 17px; margin-bottom: 3px; }
-.rider-team { color: var(--muted); font-size: 12px; margin-bottom: 10px; min-height: 30px; line-height: 1.35; }
+.rider-card .rider-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 14px;
+  line-height: 1.15;
+  word-break: break-word;
+}
+.rider-card .status {
+  align-self: flex-start;
+  font-size: 9px;
+  padding: 3px 7px;
+}
+.rider-card.rc-available { border-color: rgba(45,212,110,.25); }
+.rider-card.rc-protected { border-color: rgba(232,183,48,.3); background: rgba(232,183,48,.04); }
+.rider-card.rc-picked-once { border-color: rgba(61,184,245,.3); background: rgba(61,184,245,.04); }
+.rider-card.rc-locked { opacity: .55; border-color: rgba(240,69,69,.3); }
+
+/* ─── TEAM PICKER GRID ─── */
+.team-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.team-pick-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  min-height: 58px;
+  text-align: center;
+  line-height: 1.15;
+}
+.team-pick-btn .team-name {
+  font-weight: 900;
+  font-size: 14px;
+  margin-bottom: 3px;
+}
+.team-pick-btn .team-sub {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  opacity: .8;
+}
+.team-pick-btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.assignment-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 6px 10px;
+  background: var(--panel-2); border: 1px solid var(--border-2);
+  border-radius: 8px; margin-bottom: 6px;
+}
 
 /* ─── POPUP ─── */
 .popup {
   position: fixed; inset: 0; background: rgba(0,0,0,.72);
   display: none; align-items: center; justify-content: center;
   padding: 16px; z-index: 9000;
+  overflow-y: auto;
 }
 .popup.show { display: flex; }
 .popup-card {
-  width: min(520px,100%); background: var(--panel); border: 1px solid var(--border);
+  width: min(560px,100%); background: var(--panel); border: 1px solid var(--border);
   border-radius: 18px; padding: 22px; box-shadow: var(--shadow);
+  max-height: 90vh; overflow-y: auto;
 }
 .popup-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
 .close-x { background: transparent; border: 0; color: var(--muted); font-size: 28px; cursor: pointer; line-height: 1; transition: color .15s; }
 .close-x:hover { color: var(--text); }
+
+/* ─── BREAKDOWN ROUND CARDS ─── */
+.round-card {
+  background: var(--panel-2); border: 1px solid var(--border-2);
+  border-radius: 10px; padding: 11px 13px; margin-bottom: 8px;
+}
+.round-card-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--border-2);
+}
+.round-card-title {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 15px;
+  font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+}
+.round-card-total {
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 900;
+  font-size: 18px; color: var(--accent-2);
+}
+.rider-line {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0; font-size: 13px;
+}
+.rider-line .rider-bits {
+  display: flex; flex-direction: column; gap: 1px;
+}
+.rider-line .rider-main {
+  font-weight: 600;
+}
+.rider-line .rider-breakdown {
+  font-size: 11px; color: var(--muted);
+}
+.rider-line .rider-breakdown .bonus-hs { color: var(--accent-2); font-weight: 700; }
+.rider-line .rider-breakdown .bonus-wc { color: var(--gold); font-weight: 700; }
+.rider-line .rider-sum {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 18px;
+}
 
 /* ─── RESULTS DROPDOWNS ─── */
 .results-grid {
@@ -307,8 +413,174 @@ input:focus, select:focus, textarea:focus { border-color: rgba(255,77,26,.5); }
 .hs-note.detected { color: var(--green); border-color: rgba(45,212,110,.3); background: rgba(45,212,110,.07); }
 .hs-note.unknown { color: var(--gold); border-color: rgba(232,183,48,.3); background: rgba(232,183,48,.07); }
 
+/* ─── RIDER POOL TABLE ─── */
+.pool-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--border-2);
+}
+.pool-row:last-child { border-bottom: 0; }
+.pool-row input { padding: 7px 10px; font-size: 13px; }
+.pool-add-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px; align-items: center;
+  padding: 10px; background: var(--panel-2);
+  border: 1px dashed var(--border); border-radius: 10px;
+  margin-top: 10px;
+}
+.pool-add-form input { padding: 8px 10px; font-size: 13px; }
+
+/* ─── ALIAS ROW ─── */
+.alias-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto;
+  gap: 8px; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid var(--border-2);
+}
+.alias-row:last-child { border-bottom: 0; }
+.alias-row .arrow {
+  color: var(--muted); font-size: 14px;
+}
+.alias-add-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px; align-items: center;
+  padding: 10px; background: var(--panel-2);
+  border: 1px dashed var(--border); border-radius: 10px;
+  margin-top: 10px;
+}
+.alias-add-form input, .alias-add-form select { padding: 8px 10px; font-size: 13px; }
+
+/* ─── TOAST NOTIFICATIONS ─── */
+#toastContainer {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+  width: min(420px, calc(100% - 32px));
+}
+.toast {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--muted);
+  color: var(--text);
+  padding: 12px 14px;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  opacity: 0;
+  transform: translateY(-12px);
+  transition: opacity .22s ease, transform .22s ease;
+  pointer-events: auto;
+}
+.toast.toast-show { opacity: 1; transform: translateY(0); }
+.toast-success { border-left-color: var(--green); }
+.toast-error   { border-left-color: var(--red); }
+.toast-warn    { border-left-color: var(--gold); }
+.toast-info    { border-left-color: var(--blue); }
+
+/* ─── MESSAGE LOG ─── */
+.log-count-badge {
+  display: inline-block;
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-left: 6px;
+  font-family: 'Barlow', sans-serif;
+  letter-spacing: 0;
+  vertical-align: middle;
+}
+.log-entry {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-2);
+  font-size: 12px;
+}
+.log-entry:last-child { border-bottom: 0; }
+.log-entry .log-ts {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.log-entry.log-success .log-text { color: #7de8a8; }
+.log-entry.log-error   .log-text { color: #ff9898; }
+.log-entry.log-warn    .log-text { color: #ffd66a; }
+.log-entry.log-info    .log-text { color: var(--text); }
+
 /* ─── FOOTER ─── */
 .footer-note { text-align: center; color: #3a4a5a; font-size: 11px; margin-top: 24px; }
+
+/* ─── COLLAPSIBLE SETTINGS PANELS ─── */
+.settings-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 0;
+}
+.settings-panel summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 16px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--text);
+  transition: background .15s;
+}
+.settings-panel summary::-webkit-details-marker { display: none; }
+.settings-panel summary:hover { background: rgba(255,255,255,.02); }
+.settings-panel summary .chev {
+  font-size: 11px;
+  color: var(--muted);
+  transition: transform .2s ease;
+}
+.settings-panel[open] summary .chev {
+  transform: rotate(180deg);
+}
+.settings-panel[open] summary {
+  border-bottom: 1px solid var(--border-2);
+}
+.settings-body {
+  padding: 16px 18px 18px;
+}
+.settings-panel.danger-panel {
+  border-color: rgba(240,69,69,.3);
+  background: rgba(240,69,69,.04);
+}
+.settings-panel.danger-panel[open] summary {
+  border-bottom-color: rgba(240,69,69,.2);
+}
+
+/* ─── OPTGROUP STYLING ─── */
+optgroup {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--panel);
+}
+option:disabled {
+  color: #4a5868;
+}
 
 @media (max-width: 980px) {
   .nav { grid-template-columns: repeat(2,1fr); }
@@ -319,12 +591,16 @@ input:focus, select:focus, textarea:focus { border-color: rgba(255,77,26,.5); }
   .title { font-size: 28px; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .two-col { grid-template-columns: 1fr; }
+  .alias-row { grid-template-columns: 1fr auto 1fr; }
+  .alias-row .remove-btn { grid-column: 1 / -1; }
+  .alias-add-form { grid-template-columns: 1fr 1fr; }
 }
 ```
 
   </style>
 </head>
 <body>
+<div id="toastContainer"></div>
 <div class="app">
 
   <!-- HERO -->
@@ -352,63 +628,27 @@ input:focus, select:focus, textarea:focus { border-color: rgba(255,77,26,.5); }
   <!-- ═══ STANDINGS PAGE ═══ -->
 
   <section id="standingsPage" class="page active">
-    <div class="grid-2">
-      <div class="panel">
-        <h2>Season Standings</h2>
-        <div class="scroll-x">
-          <table id="standingsTable">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Team</th>
-                <th>Rider 1</th>
-                <th>Rider 2</th>
-                <th>Total</th>
-                <th>Last Rnd</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
+    <div class="panel">
+      <h2>Season Standings</h2>
+      <div class="small muted" style="margin-bottom:8px;">Tap a team to see weekly breakdown</div>
+      <div class="scroll-x">
+        <table id="standingsTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Team</th>
+              <th>Rider 1</th>
+              <th>Rider 2</th>
+              <th>Total</th>
+              <th>Last Rnd</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
+    </div>
 
 ```
-  <div class="panel">
-    <h2>League Snapshot</h2>
-    <div class="stat-grid">
-      <div class="stat">
-        <div class="label">Teams</div>
-        <div class="value" id="statTeams">10</div>
-      </div>
-      <div class="stat">
-        <div class="label">Drafted</div>
-        <div class="value" id="statDrafted">0</div>
-      </div>
-      <div class="stat">
-        <div class="label">Results In</div>
-        <div class="value" id="statResults">0</div>
-      </div>
-      <div class="stat">
-        <div class="label">Cur. Round</div>
-        <div class="value" id="statRound">1</div>
-      </div>
-    </div>
-
-    <div style="margin-top:16px;">
-      <h3>Scoring</h3>
-      <div class="small">
-        1st = 15 &bull; 2nd = 14 &bull; 3rd = 13 &bull; 4th = 12 &bull; 5th = 11 &bull; 6th = 10 &bull; 7th = 9 &bull; 8th = 8 &bull; 9th = 7 &bull; 10th = 6 &bull; 11th = 5 &bull; 12th = 4 &bull; 13th = 3 &bull; 14th = 2 &bull; 15th–22nd = 1
-        <br><br>Holeshot = +5 &bull; Wildcard Finish = +15
-      </div>
-    </div>
-
-    <div style="margin-top:16px;">
-      <h3>Round Schedule</h3>
-      <div id="scheduleList"></div>
-    </div>
-  </div>
-</div>
-
 <div class="panel">
   <h2>Round-by-Round Totals</h2>
   <div class="scroll-x">
@@ -425,60 +665,41 @@ input:focus, select:focus, textarea:focus { border-color: rgba(255,77,26,.5); }
   <!-- ═══ DRAFT BOARD PAGE ═══ -->
 
   <section id="draftPage" class="page">
-    <div class="grid-2">
-      <div class="panel">
-        <h2>Draft Controls</h2>
-        <div class="toolbar">
-          <select id="draftTeamSelect"></select>
-          <select id="draftRoundSelect">
-            <option value="1">Round 1</option>
-            <option value="2">Round 2</option>
-          </select>
-          <select id="draftRiderSelect"></select>
-          <button class="btn green" id="assignRiderBtn">Assign Rider</button>
-        </div>
-        <div class="toolbar">
-          <button class="btn secondary" id="resetDraftBtn">Clear Draft Only</button>
-        </div>
-        <div class="small">
-          <strong>Round 1:</strong> all 10 picks must be unique. Those riders become Top 10 Protected and cannot be drafted in round 2.<br>
-          <strong>Round 2:</strong> rider must not be from round 1 protected pool. A rider can be drafted by a maximum of 2 teams.
-        </div>
+    <div class="panel">
+      <h2>Draft Board</h2>
+      <div class="small muted" style="margin-bottom:10px;">
+        Tap a rider to pick them for a team. First pick on a team = Round 1, second = Round 2.
       </div>
+      <div class="toolbar">
+        <input id="riderSearch" placeholder="Search riders…" />
+        <select id="statusFilter">
+          <option value="ALL">All statuses</option>
+          <option value="AVAILABLE">Available</option>
+          <option value="TOP 10 PROTECTED">Top 10 Protected</option>
+          <option value="PICKED ONCE">Picked Once</option>
+          <option value="LOCKED">Locked</option>
+        </select>
+      </div>
+      <div id="riderGrid" class="card-grid"></div>
+    </div>
 
 ```
-  <div class="panel">
-    <h2>Injury Replacement</h2>
-    <div class="toolbar">
-      <select id="injuryTeamSelect"></select>
-      <select id="injuryOriginalRiderSelect"></select>
-      <select id="injuryReplacementSelect"></select>
-      <button class="btn" id="addReplacementBtn">Add Replacement</button>
-    </div>
-    <div class="toolbar">
-      <select id="returnTeamSelect"></select>
-      <select id="returnOriginalRiderSelect"></select>
-      <button class="btn secondary" id="restoreRiderBtn">Restore Original</button>
-    </div>
-    <div class="small">
-      Replacement must come from undrafted available riders. When the original rider returns, the team switches back.
-    </div>
-  </div>
-</div>
-
 <div class="panel">
-  <h2>Draft Board</h2>
+  <h2>Injury Replacement</h2>
   <div class="toolbar">
-    <input id="riderSearch" placeholder="Search riders…" />
-    <select id="statusFilter">
-      <option value="ALL">All statuses</option>
-      <option value="AVAILABLE">Available</option>
-      <option value="TOP 10 PROTECTED">Top 10 Protected</option>
-      <option value="PICKED ONCE">Picked Once</option>
-      <option value="LOCKED">Locked</option>
-    </select>
+    <select id="injuryTeamSelect"></select>
+    <select id="injuryOriginalRiderSelect"></select>
+    <select id="injuryReplacementSelect"></select>
+    <button class="btn" id="addReplacementBtn">Add Replacement</button>
   </div>
-  <div id="riderGrid" class="card-grid"></div>
+  <div class="toolbar">
+    <select id="returnTeamSelect"></select>
+    <select id="returnOriginalRiderSelect"></select>
+    <button class="btn secondary" id="restoreRiderBtn">Restore Original</button>
+  </div>
+  <div class="small">
+    Replacement must come from undrafted available riders. When the original rider returns, the team switches back.
+  </div>
 </div>
 ```
 
@@ -492,6 +713,7 @@ input:focus, select:focus, textarea:focus { border-color: rgba(255,77,26,.5); }
         <h2>Results Admin</h2>
         <div class="toolbar">
           <select id="resultsRoundSelect"></select>
+          <button class="btn secondary" id="openResultsSiteBtn" type="button">🔗 Open supercrosslive.com</button>
         </div>
 
 ```
@@ -541,11 +763,6 @@ input:focus, select:focus, textarea:focus { border-color: rgba(255,77,26,.5); }
     <div id="resultsPreview" class="small">No results loaded yet.</div>
   </div>
 </div>
-
-<div class="panel">
-  <h2>Round Schedule</h2>
-  <div id="scheduleAdminList"></div>
-</div>
 ```
 
   </section>
@@ -553,40 +770,147 @@ input:focus, select:focus, textarea:focus { border-color: rgba(255,77,26,.5); }
   <!-- ═══ SETTINGS PAGE ═══ -->
 
   <section id="settingsPage" class="page">
-    <div class="grid-2">
-      <div class="panel">
-        <h2>Team Names</h2>
-        <div id="teamNameInputs" class="grid-3"></div>
-        <div style="margin-top:14px;">
-          <button class="btn green" id="saveTeamsBtn">Save Team Names</button>
-        </div>
-      </div>
 
 ```
-  <div class="panel">
-    <h2>Draft Order</h2>
+<details class="settings-panel">
+  <summary>
+    <span>Team Names</span>
+    <span class="chev">▼</span>
+  </summary>
+  <div class="settings-body">
+    <div id="teamNameInputs" class="grid-3"></div>
+    <div style="margin-top:14px;">
+      <button class="btn green" id="saveTeamsBtn">Save Team Names</button>
+    </div>
+  </div>
+</details>
+
+<details class="settings-panel">
+  <summary>
+    <span>Draft Order</span>
+    <span class="chev">▼</span>
+  </summary>
+  <div class="settings-body">
     <div id="draftOrderInputs"></div>
     <div style="margin-top:12px;">
       <button class="btn green" id="saveDraftOrderBtn">Save Draft Order</button>
     </div>
   </div>
-</div>
+</details>
 
-<div class="panel danger-zone">
-  <h2>Reset / Clear All</h2>
-  <div class="small" style="margin-bottom:12px;">
-    This wipes all saved data — draft picks, replacements, team names, results, standings, and settings.
+<details class="settings-panel">
+  <summary>
+    <span>Rider Pool</span>
+    <span class="chev">▼</span>
+  </summary>
+  <div class="settings-body">
+    <div class="small" style="margin-bottom:10px;">
+      Edit rider names here to match your PDF exactly. Tap a field to change it, then tap Save.
+      Riders already drafted or with race results can still be renamed — just don't delete them.
+    </div>
+    <div id="riderPoolList"></div>
+    <div class="pool-add-form">
+      <input id="newRiderName" placeholder="Rider name (e.g. Jett Lawrence)" />
+      <button class="btn green btn-mini" id="addNewRiderBtn">+ Add Rider</button>
+    </div>
+    <div style="margin-top:10px;">
+      <button class="btn green" id="savePoolBtn">Save All Rider Names</button>
+    </div>
   </div>
-  <button class="btn red" id="clearAllBtn">RESET ALL DATA</button>
-</div>
+</details>
+
+<details class="settings-panel">
+  <summary>
+    <span>PDF Name Aliases</span>
+    <span class="chev">▼</span>
+  </summary>
+  <div class="settings-body">
+    <div class="small" style="margin-bottom:10px;">
+      If a rider's name in the PDF doesn't match the roster (e.g. "R.J. Hampshire" vs "RJ Hampshire"),
+      add an alias here so the PDF parser knows they're the same person.
+    </div>
+    <div id="aliasList"></div>
+    <div class="alias-add-form">
+      <input id="newAliasPdfName" placeholder="Name as it appears in PDF" />
+      <select id="newAliasRiderSelect"></select>
+      <button class="btn green btn-mini" id="addAliasBtn">+ Add Alias</button>
+    </div>
+  </div>
+</details>
+
+<details class="settings-panel">
+  <summary>
+    <span>Scoring Rules</span>
+    <span class="chev">▼</span>
+  </summary>
+  <div class="settings-body">
+    <div class="small">
+      <strong>Finish positions:</strong><br>
+      1st = 15 • 2nd = 14 • 3rd = 13 • 4th = 12 • 5th = 11 • 6th = 10 • 7th = 9 • 8th = 8 • 9th = 7 • 10th = 6 • 11th = 5 • 12th = 4 • 13th = 3 • 14th = 2 • 15th–22nd = 1
+      <br><br>
+      <strong>Bonuses:</strong><br>
+      Holeshot = +5 • Wildcard Finish = +15
+    </div>
+  </div>
+</details>
+
+<details class="settings-panel">
+  <summary>
+    <span>Message Log <span id="messageLogCount" class="log-count-badge">0</span></span>
+    <span class="chev">▼</span>
+  </summary>
+  <div class="settings-body">
+    <div class="small" style="margin-bottom:10px;">
+      All notifications get logged here instead of popping up as alerts.
+    </div>
+    <div id="messageLogList"></div>
+    <div style="margin-top:10px;">
+      <button class="btn secondary" id="clearLogBtn">Clear Log</button>
+    </div>
+  </div>
+</details>
+
+<details class="settings-panel danger-panel">
+  <summary>
+    <span style="color:#ff9898;">Reset / Clear All</span>
+    <span class="chev">▼</span>
+  </summary>
+  <div class="settings-body">
+    <div class="small" style="margin-bottom:12px;">
+      <strong>Clear Draft Only</strong> wipes all picks and injury replacements but keeps team names, rider pool, and race results.
+    </div>
+    <button class="btn secondary" id="clearDraftBtn" style="margin-bottom:14px;">Clear Draft Only</button>
+    <div class="small" style="margin-bottom:12px;">
+      <strong>Reset All Data</strong> wipes everything — draft picks, replacements, team names, results, standings, message log, and settings.
+    </div>
+    <button class="btn red" id="clearAllBtn">RESET ALL DATA</button>
+  </div>
+</details>
 ```
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League v2 • Single-file local storage build</div>
+  <div class="footer-note">Fantasy SuperMotocross League v4 • Single-file local storage build</div>
 </div>
 
-<!-- ─── RIDER POPUP ─── -->
+<!-- ─── CONFIRM MODAL ─── -->
+
+<div class="popup" id="confirmPopup">
+  <div class="popup-card" style="max-width:420px;">
+    <div class="popup-head">
+      <div>
+        <div id="confirmTitle" style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;letter-spacing:.5px;text-transform:uppercase;">Confirm</div>
+      </div>
+    </div>
+    <div id="confirmMessage" style="font-size:14px;line-height:1.5;margin-bottom:18px;"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn secondary" id="confirmCancelBtn">Cancel</button>
+      <button class="btn red" id="confirmOkBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── RIDER / TEAM POPUP ─── -->
 
 <div class="popup" id="riderPopup">
   <div class="popup-card">
@@ -648,6 +972,13 @@ const DEFAULT_STATE = {
   draftPicks: [],
   replacements: [],
   roundResults: {},
+  // NEW: user-editable alias map for PDF parsing (keys normalized via normalizeRiderName)
+  riderAliases: [
+    { pdfName: "R.J. Hampshire",   riderId: 19 },
+    { pdfName: "RJ Hampshire",     riderId: 19 }
+  ],
+  // NEW: message log (most recent first, capped at 100)
+  messageLog: [],
   settings: { resultsSourceUrl: "https://www.supercrosslive.com/results/" }
 };
 
@@ -662,7 +993,15 @@ function loadState(){
     if(!raw) return deepClone(DEFAULT_STATE);
     const parsed = JSON.parse(raw);
     const base = deepClone(DEFAULT_STATE);
-    return Object.assign(base, parsed);
+    const merged = Object.assign(base, parsed);
+    // Migrations: ensure new fields exist on older saved state
+    if(!Array.isArray(merged.riderAliases)){
+      merged.riderAliases = deepClone(DEFAULT_STATE.riderAliases);
+    }
+    if(!Array.isArray(merged.messageLog)){
+      merged.messageLog = [];
+    }
+    return merged;
   } catch(e){ return deepClone(DEFAULT_STATE); }
 }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
@@ -705,8 +1044,8 @@ function getTeamCurrentRiders(teamId){
   return picks.slice(0,2).map(pick => {
     const rep = reps.find(r => r.originalRiderId===pick.riderId);
     return rep
-      ? { riderId:rep.replacementRiderId, displayName:riderById(rep.replacementRiderId)?.name||"Unknown", isReplacement:true }
-      : { riderId:pick.riderId, displayName:riderById(pick.riderId)?.name||"Unknown", isReplacement:false };
+      ? { riderId:rep.replacementRiderId, displayName:riderById(rep.replacementRiderId)?.name||"Unknown", isReplacement:true, originalRiderId:pick.riderId }
+      : { riderId:pick.riderId, displayName:riderById(pick.riderId)?.name||"Unknown", isReplacement:false, originalRiderId:pick.riderId };
   });
 }
 function getTeamOriginalRiders(teamId){
@@ -761,19 +1100,46 @@ function computeStandings(){
   }).sort((a,b) => b.total-a.total || a.teamName.localeCompare(b.teamName));
 }
 
+// Build full breakdown for a specific team across all rounds with results
+function computeTeamBreakdown(teamId){
+  const riders = getTeamCurrentRiders(teamId);
+  const breakdown = [];
+  for(let rn = 1; rn <= state.meta.totalRounds; rn++){
+    const rr = state.roundResults[rn];
+    if(!rr || !rr.positions) continue;
+    const riderLines = riders.map(slot => {
+      const finish = rr.positions[slot.riderId];
+      if(!finish){
+        return { name: slot.displayName, finish: null, base: 0, hs: 0, wc: 0, total: 0, isReplacement: slot.isReplacement };
+      }
+      const base = pointsForFinish(finish);
+      const hs = rr.holeshotRiderId === slot.riderId ? 5 : 0;
+      const wc = Number(rr.wildcardPosition) === Number(finish) ? 15 : 0;
+      return {
+        name: slot.displayName,
+        finish, base, hs, wc,
+        total: base + hs + wc,
+        isReplacement: slot.isReplacement
+      };
+    });
+    const roundTotal = riderLines.reduce((s,r)=>s+r.total, 0);
+    breakdown.push({ round: rn, riders: riderLines, total: roundTotal, wildcardPosition: rr.wildcardPosition });
+  }
+  return breakdown;
+}
+
 // ═══════════════════════════════════════════════════
 //  RENDER
 // ═══════════════════════════════════════════════════
 function renderAll(){
   renderNav();
-  renderSchedule();
   renderStandings();
   renderRoundTotals();
   renderDraftControls();
   renderRiderGrid();
   renderResultsPage();
   renderSettingsPage();
-  renderStats();
+  renderMessageLog();
 }
 
 function renderNav(){
@@ -787,33 +1153,12 @@ function renderNav(){
   });
 }
 
-function renderSchedule(){
-  const make = id => {
-    document.getElementById(id).innerHTML = ROUND_SCHEDULE.map(r => {
-      const cur = r.round===state.meta.currentRound;
-      return `<div class="round-row">
-        <span class="round-num ${cur?'round-current':''}">Rnd ${r.round}</span>
-        ${cur ? '<span class="chip" style="background:rgba(255,77,26,.12);border-color:rgba(255,77,26,.35);color:#ff8060;font-size:10px;">CURRENT</span>' : ''}
-      </div>`;
-    }).join("");
-  };
-  make("scheduleList");
-  make("scheduleAdminList");
-}
-
-function renderStats(){
-  document.getElementById("statTeams").textContent = state.teams.length;
-  document.getElementById("statDrafted").textContent = state.draftPicks.length;
-  document.getElementById("statResults").textContent = Object.keys(state.roundResults).length;
-  document.getElementById("statRound").textContent = state.meta.currentRound;
-}
-
 function renderStandings(){
   const tbody = document.querySelector("#standingsTable tbody");
   const standings = computeStandings();
   tbody.innerHTML = standings.map((s,i) => {
     const cls = i===0?"r1":i===1?"r2":i===2?"r3":"";
-    return `<tr>
+    return `<tr class="standings-row" data-team-id="${s.teamId}">
       <td><span class="rank-badge ${cls}">${i+1}</span></td>
       <td><strong>${escHtml(s.teamName)}</strong></td>
       <td>${escHtml(s.riders[0]?.displayName||"—")}</td>
@@ -822,6 +1167,10 @@ function renderStandings(){
       <td class="muted">${s.latestRound ? `Rnd ${s.latestRound}` : "—"}</td>
     </tr>`;
   }).join("");
+  // Wire click → team breakdown popup
+  document.querySelectorAll(".standings-row").forEach(row => {
+    row.onclick = () => openTeamBreakdownPopup(Number(row.dataset.teamId));
+  });
 }
 
 function renderRoundTotals(){
@@ -840,15 +1189,16 @@ function renderRoundTotals(){
 }
 
 function renderDraftControls(){
+  // Only injury/replacement team selects + holeshot select remain here
   const teamOpts = state.teams.map(t=>`<option value="${t.id}">${escHtml(t.name)}</option>`).join("");
-  ["draftTeamSelect","injuryTeamSelect","returnTeamSelect"].forEach(id=>{
-    document.getElementById(id).innerHTML = `<option value="">Select Team</option>${teamOpts}`;
+  ["injuryTeamSelect","returnTeamSelect"].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = `<option value="">Select Team</option>${teamOpts}`;
   });
-  const riderOpts = [...state.riders].sort((a,b)=>a.name.localeCompare(b.name)).map(r=>`<option value="${r.id}">${r.name}</option>`).join("");
-  document.getElementById("draftRiderSelect").innerHTML = `<option value="">Select Rider</option>${riderOpts}`;
 
-  const hsOpts = [...state.riders].sort((a,b)=>a.name.localeCompare(b.name)).map(r=>`<option value="${r.id}">${r.name}</option>`).join("");
-  document.getElementById("holeshotSelect").innerHTML = `<option value="">— None / Unknown —</option>${hsOpts}`;
+  const hsOpts = [...state.riders].sort((a,b)=>a.name.localeCompare(b.name)).map(r=>`<option value="${r.id}">${escHtml(r.name)}</option>`).join("");
+  const hsEl = document.getElementById("holeshotSelect");
+  if(hsEl) hsEl.innerHTML = `<option value="">— None / Unknown —</option>${hsOpts}`;
   renderInjurySelectors();
 }
 
@@ -859,11 +1209,11 @@ function renderInjurySelectors(){
   const injRep = document.getElementById("injuryReplacementSelect");
   const retOrig = document.getElementById("returnOriginalRiderSelect");
 
-  const avail = getUndraftedAvailableRiders().sort((a,b)=>a.name.localeCompare(b.name)).map(r=>`<option value="${r.id}">${r.name}</option>`).join("");
+  const avail = getUndraftedAvailableRiders().sort((a,b)=>a.name.localeCompare(b.name)).map(r=>`<option value="${r.id}">${escHtml(r.name)}</option>`).join("");
   injRep.innerHTML = `<option value="">Select Replacement</option>${avail}`;
 
   if(injTeamId){
-    const opts = getTeamOriginalRiders(injTeamId).map(r=>`<option value="${r.id}">${r.name}</option>`).join("");
+    const opts = getTeamOriginalRiders(injTeamId).map(r=>`<option value="${r.id}">${escHtml(r.name)}</option>`).join("");
     injOrig.innerHTML = `<option value="">Select Original Rider</option>${opts}`;
   }else{
     injOrig.innerHTML = `<option value="">Select Original Rider</option>`;
@@ -873,7 +1223,7 @@ function renderInjurySelectors(){
     const opts = state.replacements.filter(r=>r.teamId===retTeamId&&r.active).map(r=>{
       const orig = riderById(r.originalRiderId);
       const rep = riderById(r.replacementRiderId);
-      return `<option value="${r.originalRiderId}">${orig?.name||"?"} → ${rep?.name||"?"}</option>`;
+      return `<option value="${r.originalRiderId}">${escHtml(orig?.name||"?")} → ${escHtml(rep?.name||"?")}</option>`;
     }).join("");
     retOrig.innerHTML = `<option value="">Select Active Replacement</option>${opts}`;
   }else{
@@ -887,14 +1237,17 @@ function renderRiderGrid(){
   const grid = document.getElementById("riderGrid");
   const filtered = [...state.riders].sort((a,b)=>a.name.localeCompare(b.name)).filter(r=>{
     const status = getRiderStatus(r.id);
-    return (!search||r.name.toLowerCase().includes(search)||r.realTeam.toLowerCase().includes(search))
+    return (!search||r.name.toLowerCase().includes(search))
         && (filter==="ALL"||status===filter);
   });
   grid.innerHTML = filtered.map(r=>{
     const status = getRiderStatus(r.id);
-    return `<div class="rider-card" data-rider-id="${r.id}">
+    const rcCls = status === "AVAILABLE" ? "rc-available"
+                : status === "TOP 10 PROTECTED" ? "rc-protected"
+                : status === "PICKED ONCE" ? "rc-picked-once"
+                : "rc-locked";
+    return `<div class="rider-card ${rcCls}" data-rider-id="${r.id}">
       <div class="rider-name">${escHtml(r.name)}</div>
-      <div class="rider-team">${escHtml(r.realTeam)}</div>
       <span class="status ${getRiderStatusClass(status)}">${status}</span>
     </div>`;
   }).join("");
@@ -905,17 +1258,203 @@ function renderRiderGrid(){
 
 function openRiderPopup(riderId){
   const rider = riderById(riderId);
-  const assignments = getRiderAssignments(riderId);
+  if(!rider) return;
   const status = getRiderStatus(riderId);
+  const assignments = state.draftPicks.filter(p => p.riderId === riderId);
+
   document.getElementById("popupRiderName").textContent = rider.name;
-  document.getElementById("popupRiderTeam").textContent = rider.realTeam;
-  document.getElementById("popupContent").innerHTML = `
-    <div style="margin-bottom:12px;"><span class="status ${getRiderStatusClass(status)}">${status}</span></div>
-    <div class="small" style="margin-bottom:6px;"><strong>Fantasy Teams:</strong></div>
-    <div>${assignments.length ? assignments.map(a=>`<span class="chip">${a.teamName} &bull; Round ${a.round}</span>`).join("") : '<span class="muted">Not drafted</span>'}</div>
+  document.getElementById("popupRiderTeam").innerHTML =
+    `<span class="status ${getRiderStatusClass(status)}">${status}</span>`;
+
+  const pickable = (status === "AVAILABLE" || status === "PICKED ONCE");
+
+  // Build team picker section
+  let pickSection = "";
+  if(pickable){
+    pickSection = `<div class="small" style="margin-bottom:8px;"><strong>Pick for which team?</strong></div>`;
+    pickSection += `<div class="team-pick-grid">`;
+    state.teams.forEach(team => {
+      const teamPicks = state.draftPicks.filter(p => p.teamId === team.id);
+      const pickCount = teamPicks.length;
+      const alreadyHasRider = teamPicks.some(p => p.riderId === riderId);
+
+      let sub = "", cls = "green", disabled = false;
+
+      if(alreadyHasRider){
+        const existing = teamPicks.find(p => p.riderId === riderId);
+        sub = `✓ R${existing.round}`;
+        cls = "secondary"; disabled = true;
+      } else if(pickCount >= 2){
+        sub = "FULL";
+        cls = "secondary"; disabled = true;
+      } else {
+        const nextRound = pickCount + 1;
+        const err = validateDraft(team.id, nextRound, riderId);
+        if(err){
+          sub = "unavailable";
+          cls = "secondary"; disabled = true;
+        } else {
+          sub = `→ Round ${nextRound}`;
+          cls = "green"; disabled = false;
+        }
+      }
+
+      pickSection += `<button class="btn ${cls} team-pick-btn" ${disabled?'disabled':''} data-team-id="${team.id}" data-rider-id="${riderId}">
+        <span class="team-name">${escHtml(team.name)}</span>
+        <span class="team-sub">${sub}</span>
+      </button>`;
+    });
+    pickSection += `</div>`;
+  } else {
+    pickSection = `<div class="muted small" style="padding:12px 0;">This rider cannot be picked right now.</div>`;
+  }
+
+  // Build current assignments section with unassign buttons
+  let assignSection = "";
+  if(assignments.length){
+    assignSection = `<div class="small" style="margin-top:16px;margin-bottom:6px;"><strong>Currently on:</strong></div>`;
+    assignSection += assignments.map(a => {
+      const teamName = teamById(a.teamId)?.name || "Unknown";
+      return `<div class="assignment-row">
+        <span>${escHtml(teamName)} <span class="muted">• Round ${a.round}</span></span>
+        <button class="btn red btn-mini unassign-btn" data-team-id="${a.teamId}" data-rider-id="${riderId}" data-round="${a.round}">Remove</button>
+      </div>`;
+    }).join("");
+  }
+
+  document.getElementById("popupContent").innerHTML = pickSection + assignSection;
+  document.getElementById("riderPopup").classList.add("show");
+
+  // Wire team pick buttons
+  document.querySelectorAll(".team-pick-btn").forEach(btn => {
+    btn.onclick = () => {
+      if(btn.disabled) return;
+      pickRiderForTeam(Number(btn.dataset.riderId), Number(btn.dataset.teamId));
+    };
+  });
+
+  // Wire unassign buttons
+  document.querySelectorAll(".unassign-btn").forEach(btn => {
+    btn.onclick = () => {
+      unassignPick(Number(btn.dataset.riderId), Number(btn.dataset.teamId), Number(btn.dataset.round));
+    };
+  });
+}
+
+function pickRiderForTeam(riderId, teamId){
+  const rider = riderById(riderId);
+  const team = teamById(teamId);
+  if(!rider || !team) return;
+  const teamPicks = state.draftPicks.filter(p => p.teamId === teamId);
+  const nextRound = teamPicks.length + 1;
+  if(nextRound > 2){ logMessage(`${team.name} already has 2 picks.`, "error"); return; }
+
+  const err = validateDraft(teamId, nextRound, riderId);
+  if(err){ logMessage(err, "error"); return; }
+
+  state.draftPicks.push({ teamId, round: nextRound, riderId });
+  saveState();
+  recalcAllRoundPoints();
+  logMessage(`${rider.name} → ${team.name} (Round ${nextRound})`, "success");
+  // Refresh the popup to reflect new state + rerender the grid
+  renderAll();
+  // Close popup after pick
+  closePopup();
+}
+
+function unassignPick(riderId, teamId, round){
+  const rider = riderById(riderId);
+  const team = teamById(teamId);
+  if(!rider || !team) return;
+
+  // Check if this team has a higher round pick — those should go too (can't have R2 without R1)
+  const teamPicks = state.draftPicks.filter(p => p.teamId === teamId);
+  const hasHigherRound = teamPicks.some(p => p.round > round);
+  if(round === 1 && hasHigherRound){
+    logMessage(`Can't remove R1 pick while team has a R2 pick. Remove R2 first.`, "error");
+    return;
+  }
+
+  // Also un-do any active replacement tied to this rider+team
+  state.replacements = state.replacements.filter(r => !(r.teamId === teamId && r.originalRiderId === riderId));
+
+  state.draftPicks = state.draftPicks.filter(p => !(p.teamId === teamId && p.riderId === riderId && p.round === round));
+  saveState();
+  recalcAllRoundPoints();
+  logMessage(`Removed ${rider.name} from ${team.name} (R${round})`, "warn");
+  closePopup();
+  renderAll();
+}
+
+function openTeamBreakdownPopup(teamId){
+  const team = teamById(teamId);
+  if(!team) return;
+  const standings = computeStandings();
+  const teamData = standings.find(s => s.teamId === teamId);
+  const rank = standings.findIndex(s => s.teamId === teamId) + 1;
+  const breakdown = computeTeamBreakdown(teamId);
+  const currentRiders = getTeamCurrentRiders(teamId);
+
+  document.getElementById("popupRiderName").textContent = team.name;
+  document.getElementById("popupRiderTeam").innerHTML = `
+    Rank #${rank} • Season: <strong style="color:var(--accent-2);">${teamData?.total||0} pts</strong>
   `;
+
+  const rostersLine = currentRiders.map(r => {
+    const tag = r.isReplacement ? ' <span class="muted">(IR sub)</span>' : '';
+    return `<span class="chip">${escHtml(r.displayName)}${tag}</span>`;
+  }).join("");
+
+  let bodyHtml = `
+    <div style="margin-bottom:12px;">${rostersLine || '<span class="muted">No riders drafted yet</span>'}</div>
+  `;
+
+  if(breakdown.length === 0){
+    bodyHtml += '<div class="muted" style="text-align:center;padding:20px 0;">No race results yet.</div>';
+  } else {
+    bodyHtml += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:700;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Weekly Breakdown</div>';
+    bodyHtml += breakdown.map(rd => {
+      const riderLines = rd.riders.map(r => {
+        if(r.finish === null){
+          return `<div class="rider-line">
+            <div class="rider-bits">
+              <div class="rider-main">${escHtml(r.name)}${r.isReplacement ? ' <span class="muted" style="font-size:10px;">(sub)</span>' : ''}</div>
+              <div class="rider-breakdown">did not finish / not in results</div>
+            </div>
+            <div class="rider-sum muted">0</div>
+          </div>`;
+        }
+        const bits = [`P${r.finish}`, `${r.base} base`];
+        if(r.hs) bits.push(`<span class="bonus-hs">+5 HS</span>`);
+        if(r.wc) bits.push(`<span class="bonus-wc">+15 WC</span>`);
+        return `<div class="rider-line">
+          <div class="rider-bits">
+            <div class="rider-main">${escHtml(r.name)}${r.isReplacement ? ' <span class="muted" style="font-size:10px;">(sub)</span>' : ''}</div>
+            <div class="rider-breakdown">${bits.join(' • ')}</div>
+          </div>
+          <div class="rider-sum">${r.total}</div>
+        </div>`;
+      }).join("");
+
+      return `
+        <div class="round-card">
+          <div class="round-card-head">
+            <div class="round-card-title">Round ${rd.round}</div>
+            <div class="round-card-total">${rd.total} pts</div>
+          </div>
+          ${riderLines}
+          <div class="small muted" style="margin-top:5px;padding-top:5px;border-top:1px solid var(--border-2);">
+            Wildcard was P${rd.wildcardPosition||"—"}
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  document.getElementById("popupContent").innerHTML = bodyHtml;
   document.getElementById("riderPopup").classList.add("show");
 }
+
 function closePopup(){ document.getElementById("riderPopup").classList.remove("show"); }
 
 // ═══════════════════════════════════════════════════
@@ -932,37 +1471,39 @@ function validateDraft(teamId, round, riderId){
   }
   return "";
 }
-function assignRider(){
-  const teamId = Number(document.getElementById("draftTeamSelect").value);
-  const round = Number(document.getElementById("draftRoundSelect").value);
-  const riderId = Number(document.getElementById("draftRiderSelect").value);
-  const err = validateDraft(teamId, round, riderId);
-  if(err){ alert(err); return; }
-  state.draftPicks.push({ teamId, round, riderId });
-  saveState(); recalcAllRoundPoints(); renderAll();
-}
 function clearDraftOnly(){
-  if(!confirm("Clear all draft picks and replacements?")) return;
-  state.draftPicks = []; state.replacements = [];
-  saveState(); recalcAllRoundPoints(); renderAll();
+  customConfirm(
+    "Clear all draft picks and injury replacements? Race results and team names will be kept.",
+    () => {
+      state.draftPicks = []; state.replacements = [];
+      saveState(); recalcAllRoundPoints(); renderAll();
+      logMessage("Draft cleared.", "warn");
+    },
+    { title: "Clear Draft Only", okText: "Clear Draft" }
+  );
 }
 function addReplacement(){
   const teamId = Number(document.getElementById("injuryTeamSelect").value);
   const origId = Number(document.getElementById("injuryOriginalRiderSelect").value);
   const repId = Number(document.getElementById("injuryReplacementSelect").value);
-  if(!teamId||!origId||!repId){ alert("Select team, original rider, and replacement."); return; }
-  if(state.replacements.find(r=>r.teamId===teamId&&r.originalRiderId===origId&&r.active)){ alert("Already has active replacement."); return; }
-  if(!getUndraftedAvailableRiders().some(r=>r.id===repId)){ alert("Replacement must be from undrafted available riders."); return; }
+  if(!teamId||!origId||!repId){ logMessage("Select team, original rider, and replacement.", "error"); return; }
+  if(state.replacements.find(r=>r.teamId===teamId&&r.originalRiderId===origId&&r.active)){ logMessage("Already has active replacement.", "error"); return; }
+  if(!getUndraftedAvailableRiders().some(r=>r.id===repId)){ logMessage("Replacement must be from undrafted available riders.", "error"); return; }
   state.replacements.push({ teamId, originalRiderId:origId, replacementRiderId:repId, active:true });
   saveState(); recalcAllRoundPoints(); renderAll();
+  const team = teamById(teamId)?.name;
+  const orig = riderById(origId)?.name;
+  const rep = riderById(repId)?.name;
+  logMessage(`${team}: ${rep} subbed in for ${orig}`, "success");
 }
 function restoreOriginalRider(){
   const teamId = Number(document.getElementById("returnTeamSelect").value);
   const origId = Number(document.getElementById("returnOriginalRiderSelect").value);
   const rep = state.replacements.find(r=>r.teamId===teamId&&r.originalRiderId===origId&&r.active);
-  if(!rep){ alert("No active replacement found."); return; }
+  if(!rep){ logMessage("No active replacement found.", "error"); return; }
   rep.active = false;
   saveState(); recalcAllRoundPoints(); renderAll();
+  logMessage(`${teamById(teamId)?.name}: ${riderById(origId)?.name} restored.`, "success");
 }
 
 // ═══════════════════════════════════════════════════
@@ -981,7 +1522,7 @@ function buildPositionDropdowns(){
     sel.id = `pos_${pos}`;
     sel.innerHTML = `<option value="">—</option>` +
       [...state.riders].sort((a,b)=>a.name.localeCompare(b.name))
-        .map(r=>`<option value="${r.id}">${r.name}</option>`).join("");
+        .map(r=>`<option value="${r.id}">${escHtml(r.name)}</option>`).join("");
     sel.onchange = () => { validateDropdownDuplicates(); updateResultsPreview(); };
     wrap.append(label, sel);
     container.appendChild(wrap);
@@ -990,11 +1531,9 @@ function buildPositionDropdowns(){
 
 function getPositionsFromDropdowns(){
   const positions = {};
-  const seen = {};
   for(let pos=1; pos<=22; pos++){
     const val = Number(document.getElementById(`pos_${pos}`)?.value||0);
     if(val) positions[val] = pos;
-    seen[val] = (seen[val]||0)+1;
   }
   return positions;
 }
@@ -1014,7 +1553,6 @@ function validateDropdownDuplicates(){
 }
 
 function setPositionDropdowns(positions, holeshotRiderId, holeshotKnown){
-  // positions: { riderId: finishPosition }
   const inverted = {};
   Object.entries(positions).forEach(([rid,pos])=>{ inverted[pos]=rid; });
   for(let pos=1;pos<=22;pos++){
@@ -1059,13 +1597,13 @@ function updateResultsPreview(){
       const r = riderById(Number(riderId));
       const hs = Number(riderId)===holeshotRiderId?" <span style='color:var(--accent-2);'>(HS)</span>":"";
       const wc = Number(pos)===wildcard?" <span style='color:var(--gold);'>(WC)</span>":"";
-      return `<div class="chip">${pos}. ${r?.name||"Unknown"}${hs}${wc}</div>`;
+      return `<div class="chip">${pos}. ${escHtml(r?.name||"Unknown")}${hs}${wc}</div>`;
     }).join("");
 
   document.getElementById("resultsPreview").innerHTML = `
     <div style="margin-bottom:10px;"><strong>Round ${round}</strong></div>
     <div class="small muted" style="margin-bottom:8px;">Wildcard position: <strong>${wildcard||"—"}</strong></div>
-    <div class="small muted" style="margin-bottom:10px;">Holeshot: <strong>${holeshotRiderId?riderById(holeshotRiderId)?.name||"—":"Unknown"}</strong></div>
+    <div class="small muted" style="margin-bottom:10px;">Holeshot: <strong>${holeshotRiderId?escHtml(riderById(holeshotRiderId)?.name||"—"):"Unknown"}</strong></div>
     <div>${rows||'<span class="muted">No riders selected yet.</span>'}</div>
   `;
 }
@@ -1085,55 +1623,98 @@ function renderResultsPage(){
 //  PDF PARSING
 // ═══════════════════════════════════════════════════
 function normalizeRiderName(n){
-  return n.toLowerCase().replace(/\(hs\)/gi,"").replace(/[^\w\s]/g,"").replace(/\s+/g," ").trim();
+  return String(n).toLowerCase()
+    .replace(/\(hs\)/gi, "")
+    .replace(/\bhs\b/gi, "")
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Lookup a name in either the roster or the user's alias list
+function resolveNameToRider(rawName){
+  const norm = normalizeRiderName(rawName);
+  // First: check user aliases
+  const alias = state.riderAliases.find(a => normalizeRiderName(a.pdfName) === norm);
+  if(alias){
+    const r = riderById(alias.riderId);
+    if(r) return r;
+  }
+  // Then: match against roster directly
+  return state.riders.find(r => normalizeRiderName(r.name) === norm) || null;
 }
 
 function parsePdfText(text){
-  // Detect format
   const isTripleCrown = /450\s*OVERALL\s*RESULTS/i.test(text);
-  const isStandard = /450\s*MAIN\s*EVENT/i.test(text);
-
-  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const lines = text.split(/\r?\n/);
   const positions = {};
   let holeshotRiderId = null;
   let holeshotKnown = false;
 
-  // Try to extract numbered results
-  const finishPattern = /^(\d{1,2})\s+(.+)/;
-  const foundPositions = [];
-  for(const line of lines){
-    const m = line.match(finishPattern);
-    if(m){
-      const pos = Number(m[1]);
-      const nameRaw = m[2];
-      const hasHS = /\(hs\)/i.test(nameRaw);
-      const cleanName = normalizeRiderName(nameRaw);
-      if(pos>=1 && pos<=22){
-        const rider = state.riders.find(r=>normalizeRiderName(r.name)===cleanName);
-        if(rider){
-          positions[rider.id] = pos;
-          if(hasHS && !isTripleCrown){ holeshotRiderId = rider.id; holeshotKnown = true; }
-          foundPositions.push(pos);
-        }
+  const BIKES = /\b(KTM|Suzuki|Honda|Yamaha|Kawasaki|Ducati|Husqvarna|Triumph|Beta|GasGas|Gas Gas|Stark)\b/i;
+  const RIDER_LINE_RE = /^\s{0,8}(\d{1,2})\s{2,}\d{1,3}\s{2,}(.+)/;
+
+  for(let i = 0; i < lines.length; i++){
+    const rawLine = lines[i];
+    const m = rawLine.match(RIDER_LINE_RE);
+    if(!m) continue;
+    const pos = Number(m[1]);
+    if(pos < 1 || pos > 22) continue;
+
+    let rest = m[2];
+    let hasHS = /\(HS\)/i.test(rest);
+
+    // Look at next few lines for orphan (HS) marker (PDF superscript often becomes its own line)
+    if(!hasHS){
+      for(let j = i + 1; j < Math.min(i + 4, lines.length); j++){
+        // Stop scanning if we hit the next rider's row
+        if(RIDER_LINE_RE.test(lines[j])) break;
+        if(/\(HS\)/i.test(lines[j])){ hasHS = true; break; }
       }
+    }
+
+    const bikeMatch = rest.match(BIKES);
+    let namePart = bikeMatch ? rest.slice(0, bikeMatch.index) : rest;
+    namePart = namePart.replace(/\(HS\)/gi, "").trim();
+
+    const rider = resolveNameToRider(namePart);
+    if(rider && !positions[rider.id]){
+      positions[rider.id] = pos;
+      if(hasHS && !isTripleCrown){ holeshotRiderId = rider.id; holeshotKnown = true; }
     }
   }
 
-  // Fallback: scan for any rider name mentions in order
+  // Fallback: flat text index scan if fewer than 5 matched
   if(Object.keys(positions).length < 5){
-    let pos = 0;
-    const usedIds = new Set();
-    for(const line of lines){
-      const hasHS = /\(hs\)/i.test(line);
-      const cleanLine = normalizeRiderName(line);
-      const rider = state.riders.find(r=>!usedIds.has(r.id) && cleanLine.includes(normalizeRiderName(r.name)));
-      if(rider){
-        pos++;
-        if(pos>22) break;
-        positions[rider.id] = pos;
-        usedIds.add(rider.id);
-        if(hasHS && !isTripleCrown){ holeshotRiderId = rider.id; holeshotKnown = true; }
+    const flatText = text.replace(/\s+/g, " ").toLowerCase();
+    const found = [];
+    // Check both roster names and aliases
+    const nameMap = new Map();
+    state.riders.forEach(r => nameMap.set(normalizeRiderName(r.name), r.id));
+    state.riderAliases.forEach(a => nameMap.set(normalizeRiderName(a.pdfName), a.riderId));
+
+    for(const [norm, riderId] of nameMap.entries()){
+      if(positions[riderId]) continue;
+      if(!norm) continue;
+      const idx = flatText.indexOf(norm);
+      if(idx !== -1) found.push({ riderId, idx });
+    }
+    // Deduplicate riderIds by earliest index
+    const bestIdxByRider = {};
+    for(const entry of found){
+      if(bestIdxByRider[entry.riderId] === undefined || entry.idx < bestIdxByRider[entry.riderId]){
+        bestIdxByRider[entry.riderId] = entry.idx;
       }
+    }
+    const sortedRiders = Object.entries(bestIdxByRider).sort((a,b)=>a[1]-b[1]).map(e=>Number(e[0]));
+    const usedPos = new Set(Object.values(positions));
+    let nextPos = 1;
+    for(const riderId of sortedRiders){
+      while(usedPos.has(nextPos)) nextPos++;
+      if(nextPos > 22) break;
+      positions[riderId] = nextPos;
+      usedPos.add(nextPos);
+      nextPos++;
     }
   }
 
@@ -1143,50 +1724,69 @@ function parsePdfText(text){
 async function parsePdfFile(file){
   const label = document.getElementById("pdfUploadLabel");
   const textEl = document.getElementById("pdfUploadText");
-  textEl.textContent = "Parsing…";
+
+  textEl.textContent = "Reading file…";
   label.style.borderColor = "rgba(255,77,26,.5)";
 
-  const PDFJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-  const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const reader = new FileReader();
 
-  // Load pdf.js if not already loaded
-  if(!window.pdfjsLib){
-    await new Promise((res, rej)=>{
-      const s = document.createElement("script");
-      s.src = PDFJS_URL;
-      s.onload = res; s.onerror = rej;
-      document.head.appendChild(s);
-    });
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
-  }
+  reader.onload = async function(e){
+    try{
+      const binary = e.target.result;
+      const len = binary.length;
+      const uint8 = new Uint8Array(len);
+      for(let i = 0; i < len; i++) uint8[i] = binary.charCodeAt(i);
 
-  try{
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = "";
-    for(let i=1; i<=pdf.numPages; i++){
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      fullText += content.items.map(item=>item.str).join(" ") + "\n";
-    }
+      if(!window.pdfjsLib){
+        await new Promise((res, rej) => {
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      }
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = "";
 
-    const { positions, holeshotRiderId, holeshotKnown } = parsePdfText(fullText);
-    const count = Object.keys(positions).length;
+      const pdf = await window.pdfjsLib.getDocument({ data: uint8 }).promise;
+      let fullText = "";
+      for(let i = 1; i <= pdf.numPages; i++){
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        let lastY = null;
+        for(const item of content.items){
+          const y = item.transform?.[5];
+          if(lastY !== null && Math.abs(y - lastY) > 2) fullText += "\n";
+          fullText += item.str + " ";
+          lastY = y;
+        }
+        fullText += "\n";
+      }
 
-    if(count===0){
-      textEl.textContent = "⚠️ No riders found — check PDF or use dropdowns manually";
+      const { positions, holeshotRiderId, holeshotKnown } = parsePdfText(fullText);
+      const count = Object.keys(positions).length;
+
+      if(count === 0){
+        textEl.textContent = "⚠️ No riders matched — check name spellings or add aliases in Settings";
+        label.style.borderColor = "rgba(240,69,69,.5)";
+        return;
+      }
+
+      setPositionDropdowns(positions, holeshotRiderId, holeshotKnown);
+      textEl.textContent = `✅ ${count} riders parsed from "${file.name}"${!holeshotKnown ? " — holeshot unknown" : ""}`;
+      label.style.borderColor = "rgba(45,212,110,.5)";
+    }catch(err){
+      console.error("Parse error:", err);
+      textEl.textContent = "❌ Could not read file — try again or use dropdowns";
       label.style.borderColor = "rgba(240,69,69,.5)";
-      return;
     }
+  };
 
-    setPositionDropdowns(positions, holeshotRiderId, holeshotKnown);
-    textEl.textContent = `✅ Parsed ${count} riders from "${file.name}"${!holeshotKnown ? " — holeshot unknown" : ""}`;
-    label.style.borderColor = "rgba(45,212,110,.5)";
-  }catch(err){
-    console.error("PDF parse error:", err);
-    textEl.textContent = "❌ Parse failed — use dropdowns to enter manually";
+  reader.onerror = function(){
+    textEl.textContent = "❌ File read failed — try again";
     label.style.borderColor = "rgba(240,69,69,.5)";
-  }
+  };
+
+  reader.readAsBinaryString(file);
 }
 
 // ═══════════════════════════════════════════════════
@@ -1197,18 +1797,17 @@ function submitResults(){
   const wildcard = Number(document.getElementById("wildcardInput").value);
   const holeshotRiderId = Number(document.getElementById("holeshotSelect").value||0);
 
-  if(!round) return alert("Select a round.");
-  if(!wildcard||wildcard<10||wildcard>22) return alert("Wildcard must be between 10 and 22.");
+  if(!round) { logMessage("Select a round.", "error"); return; }
+  if(!wildcard||wildcard<10||wildcard>22) { logMessage("Wildcard must be between 10 and 22.", "error"); return; }
 
   const positions = getPositionsFromDropdowns();
-  if(Object.keys(positions).length===0) return alert("Enter at least one result.");
+  if(Object.keys(positions).length===0) { logMessage("Enter at least one result.", "error"); return; }
 
-  // Duplicate check
   const seen = {};
   for(let pos=1;pos<=22;pos++){
     const val = document.getElementById(`pos_${pos}`)?.value||"";
     if(val){
-      if(seen[val]) return alert(`Duplicate rider found: ${riderById(Number(val))?.name}. Each rider can only appear once.`);
+      if(seen[val]) { logMessage(`Duplicate rider: ${riderById(Number(val))?.name}. Each rider can only appear once.`, "error"); return; }
       seen[val]=1;
     }
   }
@@ -1236,20 +1835,156 @@ function submitResults(){
     state.meta.currentRound = round+1;
   }
   saveState(); renderAll();
-  alert("Results submitted successfully.");
+  logMessage(`Round ${round} results submitted.`, "success");
 }
 
 function deleteRoundResults(){
   const round = Number(document.getElementById("resultsRoundSelect").value);
   if(!round) return;
-  if(!state.roundResults[round]) return alert("No saved results for this round.");
-  if(!confirm(`Delete saved results for Round ${round}?`)) return;
-  delete state.roundResults[round];
-  saveState(); renderAll();
+  if(!state.roundResults[round]) { logMessage("No saved results for this round.", "error"); return; }
+  customConfirm(
+    `Delete saved results for Round ${round}? This will update all team standings.`,
+    () => {
+      delete state.roundResults[round];
+      saveState(); renderAll();
+      logMessage(`Round ${round} results deleted.`, "warn");
+    },
+    { title: `Delete Round ${round}`, okText: "Delete" }
+  );
 }
 
 // ═══════════════════════════════════════════════════
-//  SETTINGS
+//  SETTINGS — RIDER POOL
+// ═══════════════════════════════════════════════════
+function renderRiderPool(){
+  const list = document.getElementById("riderPoolList");
+  if(!list) return;
+  const sorted = [...state.riders].sort((a,b)=>a.name.localeCompare(b.name));
+  list.innerHTML = sorted.map(r => {
+    const status = getRiderStatus(r.id);
+    const drafted = state.draftPicks.some(p => p.riderId === r.id);
+    const inResults = Object.values(state.roundResults).some(rr => rr.positions && rr.positions[r.id]);
+    const canDelete = !drafted && !inResults;
+    return `<div class="pool-row" data-rider-id="${r.id}">
+      <input class="pool-name" data-rider-id="${r.id}" value="${escHtml(r.name)}" />
+      <span class="status ${getRiderStatusClass(status)}" style="font-size:9px;">${drafted?'DRAFTED':(inResults?'IN RESULTS':'FREE')}</span>
+      <button class="btn ${canDelete?'red':'secondary'} btn-mini pool-remove" data-rider-id="${r.id}" ${canDelete?'':'disabled title="Cannot remove: drafted or in results"'}>✕</button>
+    </div>`;
+  }).join("");
+
+  list.querySelectorAll(".pool-remove").forEach(btn => {
+    btn.onclick = () => removeRider(Number(btn.dataset.riderId));
+  });
+}
+
+function addNewRider(){
+  const nameEl = document.getElementById("newRiderName");
+  const name = nameEl.value.trim();
+  if(!name){ logMessage("Rider name is required.", "error"); return; }
+  if(state.riders.some(r => r.name.toLowerCase() === name.toLowerCase())){
+    logMessage("A rider with that name already exists.", "error");
+    return;
+  }
+  const maxId = state.riders.reduce((m,r)=>Math.max(m,r.id), 0);
+  state.riders.push({ id: maxId+1, name, realTeam: "—" });
+  saveState();
+  nameEl.value = "";
+  renderAll();
+  logMessage(`${name} added to rider pool.`, "success");
+}
+
+function removeRider(riderId){
+  const rider = riderById(riderId);
+  if(!rider) return;
+  if(state.draftPicks.some(p => p.riderId === riderId)){
+    logMessage(`${rider.name} is drafted. Clear their draft pick first.`, "error");
+    return;
+  }
+  if(Object.values(state.roundResults).some(rr => rr.positions && rr.positions[riderId])){
+    logMessage(`${rider.name} has race results. Cannot remove.`, "error");
+    return;
+  }
+  customConfirm(
+    `Remove ${rider.name} from the rider pool?`,
+    () => {
+      state.riders = state.riders.filter(r => r.id !== riderId);
+      // Clean up any aliases pointing to this rider
+      state.riderAliases = state.riderAliases.filter(a => a.riderId !== riderId);
+      saveState(); renderAll();
+      logMessage(`${rider.name} removed from rider pool.`, "warn");
+    },
+    { title: "Remove Rider", okText: "Remove" }
+  );
+}
+
+function savePoolNames(){
+  let changed = 0;
+  document.querySelectorAll(".pool-name").forEach(inp => {
+    const rider = riderById(Number(inp.dataset.riderId));
+    if(rider){
+      const newName = inp.value.trim();
+      if(newName && newName !== rider.name){ rider.name = newName; changed++; }
+    }
+  });
+  saveState();
+  renderAll();
+  logMessage(changed > 0 ? `Saved ${changed} rider name change(s).` : "No changes to save.", changed > 0 ? "success" : "info");
+}
+
+// ═══════════════════════════════════════════════════
+//  SETTINGS — ALIASES
+// ═══════════════════════════════════════════════════
+function renderAliases(){
+  const list = document.getElementById("aliasList");
+  const addSelect = document.getElementById("newAliasRiderSelect");
+  if(!list || !addSelect) return;
+
+  // Alias list
+  if(state.riderAliases.length === 0){
+    list.innerHTML = '<div class="small muted" style="padding:10px 0;">No aliases yet. Add one below if a PDF name doesn\'t match.</div>';
+  } else {
+    list.innerHTML = state.riderAliases.map((a, idx) => {
+      const r = riderById(a.riderId);
+      return `<div class="alias-row" data-idx="${idx}">
+        <span><strong>${escHtml(a.pdfName)}</strong></span>
+        <span class="arrow">→</span>
+        <span>${escHtml(r?.name || '(deleted rider)')}</span>
+        <button class="btn red btn-mini remove-btn alias-remove" data-idx="${idx}">✕</button>
+      </div>`;
+    }).join("");
+    list.querySelectorAll(".alias-remove").forEach(btn => {
+      btn.onclick = () => removeAlias(Number(btn.dataset.idx));
+    });
+  }
+
+  // Add form rider select
+  addSelect.innerHTML = '<option value="">Select Roster Rider</option>' +
+    [...state.riders].sort((a,b)=>a.name.localeCompare(b.name))
+      .map(r=>`<option value="${r.id}">${escHtml(r.name)}</option>`).join("");
+}
+
+function addAlias(){
+  const pdfEl = document.getElementById("newAliasPdfName");
+  const selEl = document.getElementById("newAliasRiderSelect");
+  const pdfName = pdfEl.value.trim();
+  const riderId = Number(selEl.value);
+  if(!pdfName || !riderId){ logMessage("Enter the PDF name and select a roster rider.", "error"); return; }
+  state.riderAliases.push({ pdfName, riderId });
+  saveState();
+  pdfEl.value = "";
+  selEl.value = "";
+  renderAll();
+  logMessage(`Alias added: "${pdfName}" → ${riderById(riderId)?.name}`, "success");
+}
+
+function removeAlias(idx){
+  state.riderAliases.splice(idx, 1);
+  saveState();
+  renderAll();
+}
+
+// ═══════════════════════════════════════════════════
+//  SETTINGS — TEAMS + DRAFT ORDER
 // ═══════════════════════════════════════════════════
 function renderSettingsPage(){
   document.getElementById("teamNameInputs").innerHTML = state.teams.map(t=>`
@@ -1267,6 +2002,9 @@ function renderSettingsPage(){
       </select>
     </div>
   `).join("");
+
+  renderRiderPool();
+  renderAliases();
 }
 
 function saveTeamNames(){
@@ -1275,25 +2013,143 @@ function saveTeamNames(){
     if(team) team.name = inp.value.trim()||team.name;
   });
   saveState(); renderAll();
+  logMessage("Team names saved.", "success");
 }
 
 function saveDraftOrder(){
   const order = [];
   document.querySelectorAll(".draft-order-select").forEach(sel=>order.push(Number(sel.value)));
-  if(new Set(order).size !== state.teams.length){ alert("Draft order must contain each team exactly once."); return; }
+  if(new Set(order).size !== state.teams.length){ logMessage("Draft order must contain each team exactly once.", "error"); return; }
   state.draftOrder = order;
   saveState(); renderAll();
+  logMessage("Draft order saved.", "success");
 }
 
 function clearAllData(){
-  if(!confirm("This will wipe ALL league data. Continue?")) return;
-  if(!confirm("Final confirmation: clear all data?")) return;
-  state = deepClone(DEFAULT_STATE);
-  saveState(); renderAll();
+  customConfirm(
+    "This will wipe ALL league data — draft picks, replacements, team names, rider pool, race results, standings, aliases, and message log. This cannot be undone.",
+    () => {
+      // Second confirmation for this destructive action
+      customConfirm(
+        "Are you absolutely sure? Last chance to cancel.",
+        () => {
+          state = deepClone(DEFAULT_STATE);
+          saveState(); renderAll();
+          logMessage("All league data has been reset.", "warn");
+        },
+        { title: "Final Confirmation", okText: "Yes, Wipe Everything" }
+      );
+    },
+    { title: "Reset All Data", okText: "Continue" }
+  );
 }
 
 function escHtml(str){
   return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ═══════════════════════════════════════════════════
+//  CUSTOM CONFIRM MODAL (replaces native confirm() which iOS Safari blocks)
+// ═══════════════════════════════════════════════════
+function customConfirm(message, onConfirm, options){
+  options = options || {};
+  const popup = document.getElementById("confirmPopup");
+  const titleEl = document.getElementById("confirmTitle");
+  const msgEl = document.getElementById("confirmMessage");
+  const okBtn = document.getElementById("confirmOkBtn");
+  const cancelBtn = document.getElementById("confirmCancelBtn");
+
+  titleEl.textContent = options.title || "Confirm";
+  msgEl.textContent = message;
+  okBtn.textContent = options.okText || "Confirm";
+  cancelBtn.textContent = options.cancelText || "Cancel";
+
+  // Swap OK button class if caller wants a non-destructive look
+  okBtn.className = "btn " + (options.okClass || "red");
+
+  popup.classList.add("show");
+
+  // Clear any previous handlers by cloning nodes
+  const newOk = okBtn.cloneNode(true);
+  const newCancel = cancelBtn.cloneNode(true);
+  okBtn.parentNode.replaceChild(newOk, okBtn);
+  cancelBtn.parentNode.replaceChild(newCancel, cancelBtn);
+
+  const close = () => popup.classList.remove("show");
+
+  newOk.onclick = () => {
+    close();
+    try { onConfirm(); } catch(e) { console.error(e); }
+  };
+  newCancel.onclick = close;
+
+  // Tap outside to cancel
+  const outsideHandler = (e) => {
+    if(e.target.id === "confirmPopup"){ close(); popup.removeEventListener("click", outsideHandler); }
+  };
+  popup.addEventListener("click", outsideHandler);
+}
+
+// ═══════════════════════════════════════════════════
+//  TOAST NOTIFICATIONS + MESSAGE LOG
+// ═══════════════════════════════════════════════════
+function logMessage(text, type){
+  type = type || "info";
+  const entry = { ts: Date.now(), text: String(text), type };
+  state.messageLog.unshift(entry);
+  if(state.messageLog.length > 100) state.messageLog.length = 100;
+  saveState();
+  showToast(entry.text, type);
+  renderMessageLog();
+}
+
+function showToast(text, type){
+  const container = document.getElementById("toastContainer");
+  if(!container) return;
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.textContent = text;
+  container.appendChild(toast);
+  // trigger animation
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => toast.classList.add("toast-show"));
+  });
+  // auto-dismiss
+  const hideDelay = type === "error" ? 5000 : 3000;
+  setTimeout(() => {
+    toast.classList.remove("toast-show");
+    setTimeout(() => toast.remove(), 250);
+  }, hideDelay);
+  // tap to dismiss early
+  toast.addEventListener("click", () => {
+    toast.classList.remove("toast-show");
+    setTimeout(() => toast.remove(), 250);
+  });
+}
+
+function renderMessageLog(){
+  const list = document.getElementById("messageLogList");
+  const count = document.getElementById("messageLogCount");
+  if(count) count.textContent = state.messageLog.length;
+  if(!list) return;
+  if(state.messageLog.length === 0){
+    list.innerHTML = '<div class="small muted" style="padding:8px 0;">No messages yet.</div>';
+    return;
+  }
+  list.innerHTML = state.messageLog.map(entry => {
+    const d = new Date(entry.ts);
+    const ts = `${d.toLocaleDateString([], {month:"numeric",day:"numeric"})} ${d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}`;
+    return `<div class="log-entry log-${entry.type}">
+      <span class="log-ts">${escHtml(ts)}</span>
+      <span class="log-text">${escHtml(entry.text)}</span>
+    </div>`;
+  }).join("");
+}
+
+function clearMessageLog(){
+  state.messageLog = [];
+  saveState();
+  renderMessageLog();
 }
 
 // ═══════════════════════════════════════════════════
@@ -1303,8 +2159,6 @@ function wireEvents(){
   document.getElementById("closePopupBtn").onclick = closePopup;
   document.getElementById("riderPopup").addEventListener("click", e=>{ if(e.target.id==="riderPopup") closePopup(); });
 
-  document.getElementById("assignRiderBtn").onclick = assignRider;
-  document.getElementById("resetDraftBtn").onclick = clearDraftOnly;
   document.getElementById("addReplacementBtn").onclick = addReplacement;
   document.getElementById("restoreRiderBtn").onclick = restoreOriginalRider;
   document.getElementById("injuryTeamSelect").onchange = renderInjurySelectors;
@@ -1312,8 +2166,22 @@ function wireEvents(){
   document.getElementById("riderSearch").oninput = renderRiderGrid;
   document.getElementById("statusFilter").onchange = renderRiderGrid;
 
-  document.getElementById("openResultsSiteBtn").onclick = ()=>window.open(state.settings.resultsSourceUrl,"_blank");
-  document.getElementById("parsePdfBtn").onclick = autoParsePdf;
+  document.getElementById("openResultsSiteBtn").onclick = () => {
+    window.open(state.settings?.resultsSourceUrl || "https://www.supercrosslive.com/results/", "_blank");
+  };
+
+  document.getElementById("pdfFileInput").onchange = (e)=>{
+    const file = e.target.files?.[0];
+    if(file) parsePdfFile(file);
+  };
+  const label = document.getElementById("pdfUploadLabel");
+  label.addEventListener("dragover", e=>{ e.preventDefault(); label.style.borderColor="rgba(255,77,26,.7)"; });
+  label.addEventListener("dragleave", ()=>{ label.style.borderColor=""; });
+  label.addEventListener("drop", e=>{
+    e.preventDefault(); label.style.borderColor="";
+    const file = e.dataTransfer.files?.[0];
+    if(file && file.type==="application/pdf") parsePdfFile(file);
+  });
   document.getElementById("clearPositionsBtn").onclick = clearPositionDropdowns;
   document.getElementById("randomizeWildcardBtn").onclick = ()=>{
     document.getElementById("wildcardInput").value = Math.floor(Math.random()*13)+10;
@@ -1338,6 +2206,19 @@ function wireEvents(){
   document.getElementById("saveTeamsBtn").onclick = saveTeamNames;
   document.getElementById("saveDraftOrderBtn").onclick = saveDraftOrder;
   document.getElementById("clearAllBtn").onclick = clearAllData;
+
+  // NEW: rider pool
+  document.getElementById("addNewRiderBtn").onclick = addNewRider;
+  document.getElementById("savePoolBtn").onclick = savePoolNames;
+
+  // NEW: aliases
+  document.getElementById("addAliasBtn").onclick = addAlias;
+
+  // NEW: clear draft from settings
+  document.getElementById("clearDraftBtn").onclick = clearDraftOnly;
+
+  // NEW: message log
+  document.getElementById("clearLogBtn").onclick = clearMessageLog;
 }
 
 // ═══════════════════════════════════════════════════
