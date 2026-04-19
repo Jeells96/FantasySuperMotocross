@@ -1,1611 +1,1346 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fantasy SuperMotocross League1</title>
+  <title>Fantasy SuperMotocross League</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root{
-      --panel:#12171e;
-      --panel2:#1a212b;
-      --panel3:#232c38;
-      --border:#313d4d;
-      --text:#f4f7fb;
-      --muted:#9aa6b5;
-      --accent:#ff5a1f;
-      --green:#22c55e;
-      --yellow:#e5d14a;
-      --red:#ef4444;
-      --radius:16px;
-      --shadow:0 14px 34px rgba(0,0,0,.35);
+    :root {
+      --bg: #080a0d;
+      --panel: #0f1318;
+      --panel-2: #151b23;
+      --panel-3: #1a2230;
+      --border: #252f3d;
+      --border-2: #1d2632;
+      --text: #eef1f5;
+      --muted: #8090a0;
+      --accent: #ff4d1a;
+      --accent-glow: rgba(255,77,26,.18);
+      --accent-2: #c8ff3e;
+      --gold: #e8b730;
+      --green: #2dd46e;
+      --red: #f04545;
+      --blue: #3db8f5;
+      --shadow: 0 12px 40px rgba(0,0,0,.45);
+      --radius: 14px;
     }
 
-    *{box-sizing:border-box}
+```
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body{
-      margin:0;
-      font-family:Arial, Helvetica, sans-serif;
-      background:
-        radial-gradient(circle at top, rgba(255,90,31,.16), transparent 26%),
-        linear-gradient(180deg, #0a0d11 0%, #0b1016 100%);
-      color:var(--text);
-    }
+body {
+  font-family: 'Barlow', sans-serif;
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(255,77,26,.10) 0%, transparent 60%),
+    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.013'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  color: var(--text);
+  min-height: 100vh;
+}
 
-    .app{
-      width:min(1400px,100%);
-      margin:0 auto;
-      padding:16px 14px 28px;
-    }
+a { color: var(--blue); text-decoration: none; }
+button, input, select, textarea { font: inherit; }
+select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238090a0' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px !important; }
 
-    .hero{
-      background:linear-gradient(135deg, rgba(255,90,31,.14), rgba(255,90,31,.03)), var(--panel);
-      border:1px solid var(--border);
-      border-radius:22px;
-      padding:20px;
-      box-shadow:var(--shadow);
-      margin-bottom:16px;
-    }
+.app { width: min(1440px, 100%); margin: 0 auto; padding: 20px 16px 40px; }
 
-    .hero h1{
-      margin:0 0 8px;
-      font-size:30px;
-      font-weight:900;
-      letter-spacing:.4px;
-    }
+/* ─── HERO ─── */
+.hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px 24px 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,77,26,.12) 0%, transparent 55%, rgba(200,255,62,.05) 100%);
+  pointer-events: none;
+}
+.hero-inner { position: relative; z-index: 1; }
+.hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
 
-    .hero p{
-      margin:0;
-      color:var(--muted);
-      line-height:1.45;
-      font-size:14px;
-    }
+.title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.title span { color: var(--accent); }
 
-    .nav{
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:10px;
-      margin-bottom:16px;
-    }
+.subtitle { color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 500px; }
 
-    .nav button{
-      background:var(--panel);
-      color:var(--text);
-      border:1px solid var(--border);
-      border-radius:14px;
-      padding:14px 10px;
-      font-weight:800;
-      cursor:pointer;
-      transition:.18s;
-    }
+/* ─── NAV ─── */
+.nav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.tab-btn {
+  background: var(--panel);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 13px 10px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: .18s ease;
+}
+.tab-btn.active, .tab-btn:hover {
+  background: linear-gradient(180deg, rgba(255,77,26,.16), rgba(255,77,26,.04));
+  border-color: rgba(255,77,26,.5);
+  color: var(--text);
+}
 
-    .nav button.active,
-    .nav button:hover{
-      background:linear-gradient(180deg, rgba(255,90,31,.16), rgba(255,90,31,.04)), var(--panel2);
-      border-color:var(--accent);
-      transform:translateY(-1px);
-    }
+/* ─── PAGES ─── */
+.page { display: none; flex-direction: column; gap: 14px; }
+.page.active { display: flex; }
 
-    .page{display:none}
-    .page.active{display:grid;gap:14px}
+/* ─── PANELS ─── */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+.panel h2 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  color: var(--text);
+}
+.panel h3 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
 
-    .grid-2{
-      display:grid;
-      grid-template-columns:1.25fr .95fr;
-      gap:14px;
-    }
+/* ─── LAYOUTS ─── */
+.grid-2 { display: grid; grid-template-columns: 1.35fr .9fr; gap: 14px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-    .grid-3{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:14px;
-    }
+/* ─── STAT GRID ─── */
+.stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+.stat {
+  background: var(--panel-2);
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
+.stat .value { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 900; }
 
-    .panel{
-      background:var(--panel);
-      border:1px solid var(--border);
-      border-radius:var(--radius);
-      padding:16px;
-      box-shadow:var(--shadow);
-    }
+/* ─── TABLE ─── */
+.scroll-x { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 10px 10px; text-align: left; border-bottom: 1px solid #1a2230; font-size: 14px; vertical-align: middle; }
+th { font-family: 'Barlow Condensed', sans-serif; font-size: 12px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); font-weight: 700; }
+tr:last-child td { border-bottom: 0; }
+tr:hover td { background: rgba(255,255,255,.018); }
+tbody tr:nth-child(1) td:last-child { color: var(--gold); }
 
-    .panel h2,.panel h3{
-      margin:0 0 12px;
-      font-size:18px;
-    }
+/* ─── RANK BADGES ─── */
+.rank-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 6px;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 14px;
+  background: var(--panel-2); border: 1px solid var(--border-2);
+}
+.rank-badge.r1 { background: rgba(232,183,48,.18); border-color: rgba(232,183,48,.4); color: var(--gold); }
+.rank-badge.r2 { background: rgba(180,190,200,.14); border-color: rgba(180,190,200,.3); color: #c8d0d8; }
+.rank-badge.r3 { background: rgba(180,110,50,.14); border-color: rgba(180,110,50,.3); color: #d4956a; }
 
-    .small{font-size:12px;color:var(--muted)}
-    .muted{color:var(--muted)}
+/* ─── STATUS CHIPS ─── */
+.status {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 4px 9px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: .5px;
+  border: 1px solid transparent; white-space: nowrap;
+  font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase;
+}
+.available { background: rgba(45,212,110,.12); color: #7de8a8; border-color: rgba(45,212,110,.3); }
+.protected { background: rgba(232,183,48,.14); color: #ffd66a; border-color: rgba(232,183,48,.3); }
+.picked-once { background: rgba(61,184,245,.12); color: #96d9f8; border-color: rgba(61,184,245,.3); }
+.locked { background: rgba(240,69,69,.13); color: #ff9898; border-color: rgba(240,69,69,.3); }
 
-    .stat-grid{
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:10px;
-    }
+.chip {
+  display: inline-block; padding: 4px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; background: var(--panel-3);
+  border: 1px solid var(--border); margin: 2px 3px 2px 0;
+}
 
-    .stat{
-      background:var(--panel2);
-      border:1px solid var(--border);
-      border-radius:14px;
-      padding:12px;
-    }
+/* ─── FORMS ─── */
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.toolbar > * { flex: 1 1 140px; }
 
-    .stat .label{
-      color:var(--muted);
-      font-size:12px;
-      margin-bottom:6px;
-    }
+input, select, textarea {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 10px;
+  outline: none;
+  transition: border-color .15s;
+}
+input:focus, select:focus, textarea:focus { border-color: rgba(255,77,26,.5); }
 
-    .stat .value{
-      font-weight:900;
-      font-size:22px;
-    }
+/* ─── BUTTONS ─── */
+.btn {
+  background: linear-gradient(180deg, rgba(255,77,26,.2), rgba(255,77,26,.05));
+  color: var(--text); border: 1px solid rgba(255,77,26,.4);
+  padding: 10px 14px; border-radius: 10px;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+  font-size: 14px; letter-spacing: .6px; text-transform: uppercase;
+  cursor: pointer; transition: .16s ease; white-space: nowrap;
+}
+.btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(255,77,26,.2); }
+.btn.secondary { background: var(--panel-2); border-color: var(--border); }
+.btn.secondary:hover { border-color: #3a4a5a; box-shadow: none; }
+.btn.green {
+  background: linear-gradient(180deg, rgba(45,212,110,.18), rgba(45,212,110,.04));
+  border-color: rgba(45,212,110,.4);
+}
+.btn.green:hover { box-shadow: 0 4px 16px rgba(45,212,110,.15); }
+.btn.red {
+  background: linear-gradient(180deg, rgba(240,69,69,.18), rgba(240,69,69,.04));
+  border-color: rgba(240,69,69,.4);
+}
+.btn.red:hover { box-shadow: 0 4px 16px rgba(240,69,69,.15); }
 
-    .toolbar{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-bottom:12px;
-    }
+.small { font-size: 12px; color: var(--muted); line-height: 1.55; }
+.muted { color: var(--muted); }
 
-    .toolbar > *{
-      flex:1 1 170px;
-    }
+/* ─── SCHEDULE ─── */
+.round-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 7px 0; border-bottom: 1px solid var(--border-2);
+  font-size: 13px;
+}
+.round-row:last-child { border-bottom: 0; }
+.round-num {
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 900;
+  font-size: 14px; min-width: 50px; color: var(--muted);
+}
+.round-current { color: var(--accent); }
 
-    input, select, button{
-      font:inherit;
-    }
+/* ─── RIDER CARDS ─── */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 10px; }
+.rider-card {
+  background: var(--panel-2); border: 1px solid var(--border-2);
+  border-radius: 12px; padding: 14px; cursor: pointer;
+  transition: .18s ease;
+}
+.rider-card:hover { transform: translateY(-2px); border-color: var(--border); background: var(--panel-3); }
+.rider-name { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 17px; margin-bottom: 3px; }
+.rider-team { color: var(--muted); font-size: 12px; margin-bottom: 10px; min-height: 30px; line-height: 1.35; }
 
-    input, select{
-      width:100%;
-      background:var(--panel3);
-      color:var(--text);
-      border:1px solid var(--border);
-      border-radius:12px;
-      padding:12px;
-      outline:none;
-    }
+/* ─── POPUP ─── */
+.popup {
+  position: fixed; inset: 0; background: rgba(0,0,0,.72);
+  display: none; align-items: center; justify-content: center;
+  padding: 16px; z-index: 9000;
+}
+.popup.show { display: flex; }
+.popup-card {
+  width: min(520px,100%); background: var(--panel); border: 1px solid var(--border);
+  border-radius: 18px; padding: 22px; box-shadow: var(--shadow);
+}
+.popup-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+.close-x { background: transparent; border: 0; color: var(--muted); font-size: 28px; cursor: pointer; line-height: 1; transition: color .15s; }
+.close-x:hover { color: var(--text); }
 
-    button.btn{
-      background:linear-gradient(180deg, rgba(255,90,31,.22), rgba(255,90,31,.05)), var(--panel2);
-      color:var(--text);
-      border:1px solid rgba(255,90,31,.42);
-      border-radius:12px;
-      padding:12px 14px;
-      font-weight:900;
-      cursor:pointer;
-      transition:.18s;
-    }
+/* ─── RESULTS DROPDOWNS ─── */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.pos-row {
+  display: grid; grid-template-columns: 38px 1fr; gap: 8px; align-items: center;
+}
+.pos-label {
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 16px;
+  text-align: right; color: var(--muted);
+}
+.pos-label.top3 { color: var(--gold); }
+.pos-row select { padding: 8px 30px 8px 10px !important; font-size: 13px; }
 
-    button.btn:hover{transform:translateY(-1px)}
+/* ─── DANGER ZONE ─── */
+.danger-zone {
+  border: 1px solid rgba(240,69,69,.3);
+  background: rgba(240,69,69,.05);
+  border-radius: 12px; padding: 16px;
+}
 
-    button.btn.secondary{
-      background:var(--panel2);
-      border-color:var(--border);
-    }
+/* ─── HOLESHOT NOTE ─── */
+.hs-note {
+  font-size: 12px; padding: 7px 10px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 8px; margin-top: 6px; color: var(--muted);
+}
+.hs-note.detected { color: var(--green); border-color: rgba(45,212,110,.3); background: rgba(45,212,110,.07); }
+.hs-note.unknown { color: var(--gold); border-color: rgba(232,183,48,.3); background: rgba(232,183,48,.07); }
 
-    button.btn.green{
-      background:linear-gradient(180deg, rgba(34,197,94,.22), rgba(34,197,94,.05)), var(--panel2);
-      border-color:rgba(34,197,94,.4);
-    }
+/* ─── FOOTER ─── */
+.footer-note { text-align: center; color: #3a4a5a; font-size: 11px; margin-top: 24px; }
 
-    button.btn.red{
-      background:linear-gradient(180deg, rgba(239,68,68,.22), rgba(239,68,68,.05)), var(--panel2);
-      border-color:rgba(239,68,68,.4);
-    }
+@media (max-width: 980px) {
+  .nav { grid-template-columns: repeat(2,1fr); }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .stat-grid { grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width: 640px) {
+  .title { font-size: 28px; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .two-col { grid-template-columns: 1fr; }
+}
+```
 
-    .scroll-x{overflow:auto}
-
-    table{
-      width:100%;
-      border-collapse:collapse;
-    }
-
-    th, td{
-      text-align:left;
-      padding:10px 8px;
-      border-bottom:1px solid #222b36;
-      font-size:14px;
-      vertical-align:top;
-    }
-
-    th{
-      text-transform:uppercase;
-      letter-spacing:.6px;
-      font-size:12px;
-      color:#d6dce4;
-    }
-
-    .status{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:6px 10px;
-      border-radius:999px;
-      font-size:11px;
-      font-weight:900;
-      border:1px solid transparent;
-      white-space:nowrap;
-    }
-
-    .available{background:rgba(34,197,94,.14);color:#96f0b3;border-color:rgba(34,197,94,.35)}
-    .protected{background:rgba(217,169,40,.17);color:#ffd96d;border-color:rgba(217,169,40,.35)}
-    .picked-once{background:rgba(229,209,74,.15);color:#fff28c;border-color:rgba(229,209,74,.35)}
-    .locked{background:rgba(239,68,68,.15);color:#ff9b9b;border-color:rgba(239,68,68,.35)}
-
-    .card-grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
-      gap:12px;
-    }
-
-    .rider-card{
-      background:linear-gradient(180deg, rgba(255,255,255,.02), transparent), var(--panel2);
-      border:1px solid var(--border);
-      border-radius:16px;
-      padding:14px;
-      cursor:pointer;
-      transition:.18s;
-    }
-
-    .rider-card:hover{
-      transform:translateY(-2px);
-      border-color:#46556a;
-    }
-
-    .rider-name{
-      font-size:16px;
-      font-weight:900;
-      margin-bottom:4px;
-    }
-
-    .rider-team{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.35;
-      min-height:34px;
-      margin-bottom:10px;
-    }
-
-    .chip{
-      display:inline-block;
-      padding:6px 8px;
-      border-radius:999px;
-      font-size:11px;
-      font-weight:800;
-      background:var(--panel3);
-      border:1px solid var(--border);
-      margin:2px 4px 2px 0;
-    }
-
-    .round-list{
-      display:grid;
-      gap:8px;
-    }
-
-    .round-item{
-      display:grid;
-      grid-template-columns:90px 1fr;
-      gap:10px;
-      padding:10px 0;
-      border-bottom:1px solid #222b36;
-    }
-
-    .round-item:last-child{border-bottom:0}
-
-    .assign-row{
-      display:grid;
-      grid-template-columns:1fr 1fr 1fr auto;
-      gap:10px;
-      margin-bottom:12px;
-    }
-
-    .two-col{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    }
-
-    .result-grid{
-      display:grid;
-      grid-template-columns:repeat(2,1fr);
-      gap:10px;
-    }
-
-    .result-slot{
-      display:grid;
-      grid-template-columns:65px 1fr;
-      gap:8px;
-      align-items:center;
-    }
-
-    .slot-label{
-      font-weight:900;
-      font-size:13px;
-      text-align:center;
-      background:var(--panel2);
-      border:1px solid var(--border);
-      border-radius:10px;
-      padding:11px 8px;
-    }
-
-    .popup{
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,.72);
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:16px;
-      z-index:999;
-    }
-
-    .popup.show{display:flex}
-
-    .popup-card{
-      width:min(560px,100%);
-      background:var(--panel);
-      border:1px solid var(--border);
-      border-radius:20px;
-      padding:18px;
-      box-shadow:var(--shadow);
-    }
-
-    .popup-top{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:flex-start;
-      margin-bottom:12px;
-    }
-
-    .close-x{
-      border:0;
-      background:transparent;
-      color:#fff;
-      font-size:24px;
-      cursor:pointer;
-      line-height:1;
-    }
-
-    .danger-zone{
-      border:1px solid rgba(239,68,68,.35);
-      background:rgba(239,68,68,.06);
-      border-radius:14px;
-      padding:14px;
-    }
-
-    .footer{
-      text-align:center;
-      color:var(--muted);
-      font-size:12px;
-      margin-top:16px;
-    }
-
-    @media (max-width:1000px){
-      .nav{grid-template-columns:repeat(2,1fr)}
-      .grid-2,.grid-3{grid-template-columns:1fr}
-      .stat-grid{grid-template-columns:repeat(2,1fr)}
-      .assign-row{grid-template-columns:1fr}
-      .result-grid{grid-template-columns:1fr}
-    }
-
-    @media (max-width:640px){
-      .hero h1{font-size:24px}
-      .stat-grid{grid-template-columns:1fr 1fr}
-      .round-item{grid-template-columns:70px 1fr}
-      .two-col{grid-template-columns:1fr}
-    }
   </style>
 </head>
 <body>
-  <div class="app">
-    <section class="hero">
-      <h1>Fantasy SuperMotocross League1</h1>
-      <p>450SX only • 10 teams • 2 riders per team • season-long points • snake draft • round 1 protected riders • round 2 duplicates max 2</p>
-    </section>
+<div class="app">
 
-    <nav class="nav">
-      <button type="button" class="tab-btn active" data-page="standingsPage">Standings</button>
-      <button type="button" class="tab-btn" data-page="draftPage">Draft Board</button>
-      <button type="button" class="tab-btn" data-page="resultsPage">Race Results</button>
-      <button type="button" class="tab-btn" data-page="settingsPage">Settings</button>
-    </nav>
+  <!-- HERO -->
 
-    <section id="standingsPage" class="page active">
-      <div class="grid-2">
-        <div class="panel">
-          <h2>Season Standings</h2>
-          <div class="scroll-x">
-            <table id="standingsTable">
-              <thead>
-                <tr>
-                  <th>Rank</th>
-                  <th>Team</th>
-                  <th>Rider 1</th>
-                  <th>Rider 2</th>
-                  <th>Total</th>
-                  <th>Latest Round</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="panel">
-          <h2>League Snapshot</h2>
-          <div class="stat-grid">
-            <div class="stat">
-              <div class="label">Teams</div>
-              <div class="value" id="statTeams">10</div>
-            </div>
-            <div class="stat">
-              <div class="label">Drafted Slots</div>
-              <div class="value" id="statDrafted">0</div>
-            </div>
-            <div class="stat">
-              <div class="label">Rounds Saved</div>
-              <div class="value" id="statResults">0</div>
-            </div>
-            <div class="stat">
-              <div class="label">Riders</div>
-              <div class="value" id="statRiders">27</div>
-            </div>
-          </div>
-
-          <div style="margin-top:14px">
-            <h3>Scoring</h3>
-            <div class="small">
-              1st 15 • 2nd 14 • 3rd 13 • 4th 12 • 5th 11 • 6th 10 • 7th 9 • 8th 8 • 9th 7 • 10th 6 • 11th 5 • 12th 4 • 13th 3 • 14th 2 • 15th–22nd 1
-              <br><br>
-              Holeshot +5 • Wildcard +15
-            </div>
-          </div>
-
-          <div style="margin-top:14px">
-            <h3>Rounds</h3>
-            <div id="scheduleList" class="round-list"></div>
-          </div>
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-top">
+        <div>
+          <h1 class="title">Fantasy <span>SuperMotocross</span> League</h1>
+          <p class="subtitle">2026 AMA Monster Energy Championship • 450SX only • 10 teams • 2 riders per team • 17 rounds • Snake draft • Holeshot +5 • Wildcard +15</p>
         </div>
       </div>
+    </div>
+  </section>
 
+  <!-- NAV -->
+
+  <nav class="nav">
+    <button class="tab-btn active" data-page="standingsPage">Standings</button>
+    <button class="tab-btn" data-page="draftPage">Draft Board</button>
+    <button class="tab-btn" data-page="resultsPage">Race Results</button>
+    <button class="tab-btn" data-page="settingsPage">Settings</button>
+  </nav>
+
+  <!-- ═══ STANDINGS PAGE ═══ -->
+
+  <section id="standingsPage" class="page active">
+    <div class="grid-2">
       <div class="panel">
-        <h2>Round-by-Round Totals</h2>
+        <h2>Season Standings</h2>
         <div class="scroll-x">
-          <table id="roundTotalsTable">
-            <thead></thead>
+          <table id="standingsTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Team</th>
+                <th>Rider 1</th>
+                <th>Rider 2</th>
+                <th>Total</th>
+                <th>Last Rnd</th>
+              </tr>
+            </thead>
             <tbody></tbody>
           </table>
         </div>
       </div>
-    </section>
 
-    <section id="draftPage" class="page">
-      <div class="grid-2">
-        <div class="panel">
-          <h2>Draft Controls</h2>
-          <div class="assign-row">
-            <select id="draftTeamSelect"></select>
-            <select id="draftRoundSelect">
-              <option value="1">Round 1</option>
-              <option value="2">Round 2</option>
-            </select>
-            <select id="draftRiderSelect"></select>
-            <button type="button" class="btn green" id="assignRiderBtn">Assign Rider</button>
-          </div>
-          <div class="toolbar">
-            <button type="button" class="btn secondary" id="resetDraftBtn">Clear Draft Only</button>
-          </div>
-          <div class="small">
-            Round 1 riders must be unique. Round 1 riders become Top 10 Protected. Round 2 cannot use protected riders. Round 2 riders can be drafted by a maximum of 2 teams.
-          </div>
-        </div>
-
-        <div class="panel">
-          <h2>Injury Replacement</h2>
-          <div class="assign-row">
-            <select id="injuryTeamSelect"></select>
-            <select id="injuryOriginalRiderSelect"></select>
-            <select id="injuryReplacementSelect"></select>
-            <button type="button" class="btn" id="addReplacementBtn">Add Replacement</button>
-          </div>
-          <div class="assign-row">
-            <select id="returnTeamSelect"></select>
-            <select id="returnOriginalRiderSelect"></select>
-            <div></div>
-            <button type="button" class="btn secondary" id="restoreRiderBtn">Restore Original</button>
-          </div>
-          <div class="small">
-            Replacement rider must be undrafted and available. When the original rider returns, switch back to the original rider.
-          </div>
-        </div>
+```
+  <div class="panel">
+    <h2>League Snapshot</h2>
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="label">Teams</div>
+        <div class="value" id="statTeams">10</div>
       </div>
+      <div class="stat">
+        <div class="label">Drafted</div>
+        <div class="value" id="statDrafted">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">Results In</div>
+        <div class="value" id="statResults">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">Cur. Round</div>
+        <div class="value" id="statRound">1</div>
+      </div>
+    </div>
 
+    <div style="margin-top:16px;">
+      <h3>Scoring</h3>
+      <div class="small">
+        1st = 15 &bull; 2nd = 14 &bull; 3rd = 13 &bull; 4th = 12 &bull; 5th = 11 &bull; 6th = 10 &bull; 7th = 9 &bull; 8th = 8 &bull; 9th = 7 &bull; 10th = 6 &bull; 11th = 5 &bull; 12th = 4 &bull; 13th = 3 &bull; 14th = 2 &bull; 15th–22nd = 1
+        <br><br>Holeshot = +5 &bull; Wildcard Finish = +15
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <h3>Round Schedule</h3>
+      <div id="scheduleList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Round-by-Round Totals</h2>
+  <div class="scroll-x">
+    <table id="roundTotalsTable">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+```
+
+  </section>
+
+  <!-- ═══ DRAFT BOARD PAGE ═══ -->
+
+  <section id="draftPage" class="page">
+    <div class="grid-2">
       <div class="panel">
-        <h2>Draft Board</h2>
+        <h2>Draft Controls</h2>
         <div class="toolbar">
-          <input id="riderSearch" placeholder="Search riders..." />
-          <select id="statusFilter">
-            <option value="ALL">All statuses</option>
-            <option value="AVAILABLE">Available</option>
-            <option value="TOP 10 PROTECTED">Top 10 Protected</option>
-            <option value="PICKED ONCE">Picked Once</option>
-            <option value="LOCKED">Locked</option>
+          <select id="draftTeamSelect"></select>
+          <select id="draftRoundSelect">
+            <option value="1">Round 1</option>
+            <option value="2">Round 2</option>
           </select>
+          <select id="draftRiderSelect"></select>
+          <button class="btn green" id="assignRiderBtn">Assign Rider</button>
         </div>
-        <div id="riderGrid" class="card-grid"></div>
-      </div>
-    </section>
-
-    <section id="resultsPage" class="page">
-      <div class="grid-2">
-        <div class="panel">
-          <h2>Results Admin</h2>
-          <div class="toolbar">
-            <select id="resultsRoundSelect"></select>
-            <input id="pdfUrlInput" placeholder="Paste AMA PDF URL here" />
-            <button type="button" class="btn secondary" id="openResultsSiteBtn">Results Site</button>
-          </div>
-
-          <div class="toolbar">
-            <button type="button" class="btn" id="parsePdfBtn">Auto-Parse PDF</button>
-            <button type="button" class="btn secondary" id="loadSampleBtn">Clear Entry</button>
-          </div>
-
-          <div class="small">
-            Supports standard race result PDFs and Triple Crown overall result PDFs.
-          </div>
-
-          <div style="margin-top:14px;">
-            <label class="small">Backup Manual Entry</label>
-            <div class="result-grid" id="manualPositionGrid"></div>
-          </div>
-
-          <div class="two-col" style="margin-top:12px;">
-            <div>
-              <label class="small">Holeshot Winner</label>
-              <select id="holeshotSelect"></select>
-              <div class="small" id="holeshotStatusNote" style="margin-top:6px;">Holeshot: Unknown — select manually if needed</div>
-            </div>
-            <div>
-              <label class="small">Wildcard Position</label>
-              <div style="display:flex; gap:8px;">
-                <input type="number" id="wildcardInput" min="10" max="22" value="10" />
-                <button type="button" class="btn secondary" id="randomizeWildcardBtn">Randomize</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="toolbar" style="margin-top:12px;">
-            <button type="button" class="btn green" id="submitResultsBtn">Submit Results</button>
-            <button type="button" class="btn red" id="deleteRoundResultsBtn">Delete Round</button>
-          </div>
+        <div class="toolbar">
+          <button class="btn secondary" id="resetDraftBtn">Clear Draft Only</button>
         </div>
-
-        <div class="panel">
-          <h2>Preview</h2>
-          <div id="resultsPreview" class="small">No results loaded yet.</div>
+        <div class="small">
+          <strong>Round 1:</strong> all 10 picks must be unique. Those riders become Top 10 Protected and cannot be drafted in round 2.<br>
+          <strong>Round 2:</strong> rider must not be from round 1 protected pool. A rider can be drafted by a maximum of 2 teams.
         </div>
       </div>
 
+```
+  <div class="panel">
+    <h2>Injury Replacement</h2>
+    <div class="toolbar">
+      <select id="injuryTeamSelect"></select>
+      <select id="injuryOriginalRiderSelect"></select>
+      <select id="injuryReplacementSelect"></select>
+      <button class="btn" id="addReplacementBtn">Add Replacement</button>
+    </div>
+    <div class="toolbar">
+      <select id="returnTeamSelect"></select>
+      <select id="returnOriginalRiderSelect"></select>
+      <button class="btn secondary" id="restoreRiderBtn">Restore Original</button>
+    </div>
+    <div class="small">
+      Replacement must come from undrafted available riders. When the original rider returns, the team switches back.
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Draft Board</h2>
+  <div class="toolbar">
+    <input id="riderSearch" placeholder="Search riders…" />
+    <select id="statusFilter">
+      <option value="ALL">All statuses</option>
+      <option value="AVAILABLE">Available</option>
+      <option value="TOP 10 PROTECTED">Top 10 Protected</option>
+      <option value="PICKED ONCE">Picked Once</option>
+      <option value="LOCKED">Locked</option>
+    </select>
+  </div>
+  <div id="riderGrid" class="card-grid"></div>
+</div>
+```
+
+  </section>
+
+  <!-- ═══ RESULTS PAGE ═══ -->
+
+  <section id="resultsPage" class="page">
+    <div class="grid-2">
       <div class="panel">
-        <h2>Round List</h2>
-        <div id="scheduleAdminList" class="round-list"></div>
-      </div>
-    </section>
-
-    <section id="settingsPage" class="page">
-      <div class="grid-2">
-        <div class="panel">
-          <h2>Team Names</h2>
-          <div id="teamNameInputs" class="grid-3"></div>
-          <div style="margin-top:12px;">
-            <button type="button" class="btn green" id="saveTeamsBtn">Save Team Names</button>
-          </div>
+        <h2>Results Admin</h2>
+        <div class="toolbar">
+          <select id="resultsRoundSelect"></select>
+          <input id="pdfUrlInput" placeholder="Paste AMA PDF URL here" />
+          <button class="btn secondary" id="openResultsSiteBtn">Open Results Site</button>
+        </div>
+        <div class="toolbar">
+          <button class="btn" id="parsePdfBtn">Auto-Parse PDF</button>
+        </div>
+        <div class="small" style="margin-bottom:14px;">
+          Auto-parse supports Format A (standard race result, detects holeshot) and Format B (triple crown overall, no holeshot detection). Uses pdf.js for text extraction.
         </div>
 
-        <div class="panel">
-          <h2>Draft Order</h2>
-          <div id="draftOrderInputs"></div>
-          <div style="margin-top:12px;">
-            <button type="button" class="btn green" id="saveDraftOrderBtn">Save Draft Order</button>
-          </div>
+```
+    <!-- ─── POSITION DROPDOWNS ─── -->
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h3 style="margin:0;">Finishing Order</h3>
+        <button class="btn secondary" id="clearPositionsBtn" style="font-size:12px;padding:6px 10px;">Clear All</button>
+      </div>
+      <div class="results-grid" id="resultsDropdowns"></div>
+    </div>
+
+    <!-- ─── HOLESHOT + WILDCARD ─── -->
+    <div class="two-col" style="margin-top:12px;">
+      <div>
+        <label class="small">Holeshot Winner</label>
+        <select id="holeshotSelect" style="margin-top:4px;"></select>
+        <div class="hs-note unknown" id="holeshotNote">Holeshot: Unknown — select manually if needed</div>
+      </div>
+      <div>
+        <label class="small">Wildcard Position (10–22)</label>
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <input type="number" id="wildcardInput" min="10" max="22" value="10" />
+          <button class="btn secondary" id="randomizeWildcardBtn" type="button">Rand</button>
         </div>
       </div>
+    </div>
 
-      <div class="panel danger-zone">
-        <h2>Reset / Clear All</h2>
-        <div class="small" style="margin-bottom:12px;">
-          This wipes all saved data.
-        </div>
-        <button type="button" class="btn red" id="clearAllBtn">RESET ALL DATA</button>
-      </div>
-    </section>
-
-    <div class="footer">
-      Fantasy SuperMotocross League
+    <div class="toolbar" style="margin-top:14px;">
+      <button class="btn green" id="submitResultsBtn">Submit Results</button>
+      <button class="btn red" id="deleteRoundResultsBtn">Delete Round</button>
     </div>
   </div>
 
-  <div class="popup" id="riderPopup">
-    <div class="popup-card">
-      <div class="popup-top">
-        <div>
-          <h2 id="popupRiderName" style="margin:0 0 6px;"></h2>
-          <div id="popupRiderTeam" class="muted"></div>
+  <div class="panel">
+    <h2>Preview</h2>
+    <div id="resultsPreview" class="small">No results loaded yet.</div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Round Schedule</h2>
+  <div id="scheduleAdminList"></div>
+</div>
+```
+
+  </section>
+
+  <!-- ═══ SETTINGS PAGE ═══ -->
+
+  <section id="settingsPage" class="page">
+    <div class="grid-2">
+      <div class="panel">
+        <h2>Team Names</h2>
+        <div id="teamNameInputs" class="grid-3"></div>
+        <div style="margin-top:14px;">
+          <button class="btn green" id="saveTeamsBtn">Save Team Names</button>
         </div>
-        <button type="button" class="close-x" id="closePopupBtn">&times;</button>
       </div>
-      <div id="popupContent"></div>
+
+```
+  <div class="panel">
+    <h2>Draft Order</h2>
+    <div id="draftOrderInputs"></div>
+    <div style="margin-top:12px;">
+      <button class="btn green" id="saveDraftOrderBtn">Save Draft Order</button>
     </div>
   </div>
+</div>
 
-  <script>
-    const STORAGE_KEY = "fantasySuperMotoLeague_v3";
+<div class="panel danger-zone">
+  <h2>Reset / Clear All</h2>
+  <div class="small" style="margin-bottom:12px;">
+    This wipes all saved data — draft picks, replacements, team names, results, standings, and settings.
+  </div>
+  <button class="btn red" id="clearAllBtn">RESET ALL DATA</button>
+</div>
+```
 
-    const DEFAULT_STATE = {
-      meta: {
-        season: 2026,
-        totalRounds: 17
-      },
-      teams: [
-        { id: 1, name: "Jaren" },
-        { id: 2, name: "Savannah" },
-        { id: 3, name: "Jaycee" },
-        { id: 4, name: "Maisy" },
-        { id: 5, name: "Grandpa" },
-        { id: 6, name: "Grandma" },
-        { id: 7, name: "Parker" },
-        { id: 8, name: "Josie" },
-        { id: 9, name: "Kennedy" },
-        { id: 10, name: "John" }
-      ],
-      draftOrder: [1,2,3,4,5,6,7,8,9,10],
-      riders: [
-        { id: 1, name: "Hunter Lawrence", realTeam: "Honda HRC Progressive" },
-        { id: 2, name: "Cooper Webb", realTeam: "Monster Energy Yamaha Star Racing" },
-        { id: 3, name: "Ken Roczen", realTeam: "Twisted Tea Suzuki" },
-        { id: 4, name: "Chase Sexton", realTeam: "Monster Energy Kawasaki" },
-        { id: 5, name: "Eli Tomac", realTeam: "Red Bull KTM Factory Racing" },
-        { id: 6, name: "Jorge Prado", realTeam: "Red Bull KTM Factory Racing" },
-        { id: 7, name: "Justin Hill", realTeam: "Team Tedder Racing KTM" },
-        { id: 8, name: "Dylan Ferrandis", realTeam: "Troy Lee Designs Red Bull Ducati" },
-        { id: 9, name: "Justin Cooper", realTeam: "Monster Energy Yamaha Star Racing" },
-        { id: 10, name: "Aaron Plessinger", realTeam: "Red Bull KTM Factory Racing" },
-        { id: 11, name: "Garrett Marchbanks", realTeam: "Monster Energy Kawasaki" },
-        { id: 12, name: "Colt Nichols", realTeam: "Twisted Tea Suzuki" },
-        { id: 13, name: "Shane McElrath", realTeam: "Quadlock Honda Racing" },
-        { id: 14, name: "Dean Wilson", realTeam: "Quadlock Honda Racing" },
-        { id: 15, name: "Christian Craig", realTeam: "Quadlock Honda Racing" },
-        { id: 16, name: "Joey Savatgy", realTeam: "Quadlock Honda Racing" },
-        { id: 17, name: "Malcolm Stewart", realTeam: "Rockstar Energy Husqvarna" },
-        { id: 18, name: "Jason Anderson", realTeam: "Twisted Tea Suzuki" },
-        { id: 19, name: "RJ Hampshire", realTeam: "Rockstar Energy Husqvarna" },
-        { id: 20, name: "Jordon Smith", realTeam: "Triumph Factory Racing" },
-        { id: 21, name: "Austin Forkner", realTeam: "Triumph Factory Racing" },
-        { id: 22, name: "Tristan Lane", realTeam: "Privateer Yamaha" },
-        { id: 23, name: "Freddie Noren", realTeam: "Privateer Yamaha" },
-        { id: 24, name: "Kevin Moranz", realTeam: "Champion Tool Storage KMR KTM" },
-        { id: 25, name: "Vince Friese", realTeam: "Privateer Kawasaki" },
-        { id: 26, name: "Mitchell Harrison", realTeam: "Partzilla Blaster PRMX Kawasaki" },
-        { id: 27, name: "Justin Barcia", realTeam: "Troy Lee Designs Red Bull Ducati" }
-      ],
-      draftPicks: [],
-      replacements: [],
-      roundResults: {},
-      settings: {
-        resultsSourceUrl: "https://www.supermotocross.com/results"
-      }
-    };
+  </section>
 
-    const ROUND_SCHEDULE = Array.from({length:17}, (_,i) => ({ round: i + 1 }));
+  <div class="footer-note">Fantasy SuperMotocross League v2 • Single-file local storage build</div>
+</div>
 
-    function deepClone(obj){
-      return JSON.parse(JSON.stringify(obj));
-    }
+<!-- ─── RIDER POPUP ─── -->
 
-    function mergeDeep(defaults, saved){
-      const out = deepClone(defaults);
-      if(saved && typeof saved === "object"){
-        Object.keys(saved).forEach(key => {
-          if(Array.isArray(saved[key])){
-            out[key] = saved[key];
-          } else if(saved[key] && typeof saved[key] === "object" && !Array.isArray(saved[key]) && out[key] && typeof out[key] === "object" && !Array.isArray(out[key])){
-            out[key] = { ...out[key], ...saved[key] };
-          } else {
-            out[key] = saved[key];
-          }
-        });
-      }
-      return out;
-    }
+<div class="popup" id="riderPopup">
+  <div class="popup-card">
+    <div class="popup-head">
+      <div>
+        <div id="popupRiderName" style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:24px;margin-bottom:4px;"></div>
+        <div id="popupRiderTeam" class="muted" style="font-size:13px;"></div>
+      </div>
+      <button class="close-x" id="closePopupBtn">&times;</button>
+    </div>
+    <div id="popupContent"></div>
+  </div>
+</div>
 
-    function loadState(){
-      try{
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if(!raw) return deepClone(DEFAULT_STATE);
-        const parsed = JSON.parse(raw);
-        return mergeDeep(DEFAULT_STATE, parsed);
-      }catch(e){
-        return deepClone(DEFAULT_STATE);
-      }
-    }
+<script>
+// ═══════════════════════════════════════════════════
+//  STATE & STORAGE
+// ═══════════════════════════════════════════════════
+const STORAGE_KEY = "fantasySmxLeague_v2";
 
-    let state = loadState();
+const DEFAULT_STATE = {
+  meta: { currentRound: 1, season: 2026, totalRounds: 17 },
+  teams: [
+    { id:1, name:"Jaren" },{ id:2, name:"Savannah" },{ id:3, name:"Jaycee" },
+    { id:4, name:"Maisy" },{ id:5, name:"Grandpa" },{ id:6, name:"Grandma" },
+    { id:7, name:"Parker" },{ id:8, name:"Josie" },{ id:9, name:"Kennedy" },
+    { id:10, name:"John" }
+  ],
+  draftOrder: [1,2,3,4,5,6,7,8,9,10],
+  riders: [
+    { id:1,  name:"Hunter Lawrence",   realTeam:"Honda HRC Progressive" },
+    { id:2,  name:"Cooper Webb",        realTeam:"Monster Energy Yamaha Star Racing" },
+    { id:3,  name:"Ken Roczen",         realTeam:"Twisted Tea Suzuki" },
+    { id:4,  name:"Chase Sexton",       realTeam:"Monster Energy Kawasaki" },
+    { id:5,  name:"Eli Tomac",          realTeam:"Red Bull KTM Factory Racing" },
+    { id:6,  name:"Jorge Prado",        realTeam:"Red Bull KTM Factory Racing" },
+    { id:7,  name:"Justin Hill",        realTeam:"Team Tedder Racing KTM" },
+    { id:8,  name:"Dylan Ferrandis",    realTeam:"Troy Lee Designs Red Bull Ducati" },
+    { id:9,  name:"Justin Cooper",      realTeam:"Monster Energy Yamaha Star Racing" },
+    { id:10, name:"Aaron Plessinger",   realTeam:"Red Bull KTM Factory Racing" },
+    { id:11, name:"Garrett Marchbanks", realTeam:"Monster Energy Kawasaki" },
+    { id:12, name:"Colt Nichols",       realTeam:"Twisted Tea Suzuki" },
+    { id:13, name:"Shane McElrath",     realTeam:"Quadlock Honda Racing" },
+    { id:14, name:"Dean Wilson",        realTeam:"Quadlock Honda Racing" },
+    { id:15, name:"Christian Craig",    realTeam:"Quadlock Honda Racing" },
+    { id:16, name:"Joey Savatgy",       realTeam:"Quadlock Honda Racing" },
+    { id:17, name:"Malcolm Stewart",    realTeam:"Rockstar Energy Husqvarna" },
+    { id:18, name:"Jason Anderson",     realTeam:"Twisted Tea Suzuki" },
+    { id:19, name:"RJ Hampshire",       realTeam:"Rockstar Energy Husqvarna" },
+    { id:20, name:"Justin Barcia",      realTeam:"Troy Lee Designs Red Bull Ducati" },
+    { id:21, name:"Jordon Smith",       realTeam:"Triumph Factory Racing" },
+    { id:22, name:"Austin Forkner",     realTeam:"Triumph Factory Racing" },
+    { id:23, name:"Tristan Lane",       realTeam:"Privateer Yamaha" },
+    { id:24, name:"Freddie Noren",      realTeam:"Privateer Yamaha" },
+    { id:25, name:"Kevin Moranz",       realTeam:"Champion Tool Storage KMR KTM" },
+    { id:26, name:"Vince Friese",       realTeam:"Privateer Kawasaki" },
+    { id:27, name:"Mitchell Harrison",  realTeam:"Partzilla Blaster PRMX Kawasaki" }
+  ],
+  draftPicks: [],
+  replacements: [],
+  roundResults: {},
+  settings: { resultsSourceUrl: "https://www.supercrosslive.com/results/" }
+};
 
-    function saveState(){
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
+const ROUND_SCHEDULE = Array.from({length:17}, (_,i) => ({ round: i+1 }));
 
-    function riderById(id){
-      return state.riders.find(r => r.id === Number(id));
-    }
+let state = loadState();
 
-    function teamById(id){
-      return state.teams.find(t => t.id === Number(id));
-    }
+function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
+function loadState(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return deepClone(DEFAULT_STATE);
+    const parsed = JSON.parse(raw);
+    const base = deepClone(DEFAULT_STATE);
+    return Object.assign(base, parsed);
+  } catch(e){ return deepClone(DEFAULT_STATE); }
+}
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function riderById(id){ return state.riders.find(r => r.id === Number(id)); }
+function teamById(id){ return state.teams.find(t => t.id === Number(id)); }
 
-    function escapeHtml(str){
-      return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-    }
+// ═══════════════════════════════════════════════════
+//  DRAFT LOGIC
+// ═══════════════════════════════════════════════════
+function getTop10ProtectedIds(){ return state.draftPicks.filter(p => p.round===1).map(p => p.riderId); }
+function getRound2Count(riderId){ return state.draftPicks.filter(p => p.round===2 && p.riderId===riderId).length; }
+function getRiderAssignments(riderId){
+  return state.draftPicks.filter(p => p.riderId===riderId).map(p => ({
+    teamName: teamById(p.teamId)?.name || "Unknown", round: p.round
+  }));
+}
+function getRiderStatus(riderId){
+  const protected_ = getTop10ProtectedIds();
+  if(protected_.includes(riderId)) return "TOP 10 PROTECTED";
+  const cnt = getRound2Count(riderId);
+  if(cnt===1) return "PICKED ONCE";
+  if(cnt>=2) return "LOCKED";
+  return "AVAILABLE";
+}
+function getRiderStatusClass(s){
+  if(s==="AVAILABLE") return "available";
+  if(s==="TOP 10 PROTECTED") return "protected";
+  if(s==="PICKED ONCE") return "picked-once";
+  if(s==="LOCKED") return "locked";
+  return "";
+}
+function getUndraftedAvailableRiders(){
+  const drafted = new Set(state.draftPicks.map(p => p.riderId));
+  const activeRep = new Set(state.replacements.filter(r => r.active).map(r => r.replacementRiderId));
+  return state.riders.filter(r => !drafted.has(r.id) && !activeRep.has(r.id));
+}
+function getTeamCurrentRiders(teamId){
+  const reps = state.replacements.filter(r => r.teamId===teamId && r.active);
+  const picks = state.draftPicks.filter(p => p.teamId===teamId).sort((a,b)=>a.round-b.round);
+  return picks.slice(0,2).map(pick => {
+    const rep = reps.find(r => r.originalRiderId===pick.riderId);
+    return rep
+      ? { riderId:rep.replacementRiderId, displayName:riderById(rep.replacementRiderId)?.name||"Unknown", isReplacement:true }
+      : { riderId:pick.riderId, displayName:riderById(pick.riderId)?.name||"Unknown", isReplacement:false };
+  });
+}
+function getTeamOriginalRiders(teamId){
+  return state.draftPicks.filter(p=>p.teamId===teamId).sort((a,b)=>a.round-b.round).map(p=>riderById(p.riderId)).filter(Boolean);
+}
+function getRoundOrder(round){ return round===1 ? [...state.draftOrder] : [...state.draftOrder].reverse(); }
 
-    function pointsForFinish(pos){
-      pos = Number(pos);
-      if(pos === 1) return 15;
-      if(pos === 2) return 14;
-      if(pos === 3) return 13;
-      if(pos === 4) return 12;
-      if(pos === 5) return 11;
-      if(pos === 6) return 10;
-      if(pos === 7) return 9;
-      if(pos === 8) return 8;
-      if(pos === 9) return 7;
-      if(pos === 10) return 6;
-      if(pos === 11) return 5;
-      if(pos === 12) return 4;
-      if(pos === 13) return 3;
-      if(pos === 14) return 2;
-      if(pos >= 15 && pos <= 22) return 1;
-      return 0;
-    }
-
-    function getTop10ProtectedRiderIds(){
-      return state.draftPicks.filter(p => p.round === 1).map(p => p.riderId);
-    }
-
-    function getRound2PickCount(riderId){
-      return state.draftPicks.filter(p => p.round === 2 && p.riderId === riderId).length;
-    }
-
-    function getRiderAssignments(riderId){
-      return state.draftPicks
-        .filter(p => p.riderId === riderId)
-        .map(p => ({
-          teamName: teamById(p.teamId)?.name || "Unknown",
-          round: p.round
-        }));
-    }
-
-    function getRiderStatus(riderId){
-      const protectedIds = getTop10ProtectedRiderIds();
-      if(protectedIds.includes(riderId)) return "TOP 10 PROTECTED";
-      const round2Count = getRound2PickCount(riderId);
-      if(round2Count === 1) return "PICKED ONCE";
-      if(round2Count >= 2) return "LOCKED";
-      return "AVAILABLE";
-    }
-
-    function getRiderStatusClass(status){
-      if(status === "AVAILABLE") return "available";
-      if(status === "TOP 10 PROTECTED") return "protected";
-      if(status === "PICKED ONCE") return "picked-once";
-      if(status === "LOCKED") return "locked";
-      return "";
-    }
-
-    function getTeamOriginalRiders(teamId){
-      return state.draftPicks
-        .filter(p => p.teamId === teamId)
-        .sort((a,b) => a.round - b.round)
-        .map(p => riderById(p.riderId))
-        .filter(Boolean);
-    }
-
-    function getUndraftedAvailableRiders(){
-      const draftedRiderIds = new Set(state.draftPicks.map(p => p.riderId));
-      const activeReplacementIds = new Set(state.replacements.filter(r => r.active).map(r => r.replacementRiderId));
-      return state.riders.filter(r => !draftedRiderIds.has(r.id) && !activeReplacementIds.has(r.id));
-    }
-
-    function getTeamCurrentRiders(teamId){
-      const replacements = state.replacements.filter(r => r.teamId === teamId && r.active);
-      const basePicks = state.draftPicks
-        .filter(p => p.teamId === teamId)
-        .sort((a,b) => a.round - b.round);
-
-      const riders = [];
-      for(const pick of basePicks){
-        const replacement = replacements.find(rep => rep.originalRiderId === pick.riderId);
-        if(replacement){
-          riders.push({
-            riderId: replacement.replacementRiderId,
-            displayName: riderById(replacement.replacementRiderId)?.name || "Unknown",
-            originalRiderId: pick.riderId,
-            isReplacement: true
-          });
-        }else{
-          riders.push({
-            riderId: pick.riderId,
-            displayName: riderById(pick.riderId)?.name || "Unknown",
-            originalRiderId: pick.riderId,
-            isReplacement: false
-          });
+// ═══════════════════════════════════════════════════
+//  SCORING
+// ═══════════════════════════════════════════════════
+function pointsForFinish(pos){
+  pos = Number(pos);
+  const table = [0,15,14,13,12,11,10,9,8,7,6,5,4,3,2];
+  if(pos>=1 && pos<=14) return table[pos];
+  if(pos>=15 && pos<=22) return 1;
+  return 0;
+}
+function recalcAllRoundPoints(){
+  Object.keys(state.roundResults).forEach(rk => {
+    const rr = state.roundResults[rk];
+    if(!rr?.positions) return;
+    const tp = {};
+    state.teams.forEach(team => {
+      let total = 0;
+      getTeamCurrentRiders(team.id).forEach(slot => {
+        const finish = rr.positions[slot.riderId];
+        if(finish){
+          total += pointsForFinish(finish);
+          if(rr.holeshotRiderId===slot.riderId) total += 5;
+          if(Number(rr.wildcardPosition)===Number(finish)) total += 15;
         }
-      }
-      return riders.slice(0,2);
-    }
-
-    function computeStandings(){
-      const result = state.teams.map(team => {
-        let total = 0;
-        let latestRound = 0;
-        const roundTotals = {};
-
-        Object.keys(state.roundResults).forEach(rnd => {
-          const roundNum = Number(rnd);
-          const rr = state.roundResults[rnd];
-          const teamPoints = rr.teamPoints?.[team.id] || 0;
-          roundTotals[roundNum] = teamPoints;
-          total += teamPoints;
-          if(rr.submitted) latestRound = Math.max(latestRound, roundNum);
-        });
-
-        return {
-          teamId: team.id,
-          teamName: team.name,
-          riders: getTeamCurrentRiders(team.id),
-          total,
-          latestRound,
-          roundTotals
-        };
       });
-
-      result.sort((a,b) => b.total - a.total || a.teamName.localeCompare(b.teamName));
-      return result;
-    }
-
-    function recalcAllRoundPoints(){
-      Object.keys(state.roundResults).forEach(roundKey => {
-        const rr = state.roundResults[roundKey];
-        if(!rr || !rr.positions) return;
-
-        const teamPoints = {};
-        state.teams.forEach(team => {
-          const riders = getTeamCurrentRiders(team.id);
-          let total = 0;
-          riders.forEach(slot => {
-            const finish = rr.positions[slot.riderId];
-            if(finish){
-              total += pointsForFinish(finish);
-              if(rr.holeshotRiderId === slot.riderId) total += 5;
-              if(Number(rr.wildcardPosition) === Number(finish)) total += 15;
-            }
-          });
-          teamPoints[team.id] = total;
-        });
-
-        rr.teamPoints = teamPoints;
-      });
-      saveState();
-    }
-
-    function renderSchedule(){
-      const html = ROUND_SCHEDULE.map(r => `
-        <div class="round-item">
-          <div><strong>Rnd ${r.round}</strong></div>
-          <div></div>
-        </div>
-      `).join("");
-
-      document.getElementById("scheduleList").innerHTML = html;
-      document.getElementById("scheduleAdminList").innerHTML = html;
-    }
-
-    function renderStats(){
-      document.getElementById("statTeams").textContent = state.teams.length;
-      document.getElementById("statDrafted").textContent = state.draftPicks.length;
-      document.getElementById("statResults").textContent = Object.keys(state.roundResults).length;
-      document.getElementById("statRiders").textContent = state.riders.length;
-    }
-
-    function renderStandings(){
-      const tbody = document.querySelector("#standingsTable tbody");
-      const standings = computeStandings();
-
-      tbody.innerHTML = standings.map((s, idx) => {
-        const rider1 = s.riders[0]?.displayName || "—";
-        const rider2 = s.riders[1]?.displayName || "—";
-        const latest = s.latestRound ? `Rnd ${s.latestRound}` : "—";
-
-        return `
-          <tr>
-            <td><strong>${idx + 1}</strong></td>
-            <td><strong>${escapeHtml(s.teamName)}</strong></td>
-            <td>${escapeHtml(rider1)}</td>
-            <td>${escapeHtml(rider2)}</td>
-            <td><strong>${s.total}</strong></td>
-            <td>${latest}</td>
-          </tr>
-        `;
-      }).join("");
-    }
-
-    function renderRoundTotals(){
-      const tableHead = document.querySelector("#roundTotalsTable thead");
-      const tableBody = document.querySelector("#roundTotalsTable tbody");
-      const standings = computeStandings();
-      const rounds = ROUND_SCHEDULE.map(r => r.round);
-
-      tableHead.innerHTML = `
-        <tr>
-          <th>Team</th>
-          ${rounds.map(r => `<th>R${r}</th>`).join("")}
-          <th>Total</th>
-        </tr>
-      `;
-
-      tableBody.innerHTML = standings.map(s => `
-        <tr>
-          <td><strong>${escapeHtml(s.teamName)}</strong></td>
-          ${rounds.map(r => `<td>${s.roundTotals[r] ?? 0}</td>`).join("")}
-          <td><strong>${s.total}</strong></td>
-        </tr>
-      `).join("");
-    }
-
-    function renderDraftControls(){
-      const teamOptions = state.teams.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
-
-      document.getElementById("draftTeamSelect").innerHTML = `<option value="">Select Team</option>${teamOptions}`;
-      document.getElementById("injuryTeamSelect").innerHTML = `<option value="">Select Team</option>${teamOptions}`;
-      document.getElementById("returnTeamSelect").innerHTML = `<option value="">Select Team</option>${teamOptions}`;
-
-      const riderOptions = state.riders
-        .slice()
-        .sort((a,b) => a.name.localeCompare(b.name))
-        .map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`)
-        .join("");
-
-      document.getElementById("draftRiderSelect").innerHTML = `<option value="">Select Rider</option>${riderOptions}`;
-      document.getElementById("holeshotSelect").innerHTML = `<option value="">Unknown</option>${riderOptions}`;
-
-      renderInjurySelectors();
-    }
-
-    function renderInjurySelectors(){
-      const injuryTeamId = Number(document.getElementById("injuryTeamSelect").value || 0);
-      const returnTeamId = Number(document.getElementById("returnTeamSelect").value || 0);
-
-      const injuryOriginal = document.getElementById("injuryOriginalRiderSelect");
-      const injuryReplacement = document.getElementById("injuryReplacementSelect");
-      const returnOriginal = document.getElementById("returnOriginalRiderSelect");
-
-      const availableReplacementOptions = getUndraftedAvailableRiders()
-        .slice()
-        .sort((a,b) => a.name.localeCompare(b.name))
-        .map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`)
-        .join("");
-
-      injuryReplacement.innerHTML = `<option value="">Select Replacement Rider</option>${availableReplacementOptions}`;
-
-            if(injuryTeamId){
-        const originals = getTeamOriginalRiders(injuryTeamId)
-          .map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`)
-          .join("");
-        injuryOriginal.innerHTML = `<option value="">Select Original Rider</option>${originals}`;
-      }else{
-        injuryOriginal.innerHTML = `<option value="">Select Original Rider</option>`;
-      }
-
-      if(returnTeamId){
-        const activeReps = state.replacements
-          .filter(r => r.teamId === returnTeamId && r.active)
-          .map(r => {
-            const original = riderById(r.originalRiderId);
-            const replacement = riderById(r.replacementRiderId);
-            return `<option value="${r.originalRiderId}">${escapeHtml(original?.name || "Unknown")} → ${escapeHtml(replacement?.name || "Unknown")}</option>`;
-          })
-          .join("");
-        returnOriginal.innerHTML = `<option value="">Select Active Replacement</option>${activeReps}`;
-      }else{
-        returnOriginal.innerHTML = `<option value="">Select Active Replacement</option>`;
-      }
-    }
-
-    function renderRiderGrid(){
-      const search = (document.getElementById("riderSearch")?.value || "").trim().toLowerCase();
-      const filter = document.getElementById("statusFilter")?.value || "ALL";
-      const riderGrid = document.getElementById("riderGrid");
-
-      const filtered = state.riders
-        .slice()
-        .sort((a,b) => a.name.localeCompare(b.name))
-        .filter(r => {
-          const status = getRiderStatus(r.id);
-          const matchesSearch = !search || r.name.toLowerCase().includes(search) || r.realTeam.toLowerCase().includes(search);
-          const matchesStatus = filter === "ALL" || status === filter;
-          return matchesSearch && matchesStatus;
-        });
-
-      riderGrid.innerHTML = filtered.map(r => {
-        const status = getRiderStatus(r.id);
-        return `
-          <div class="rider-card" data-rider-id="${r.id}">
-            <div class="rider-name">${escapeHtml(r.name)}</div>
-            <div class="rider-team">${escapeHtml(r.realTeam)}</div>
-            <span class="status ${getRiderStatusClass(status)}">${status}</span>
-          </div>
-        `;
-      }).join("");
-
-      document.querySelectorAll(".rider-card").forEach(card => {
-        card.onclick = () => openRiderPopup(Number(card.dataset.riderId));
-      });
-    }
-
-    function openRiderPopup(riderId){
-      const rider = riderById(riderId);
-      const assignments = getRiderAssignments(riderId);
-      const status = getRiderStatus(riderId);
-
-      document.getElementById("popupRiderName").textContent = rider.name;
-      document.getElementById("popupRiderTeam").textContent = rider.realTeam;
-      document.getElementById("popupContent").innerHTML = `
-        <div style="margin-bottom:10px;">
-          <span class="status ${getRiderStatusClass(status)}">${status}</span>
-        </div>
-        <div class="small" style="margin-bottom:8px;"><strong>Fantasy Teams:</strong></div>
-        <div>
-          ${assignments.length
-            ? assignments.map(a => `<span class="chip">${escapeHtml(a.teamName)} • Round ${a.round}</span>`).join("")
-            : '<span class="muted">Not drafted</span>'}
-        </div>
-      `;
-      document.getElementById("riderPopup").classList.add("show");
-    }
-
-    function closePopup(){
-      document.getElementById("riderPopup").classList.remove("show");
-    }
-
-    function renderManualPositionGrid(){
-      const wrap = document.getElementById("manualPositionGrid");
-      if(!wrap) return;
-
-      const riderOptions = ['<option value="">Select rider</option>']
-        .concat(
-          state.riders
-            .slice()
-            .sort((a,b) => a.name.localeCompare(b.name))
-            .map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`)
-        )
-        .join("");
-
-      wrap.innerHTML = Array.from({length:22}, (_,i) => `
-        <div class="result-slot">
-          <div class="slot-label">${i + 1}</div>
-          <select id="pos_${i + 1}" onchange="updateResultsPreview()">
-            ${riderOptions}
-          </select>
-        </div>
-      `).join("");
-    }
-
-    function renderResultsPage(){
-      const currentRoundValue = document.getElementById("resultsRoundSelect")?.value || "1";
-      const roundOptions = ROUND_SCHEDULE.map(r => {
-        const saved = state.roundResults[r.round] ? " • Saved" : "";
-        return `<option value="${r.round}">Round ${r.round}${saved}</option>`;
-      }).join("");
-      document.getElementById("resultsRoundSelect").innerHTML = roundOptions;
-
-      const stillExists = ROUND_SCHEDULE.some(r => String(r.round) === String(currentRoundValue));
-      document.getElementById("resultsRoundSelect").value = stillExists ? currentRoundValue : "1";
-
-      updateResultsPreview();
-    }
-
-    function renderSettingsPage(){
-      const teamWrap = document.getElementById("teamNameInputs");
-      teamWrap.innerHTML = state.teams.map(team => `
-        <div>
-          <label class="small">Team ${team.id}</label>
-          <input class="team-name-input" data-team-id="${team.id}" value="${escapeHtml(team.name)}" />
-        </div>
-      `).join("");
-
-      const draftWrap = document.getElementById("draftOrderInputs");
-      draftWrap.innerHTML = state.draftOrder.map((teamId, index) => `
-        <div style="display:grid; grid-template-columns:80px 1fr; gap:10px; align-items:center; margin-bottom:10px;">
-          <div><strong>Pick ${index + 1}</strong></div>
-          <select class="draft-order-select" data-slot="${index}">
-            ${state.teams.map(t => `<option value="${t.id}" ${t.id === teamId ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("")}
-          </select>
-        </div>
-      `).join("");
-    }
-
-    function renderAll(){
-      renderSchedule();
-      renderStandings();
-      renderRoundTotals();
-      renderDraftControls();
-      renderRiderGrid();
-      renderManualPositionGrid();
-      renderResultsPage();
-      renderSettingsPage();
-      renderStats();
-    }
-
-    function validateDraftAssignment(teamId, round, riderId){
-      if(!teamId || !round || !riderId) return "Select team, round, and rider.";
-
-      const teamPicksThisRound = state.draftPicks.filter(p => p.teamId === teamId && p.round === round).length;
-      if(teamPicksThisRound >= 1) return `This team already has a Round ${round} pick.`;
-
-      if(round === 1){
-        const alreadyPicked = state.draftPicks.some(p => p.riderId === riderId);
-        if(alreadyPicked) return "Round 1 riders must be unique.";
-      }
-
-      if(round === 2){
-        const protectedIds = getTop10ProtectedRiderIds();
-        if(protectedIds.includes(riderId)) return "Round 1 protected riders cannot be picked in Round 2.";
-        const alreadyByTeam = state.draftPicks.some(p => p.teamId === teamId && p.riderId === riderId);
-        if(alreadyByTeam) return "A team cannot draft the same rider twice.";
-        const count = getRound2PickCount(riderId);
-        if(count >= 2) return "This Round 2 rider is already locked after being picked twice.";
-      }
-
-      return "";
-    }
-
-    function assignRider(){
-      const teamId = Number(document.getElementById("draftTeamSelect").value);
-      const round = Number(document.getElementById("draftRoundSelect").value);
-      const riderId = Number(document.getElementById("draftRiderSelect").value);
-
-      const error = validateDraftAssignment(teamId, round, riderId);
-      if(error){
-        alert(error);
-        return;
-      }
-
-      state.draftPicks.push({ teamId, round, riderId });
-      saveState();
-      recalcAllRoundPoints();
-      renderAll();
-    }
-
-    function clearDraftOnly(){
-      if(!confirm("Clear all draft picks and replacements?")) return;
-      state.draftPicks = [];
-      state.replacements = [];
-      saveState();
-      recalcAllRoundPoints();
-      renderAll();
-    }
-
-    function addReplacement(){
-      const teamId = Number(document.getElementById("injuryTeamSelect").value);
-      const originalRiderId = Number(document.getElementById("injuryOriginalRiderSelect").value);
-      const replacementRiderId = Number(document.getElementById("injuryReplacementSelect").value);
-
-      if(!teamId || !originalRiderId || !replacementRiderId){
-        alert("Select team, original rider, and replacement rider.");
-        return;
-      }
-
-      const existing = state.replacements.find(r => r.teamId === teamId && r.originalRiderId === originalRiderId && r.active);
-      if(existing){
-        alert("This rider already has an active replacement.");
-        return;
-      }
-
-      const available = getUndraftedAvailableRiders().some(r => r.id === replacementRiderId);
-      if(!available){
-        alert("Replacement rider must be from currently undrafted available riders.");
-        return;
-      }
-
-      state.replacements.push({
-        teamId,
-        originalRiderId,
-        replacementRiderId,
-        active: true
-      });
-
-      saveState();
-      recalcAllRoundPoints();
-      renderAll();
-    }
-
-    function restoreOriginalRider(){
-      const teamId = Number(document.getElementById("returnTeamSelect").value);
-      const originalRiderId = Number(document.getElementById("returnOriginalRiderSelect").value);
-
-      const rep = state.replacements.find(r => r.teamId === teamId && r.originalRiderId === originalRiderId && r.active);
-      if(!rep){
-        alert("No active replacement found.");
-        return;
-      }
-
-      rep.active = false;
-      saveState();
-      recalcAllRoundPoints();
-      renderAll();
-    }
-
-    async function extractPdfText(url){
-      if (!window.pdfjsLib) {
-        throw new Error("PDF library failed to load.");
-      }
-
-      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js";
-
-      const loadingTask = pdfjsLib.getDocument(url);
-      const pdf = await loadingTask.promise;
-      let fullText = "";
-
-      for(let pageNum = 1; pageNum <= pdf.numPages; pageNum++){
-        const page = await pdf.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(" ");
-        fullText += "\n" + pageText;
-      }
-
-      return fullText;
-    }
-
-    function normalizeName(str){
-      return str
-        .replace(/\(HS\)/gi, "")
-        .replace(/[^\w\s]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .toLowerCase();
-    }
-
-    function parseStandardRacePdf(text){
-      const positions = {};
-      let holeshotRiderId = null;
-
-      for(const rider of state.riders){
-        const escaped = rider.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-        const posRegex = new RegExp(`\\b(\\d{1,2})\\b\\s+\\d+\\s+${escaped}\\b`, "i");
-        const posMatch = text.match(posRegex);
-
-        if(posMatch){
-          const pos = Number(posMatch[1]);
-          if(pos >= 1 && pos <= 22){
-            positions[rider.id] = pos;
-          }
-        }
-
-        const hsRegex = new RegExp(`${escaped}\\s*\$begin:math:text$HS\\$end:math:text$`, "i");
-        if(hsRegex.test(text)){
-          holeshotRiderId = rider.id;
-        }
-      }
-
-      return {
-        positions,
-        holeshotRiderId,
-        holeshotKnown: !!holeshotRiderId,
-        format: "standard"
-      };
-    }
-
-    function parseTripleCrownPdf(text){
-      const positions = {};
-      for(const rider of state.riders){
-        const escaped = rider.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const posRegex = new RegExp(`\\b(\\d{1,2})\\b\\s+\\d+\\s+${escaped}\\b`, "i");
-        const posMatch = text.match(posRegex);
-
-        if(posMatch){
-          const pos = Number(posMatch[1]);
-          if(pos >= 1 && pos <= 22){
-            positions[rider.id] = pos;
-          }
-        }
-      }
-
-      return {
-        positions,
-        holeshotRiderId: null,
-        holeshotKnown: false,
-        format: "triple-crown"
-      };
-    }
-
-    function detectPdfFormat(text){
-      const upper = text.toUpperCase();
-      if(upper.includes("450 OVERALL RESULTS")) return "triple-crown";
-      if(upper.includes("450 MAIN EVENT - RACE RESULTS")) return "standard";
-      return "unknown";
-    }
-
-    async function autoParsePdfUrl(){
-      const url = document.getElementById("pdfUrlInput").value.trim();
-      if(!url){
-        alert("Paste a PDF URL first.");
-        return;
-      }
-
-      try{
-        const text = await extractPdfText(url);
-        const format = detectPdfFormat(text);
-
-        const parsed = format === "triple-crown"
-          ? parseTripleCrownPdf(text)
-          : parseStandardRacePdf(text);
-
-        for(let i = 1; i <= 22; i++){
-          const select = document.getElementById(`pos_${i}`);
-          if(select) select.value = "";
-        }
-
-        for(let i = 1; i <= 22; i++){
-          const select = document.getElementById(`pos_${i}`);
-          if(!select) continue;
-          const riderEntry = Object.entries(parsed.positions).find(([riderId, pos]) => Number(pos) === i);
-          select.value = riderEntry ? riderEntry[0] : "";
-        }
-
-        const holeshotSelect = document.getElementById("holeshotSelect");
-        if(parsed.holeshotKnown && parsed.holeshotRiderId){
-          holeshotSelect.value = String(parsed.holeshotRiderId);
-        }else{
-          holeshotSelect.value = "";
-        }
-
-        updateHoleshotStatus(parsed);
-        updateResultsPreview();
-        alert(`PDF parsed successfully (${parsed.format}).`);
-      }catch(err){
-        console.error(err);
-        alert("Could not parse PDF. Use the dropdown backup entry.");
-      }
-    }
-
-    function updateHoleshotStatus(parsed){
-      const holeshotNote = document.getElementById("holeshotStatusNote");
-      if(!holeshotNote) return;
-
-      if(parsed && parsed.holeshotKnown && parsed.holeshotRiderId){
-        const rider = riderById(parsed.holeshotRiderId);
-        holeshotNote.textContent = rider ? `Holeshot detected: ${rider.name}` : "Holeshot detected";
-      } else {
-        holeshotNote.textContent = "Holeshot: Unknown — select manually if needed";
-      }
-    }
-
-    function collectPositionsFromDropdowns(){
-      const positions = {};
-      const seen = new Set();
-
-      for(let i = 1; i <= 22; i++){
-        const val = document.getElementById(`pos_${i}`)?.value;
-        if(val){
-          if(seen.has(val)){
-            return { error: "Duplicate riders found in finishing positions." };
-          }
-          seen.add(val);
-          positions[Number(val)] = i;
-        }
-      }
-
-      return { positions };
-    }
-
-    function loadManualTemplate(){
-      for(let i = 1; i <= 22; i++){
-        const el = document.getElementById(`pos_${i}`);
-        if(el) el.value = "";
-      }
-      document.getElementById("holeshotSelect").value = "";
-      document.getElementById("holeshotStatusNote").textContent = "Holeshot: Unknown — select manually if needed";
-      updateResultsPreview();
-    }
-
-    function randomizeWildcard(){
-      const value = Math.floor(Math.random() * 13) + 10;
-      document.getElementById("wildcardInput").value = value;
-      updateResultsPreview();
-    }
-
-    function updateResultsPreview(){
-      const collected = collectPositionsFromDropdowns();
-      const positions = collected.positions || {};
-      const holeshotRiderId = Number(document.getElementById("holeshotSelect")?.value || 0);
-      const wildcard = Number(document.getElementById("wildcardInput")?.value || 0);
-      const round = Number(document.getElementById("resultsRoundSelect")?.value || 1);
-
-      const rows = Object.entries(positions)
-        .sort((a,b) => a[1] - b[1])
-        .map(([riderId, pos]) => {
-          const rider = riderById(Number(riderId));
-          const hs = Number(riderId) === holeshotRiderId ? " (HS)" : "";
-          const wc = Number(pos) === wildcard ? " (Wildcard)" : "";
-          return `<div class="chip">${pos}. ${escapeHtml(rider?.name || "Unknown")}${hs}${wc}</div>`;
-        }).join("");
-
-      const duplicateMessage = collected.error ? `<div style="margin-bottom:10px;color:#ff9b9b;"><strong>${collected.error}</strong></div>` : "";
-
-      document.getElementById("resultsPreview").innerHTML = `
-        ${duplicateMessage}
-        <div><strong>Round ${round}</strong></div>
-        <div class="muted" style="margin:8px 0 10px;">Wildcard: ${wildcard || "—"}</div>
-        <div style="margin-bottom:10px;"><strong>Holeshot:</strong> ${holeshotRiderId ? escapeHtml(riderById(holeshotRiderId)?.name || "—") : "Unknown"}</div>
-        <div>${rows || '<span class="muted">No parsed riders yet.</span>'}</div>
-      `;
-    }
-
-    function submitResults(){
-      const round = Number(document.getElementById("resultsRoundSelect").value);
-      const wildcard = Number(document.getElementById("wildcardInput").value);
-      const holeshotRiderId = Number(document.getElementById("holeshotSelect").value || 0);
-      const collected = collectPositionsFromDropdowns();
-
-      if(collected.error) return alert(collected.error);
-      const positions = collected.positions || {};
-
-      if(!round) return alert("Select a round.");
-      if(!wildcard || wildcard < 10 || wildcard > 22) return alert("Wildcard must be between 10 and 22.");
-      if(Object.keys(positions).length === 0) return alert("Enter results first.");
-
-      const teamPoints = {};
-      state.teams.forEach(team => {
-        const riders = getTeamCurrentRiders(team.id);
-        let total = 0;
-
-        riders.forEach(slot => {
-          const finish = positions[slot.riderId];
-          if(finish){
-            total += pointsForFinish(finish);
-            if(holeshotRiderId === slot.riderId) total += 5;
-            if(finish === wildcard) total += 15;
-          }
-        });
-
-        teamPoints[team.id] = total;
-      });
-
-      state.roundResults[round] = {
-        submitted: true,
-        round,
-        positions,
-        holeshotRiderId: holeshotRiderId || null,
-        wildcardPosition: wildcard,
-        teamPoints
-      };
-
-      saveState();
-      renderAll();
-      alert("Results submitted.");
-    }
-
-    function deleteRoundResults(){
-      const round = Number(document.getElementById("resultsRoundSelect").value);
-      if(!round) return;
-      if(!state.roundResults[round]) return alert("No saved results for this round.");
-      if(!confirm(`Delete saved results for Round ${round}?`)) return;
-      delete state.roundResults[round];
-      saveState();
-      renderAll();
-    }
-
-    function saveTeamNames(){
-      document.querySelectorAll(".team-name-input").forEach(inp => {
-        const team = teamById(Number(inp.dataset.teamId));
-        if(team) team.name = inp.value.trim() || team.name;
-      });
-
-      saveState();
-      renderAll();
-    }
-
-    function saveDraftOrder(){
-      const order = [];
-      document.querySelectorAll(".draft-order-select").forEach(sel => {
-        order.push(Number(sel.value));
-      });
-
-      const unique = new Set(order);
-      if(unique.size !== state.teams.length){
-        alert("Draft order must contain each team exactly once.");
-        return;
-      }
-
-      state.draftOrder = order;
-      saveState();
-      renderAll();
-    }
-
-    function clearAllData(){
-      if(!confirm("This will wipe ALL league data. Continue?")) return;
-      if(!confirm("Final confirmation: clear all data?")) return;
-
-      state = deepClone(DEFAULT_STATE);
-      saveState();
-      renderAll();
-    }
-
-    function bindStaticEvents(){
-      document.querySelectorAll(".tab-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
-          document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-          document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-          btn.classList.add("active");
-          document.getElementById(btn.dataset.page).classList.add("active");
-        });
-      });
-
-      document.getElementById("closePopupBtn").addEventListener("click", closePopup);
-      document.getElementById("riderPopup").addEventListener("click", (e) => {
-        if(e.target.id === "riderPopup") closePopup();
-      });
-
-      document.getElementById("assignRiderBtn").addEventListener("click", assignRider);
-      document.getElementById("resetDraftBtn").addEventListener("click", clearDraftOnly);
-      document.getElementById("addReplacementBtn").addEventListener("click", addReplacement);
-      document.getElementById("restoreRiderBtn").addEventListener("click", restoreOriginalRider);
-
-      document.getElementById("injuryTeamSelect").addEventListener("change", renderInjurySelectors);
-      document.getElementById("returnTeamSelect").addEventListener("change", renderInjurySelectors);
-
-      document.getElementById("riderSearch").addEventListener("input", renderRiderGrid);
-      document.getElementById("statusFilter").addEventListener("change", renderRiderGrid);
-
-      document.getElementById("openResultsSiteBtn").addEventListener("click", () => {
-        window.open(state.settings.resultsSourceUrl, "_blank");
-      });
-
-      document.getElementById("parsePdfBtn").addEventListener("click", autoParsePdfUrl);
-      document.getElementById("loadSampleBtn").addEventListener("click", loadManualTemplate);
-      document.getElementById("randomizeWildcardBtn").addEventListener("click", randomizeWildcard);
-      document.getElementById("submitResultsBtn").addEventListener("click", submitResults);
-      document.getElementById("deleteRoundResultsBtn").addEventListener("click", deleteRoundResults);
-
-      document.getElementById("resultsRoundSelect").addEventListener("change", updateResultsPreview);
-      document.getElementById("holeshotSelect").addEventListener("change", () => {
-        updateHoleshotStatus({ holeshotKnown:false, holeshotRiderId:null });
-        if(document.getElementById("holeshotSelect").value){
-          const rider = riderById(document.getElementById("holeshotSelect").value);
-          document.getElementById("holeshotStatusNote").textContent = rider ? `Holeshot selected: ${rider.name}` : "Holeshot: Unknown — select manually if needed";
-        }
-        updateResultsPreview();
-      });
-      document.getElementById("wildcardInput").addEventListener("input", updateResultsPreview);
-      document.getElementById("saveTeamsBtn").addEventListener("click", saveTeamNames);
-      document.getElementById("saveDraftOrderBtn").addEventListener("click", saveDraftOrder);
-      document.getElementById("clearAllBtn").addEventListener("click", clearAllData);
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      renderNav();
-      recalcAllRoundPoints();
-      renderAll();
-      bindStaticEvents();
-      updateResultsPreview();
+      tp[team.id] = total;
     });
-  </script>
+    rr.teamPoints = tp;
+  });
+  saveState();
+}
+function computeStandings(){
+  return state.teams.map(team => {
+    let total = 0;
+    let latestRound = 0;
+    const roundTotals = {};
+    Object.keys(state.roundResults).forEach(rk => {
+      const rn = Number(rk);
+      const pts = state.roundResults[rk].teamPoints?.[team.id] || 0;
+      roundTotals[rn] = pts;
+      total += pts;
+      if(pts>0) latestRound = Math.max(latestRound, rn);
+    });
+    return { teamId:team.id, teamName:team.name, riders:getTeamCurrentRiders(team.id), total, latestRound, roundTotals };
+  }).sort((a,b) => b.total-a.total || a.teamName.localeCompare(b.teamName));
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════
+function renderAll(){
+  renderNav();
+  renderSchedule();
+  renderStandings();
+  renderRoundTotals();
+  renderDraftControls();
+  renderRiderGrid();
+  renderResultsPage();
+  renderSettingsPage();
+  renderStats();
+}
+
+function renderNav(){
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(btn.dataset.page).classList.add("active");
+    };
+  });
+}
+
+function renderSchedule(){
+  const make = id => {
+    document.getElementById(id).innerHTML = ROUND_SCHEDULE.map(r => {
+      const cur = r.round===state.meta.currentRound;
+      return `<div class="round-row">
+        <span class="round-num ${cur?'round-current':''}">Rnd ${r.round}</span>
+        ${cur ? '<span class="chip" style="background:rgba(255,77,26,.12);border-color:rgba(255,77,26,.35);color:#ff8060;font-size:10px;">CURRENT</span>' : ''}
+      </div>`;
+    }).join("");
+  };
+  make("scheduleList");
+  make("scheduleAdminList");
+}
+
+function renderStats(){
+  document.getElementById("statTeams").textContent = state.teams.length;
+  document.getElementById("statDrafted").textContent = state.draftPicks.length;
+  document.getElementById("statResults").textContent = Object.keys(state.roundResults).length;
+  document.getElementById("statRound").textContent = state.meta.currentRound;
+}
+
+function renderStandings(){
+  const tbody = document.querySelector("#standingsTable tbody");
+  const standings = computeStandings();
+  tbody.innerHTML = standings.map((s,i) => {
+    const cls = i===0?"r1":i===1?"r2":i===2?"r3":"";
+    return `<tr>
+      <td><span class="rank-badge ${cls}">${i+1}</span></td>
+      <td><strong>${escHtml(s.teamName)}</strong></td>
+      <td>${escHtml(s.riders[0]?.displayName||"—")}</td>
+      <td>${escHtml(s.riders[1]?.displayName||"—")}</td>
+      <td><strong>${s.total}</strong></td>
+      <td class="muted">${s.latestRound ? `Rnd ${s.latestRound}` : "—"}</td>
+    </tr>`;
+  }).join("");
+}
+
+function renderRoundTotals(){
+  const thead = document.querySelector("#roundTotalsTable thead");
+  const tbody = document.querySelector("#roundTotalsTable tbody");
+  const standings = computeStandings();
+  const rounds = ROUND_SCHEDULE.map(r=>r.round);
+  thead.innerHTML = `<tr><th>Team</th>${rounds.map(r=>`<th>R${r}</th>`).join("")}<th>Total</th></tr>`;
+  tbody.innerHTML = standings.map(s=>`
+    <tr>
+      <td><strong>${escHtml(s.teamName)}</strong></td>
+      ${rounds.map(r=>`<td>${s.roundTotals[r]??0}</td>`).join("")}
+      <td><strong>${s.total}</strong></td>
+    </tr>
+  `).join("");
+}
+
+function renderDraftControls(){
+  const teamOpts = state.teams.map(t=>`<option value="${t.id}">${escHtml(t.name)}</option>`).join("");
+  ["draftTeamSelect","injuryTeamSelect","returnTeamSelect"].forEach(id=>{
+    document.getElementById(id).innerHTML = `<option value="">Select Team</option>${teamOpts}`;
+  });
+  const riderOpts = [...state.riders].sort((a,b)=>a.name.localeCompare(b.name)).map(r=>`<option value="${r.id}">${r.name}</option>`).join("");
+  document.getElementById("draftRiderSelect").innerHTML = `<option value="">Select Rider</option>${riderOpts}`;
+
+  const hsOpts = [...state.riders].sort((a,b)=>a.name.localeCompare(b.name)).map(r=>`<option value="${r.id}">${r.name}</option>`).join("");
+  document.getElementById("holeshotSelect").innerHTML = `<option value="">— None / Unknown —</option>${hsOpts}`;
+  renderInjurySelectors();
+}
+
+function renderInjurySelectors(){
+  const injTeamId = Number(document.getElementById("injuryTeamSelect").value||0);
+  const retTeamId = Number(document.getElementById("returnTeamSelect").value||0);
+  const injOrig = document.getElementById("injuryOriginalRiderSelect");
+  const injRep = document.getElementById("injuryReplacementSelect");
+  const retOrig = document.getElementById("returnOriginalRiderSelect");
+
+  const avail = getUndraftedAvailableRiders().sort((a,b)=>a.name.localeCompare(b.name)).map(r=>`<option value="${r.id}">${r.name}</option>`).join("");
+  injRep.innerHTML = `<option value="">Select Replacement</option>${avail}`;
+
+  if(injTeamId){
+    const opts = getTeamOriginalRiders(injTeamId).map(r=>`<option value="${r.id}">${r.name}</option>`).join("");
+    injOrig.innerHTML = `<option value="">Select Original Rider</option>${opts}`;
+  }else{
+    injOrig.innerHTML = `<option value="">Select Original Rider</option>`;
+  }
+
+  if(retTeamId){
+    const opts = state.replacements.filter(r=>r.teamId===retTeamId&&r.active).map(r=>{
+      const orig = riderById(r.originalRiderId);
+      const rep = riderById(r.replacementRiderId);
+      return `<option value="${r.originalRiderId}">${orig?.name||"?"} → ${rep?.name||"?"}</option>`;
+    }).join("");
+    retOrig.innerHTML = `<option value="">Select Active Replacement</option>${opts}`;
+  }else{
+    retOrig.innerHTML = `<option value="">Select Active Replacement</option>`;
+  }
+}
+
+function renderRiderGrid(){
+  const search = (document.getElementById("riderSearch")?.value||"").trim().toLowerCase();
+  const filter = document.getElementById("statusFilter")?.value||"ALL";
+  const grid = document.getElementById("riderGrid");
+  const filtered = [...state.riders].sort((a,b)=>a.name.localeCompare(b.name)).filter(r=>{
+    const status = getRiderStatus(r.id);
+    return (!search||r.name.toLowerCase().includes(search)||r.realTeam.toLowerCase().includes(search))
+        && (filter==="ALL"||status===filter);
+  });
+  grid.innerHTML = filtered.map(r=>{
+    const status = getRiderStatus(r.id);
+    return `<div class="rider-card" data-rider-id="${r.id}">
+      <div class="rider-name">${escHtml(r.name)}</div>
+      <div class="rider-team">${escHtml(r.realTeam)}</div>
+      <span class="status ${getRiderStatusClass(status)}">${status}</span>
+    </div>`;
+  }).join("");
+  document.querySelectorAll(".rider-card").forEach(c=>{
+    c.onclick = () => openRiderPopup(Number(c.dataset.riderId));
+  });
+}
+
+function openRiderPopup(riderId){
+  const rider = riderById(riderId);
+  const assignments = getRiderAssignments(riderId);
+  const status = getRiderStatus(riderId);
+  document.getElementById("popupRiderName").textContent = rider.name;
+  document.getElementById("popupRiderTeam").textContent = rider.realTeam;
+  document.getElementById("popupContent").innerHTML = `
+    <div style="margin-bottom:12px;"><span class="status ${getRiderStatusClass(status)}">${status}</span></div>
+    <div class="small" style="margin-bottom:6px;"><strong>Fantasy Teams:</strong></div>
+    <div>${assignments.length ? assignments.map(a=>`<span class="chip">${a.teamName} &bull; Round ${a.round}</span>`).join("") : '<span class="muted">Not drafted</span>'}</div>
+  `;
+  document.getElementById("riderPopup").classList.add("show");
+}
+function closePopup(){ document.getElementById("riderPopup").classList.remove("show"); }
+
+// ═══════════════════════════════════════════════════
+//  DRAFT ACTIONS
+// ═══════════════════════════════════════════════════
+function validateDraft(teamId, round, riderId){
+  if(!teamId||!round||!riderId) return "Select team, round, and rider.";
+  if(state.draftPicks.filter(p=>p.teamId===teamId&&p.round===round).length>=1) return `Team already has a Round ${round} pick.`;
+  if(round===1 && state.draftPicks.some(p=>p.riderId===riderId)) return "Round 1 riders must be unique.";
+  if(round===2){
+    if(getTop10ProtectedIds().includes(riderId)) return "Round 1 protected riders cannot be drafted in Round 2.";
+    if(state.draftPicks.some(p=>p.teamId===teamId&&p.riderId===riderId)) return "Team cannot draft the same rider twice.";
+    if(getRound2Count(riderId)>=2) return "Rider is already locked (picked twice in Round 2).";
+  }
+  return "";
+}
+function assignRider(){
+  const teamId = Number(document.getElementById("draftTeamSelect").value);
+  const round = Number(document.getElementById("draftRoundSelect").value);
+  const riderId = Number(document.getElementById("draftRiderSelect").value);
+  const err = validateDraft(teamId, round, riderId);
+  if(err){ alert(err); return; }
+  state.draftPicks.push({ teamId, round, riderId });
+  saveState(); recalcAllRoundPoints(); renderAll();
+}
+function clearDraftOnly(){
+  if(!confirm("Clear all draft picks and replacements?")) return;
+  state.draftPicks = []; state.replacements = [];
+  saveState(); recalcAllRoundPoints(); renderAll();
+}
+function addReplacement(){
+  const teamId = Number(document.getElementById("injuryTeamSelect").value);
+  const origId = Number(document.getElementById("injuryOriginalRiderSelect").value);
+  const repId = Number(document.getElementById("injuryReplacementSelect").value);
+  if(!teamId||!origId||!repId){ alert("Select team, original rider, and replacement."); return; }
+  if(state.replacements.find(r=>r.teamId===teamId&&r.originalRiderId===origId&&r.active)){ alert("Already has active replacement."); return; }
+  if(!getUndraftedAvailableRiders().some(r=>r.id===repId)){ alert("Replacement must be from undrafted available riders."); return; }
+  state.replacements.push({ teamId, originalRiderId:origId, replacementRiderId:repId, active:true });
+  saveState(); recalcAllRoundPoints(); renderAll();
+}
+function restoreOriginalRider(){
+  const teamId = Number(document.getElementById("returnTeamSelect").value);
+  const origId = Number(document.getElementById("returnOriginalRiderSelect").value);
+  const rep = state.replacements.find(r=>r.teamId===teamId&&r.originalRiderId===origId&&r.active);
+  if(!rep){ alert("No active replacement found."); return; }
+  rep.active = false;
+  saveState(); recalcAllRoundPoints(); renderAll();
+}
+
+// ═══════════════════════════════════════════════════
+//  RESULTS PAGE — DROPDOWN SYSTEM
+// ═══════════════════════════════════════════════════
+function buildPositionDropdowns(){
+  const container = document.getElementById("resultsDropdowns");
+  container.innerHTML = "";
+  for(let pos=1; pos<=22; pos++){
+    const wrap = document.createElement("div");
+    wrap.className = "pos-row";
+    const label = document.createElement("div");
+    label.className = "pos-label" + (pos<=3?" top3":"");
+    label.textContent = pos;
+    const sel = document.createElement("select");
+    sel.id = `pos_${pos}`;
+    sel.innerHTML = `<option value="">—</option>` +
+      [...state.riders].sort((a,b)=>a.name.localeCompare(b.name))
+        .map(r=>`<option value="${r.id}">${r.name}</option>`).join("");
+    sel.onchange = () => { validateDropdownDuplicates(); updateResultsPreview(); };
+    wrap.append(label, sel);
+    container.appendChild(wrap);
+  }
+}
+
+function getPositionsFromDropdowns(){
+  const positions = {};
+  const seen = {};
+  for(let pos=1; pos<=22; pos++){
+    const val = Number(document.getElementById(`pos_${pos}`)?.value||0);
+    if(val) positions[val] = pos;
+    seen[val] = (seen[val]||0)+1;
+  }
+  return positions;
+}
+
+function validateDropdownDuplicates(){
+  const counts = {};
+  for(let pos=1;pos<=22;pos++){
+    const val = document.getElementById(`pos_${pos}`)?.value||"";
+    if(val) counts[val] = (counts[val]||0)+1;
+  }
+  for(let pos=1;pos<=22;pos++){
+    const sel = document.getElementById(`pos_${pos}`);
+    if(!sel) continue;
+    const val = sel.value;
+    sel.style.borderColor = (val && counts[val]>1) ? "rgba(240,69,69,.7)" : "";
+  }
+}
+
+function setPositionDropdowns(positions, holeshotRiderId, holeshotKnown){
+  // positions: { riderId: finishPosition }
+  const inverted = {};
+  Object.entries(positions).forEach(([rid,pos])=>{ inverted[pos]=rid; });
+  for(let pos=1;pos<=22;pos++){
+    const sel = document.getElementById(`pos_${pos}`);
+    if(sel) sel.value = inverted[pos]||"";
+  }
+  const hsEl = document.getElementById("holeshotSelect");
+  const hsNote = document.getElementById("holeshotNote");
+  if(holeshotRiderId && holeshotKnown){
+    hsEl.value = holeshotRiderId;
+    hsNote.className = "hs-note detected";
+    hsNote.textContent = `Holeshot: Detected — ${riderById(holeshotRiderId)?.name||"Unknown"}`;
+  }else{
+    hsEl.value = "";
+    hsNote.className = "hs-note unknown";
+    hsNote.textContent = "Holeshot: Unknown — select manually if needed";
+  }
+  validateDropdownDuplicates();
+  updateResultsPreview();
+}
+
+function clearPositionDropdowns(){
+  for(let pos=1;pos<=22;pos++){
+    const sel = document.getElementById(`pos_${pos}`);
+    if(sel){ sel.value=""; sel.style.borderColor=""; }
+  }
+  document.getElementById("holeshotSelect").value="";
+  document.getElementById("holeshotNote").className="hs-note unknown";
+  document.getElementById("holeshotNote").textContent="Holeshot: Unknown — select manually if needed";
+  updateResultsPreview();
+}
+
+function updateResultsPreview(){
+  const positions = getPositionsFromDropdowns();
+  const holeshotRiderId = Number(document.getElementById("holeshotSelect")?.value||0);
+  const wildcard = Number(document.getElementById("wildcardInput")?.value||0);
+  const round = Number(document.getElementById("resultsRoundSelect")?.value||state.meta.currentRound);
+
+  const rows = Object.entries(positions)
+    .sort((a,b)=>a[1]-b[1])
+    .map(([riderId,pos])=>{
+      const r = riderById(Number(riderId));
+      const hs = Number(riderId)===holeshotRiderId?" <span style='color:var(--accent-2);'>(HS)</span>":"";
+      const wc = Number(pos)===wildcard?" <span style='color:var(--gold);'>(WC)</span>":"";
+      return `<div class="chip">${pos}. ${r?.name||"Unknown"}${hs}${wc}</div>`;
+    }).join("");
+
+  document.getElementById("resultsPreview").innerHTML = `
+    <div style="margin-bottom:10px;"><strong>Round ${round}</strong></div>
+    <div class="small muted" style="margin-bottom:8px;">Wildcard position: <strong>${wildcard||"—"}</strong></div>
+    <div class="small muted" style="margin-bottom:10px;">Holeshot: <strong>${holeshotRiderId?riderById(holeshotRiderId)?.name||"—":"Unknown"}</strong></div>
+    <div>${rows||'<span class="muted">No riders selected yet.</span>'}</div>
+  `;
+}
+
+function renderResultsPage(){
+  const opts = ROUND_SCHEDULE.map(r=>{
+    const saved = state.roundResults[r.round] ? " ✓" : "";
+    return `<option value="${r.round}">Round ${r.round}${saved}</option>`;
+  }).join("");
+  document.getElementById("resultsRoundSelect").innerHTML = opts;
+  document.getElementById("resultsRoundSelect").value = String(state.meta.currentRound);
+  buildPositionDropdowns();
+  updateResultsPreview();
+}
+
+// ═══════════════════════════════════════════════════
+//  PDF PARSING
+// ═══════════════════════════════════════════════════
+function normalizeRiderName(n){
+  return n.toLowerCase().replace(/\(hs\)/gi,"").replace(/[^\w\s]/g,"").replace(/\s+/g," ").trim();
+}
+
+function parsePdfText(text){
+  // Detect format
+  const isTripleCrown = /450\s*OVERALL\s*RESULTS/i.test(text);
+  const isStandard = /450\s*MAIN\s*EVENT/i.test(text);
+
+  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const positions = {};
+  let holeshotRiderId = null;
+  let holeshotKnown = false;
+
+  // Try to extract numbered results
+  const finishPattern = /^(\d{1,2})\s+(.+)/;
+  const foundPositions = [];
+  for(const line of lines){
+    const m = line.match(finishPattern);
+    if(m){
+      const pos = Number(m[1]);
+      const nameRaw = m[2];
+      const hasHS = /\(hs\)/i.test(nameRaw);
+      const cleanName = normalizeRiderName(nameRaw);
+      if(pos>=1 && pos<=22){
+        const rider = state.riders.find(r=>normalizeRiderName(r.name)===cleanName);
+        if(rider){
+          positions[rider.id] = pos;
+          if(hasHS && !isTripleCrown){ holeshotRiderId = rider.id; holeshotKnown = true; }
+          foundPositions.push(pos);
+        }
+      }
+    }
+  }
+
+  // Fallback: scan for any rider name mentions in order
+  if(Object.keys(positions).length < 5){
+    let pos = 0;
+    const usedIds = new Set();
+    for(const line of lines){
+      const hasHS = /\(hs\)/i.test(line);
+      const cleanLine = normalizeRiderName(line);
+      const rider = state.riders.find(r=>!usedIds.has(r.id) && cleanLine.includes(normalizeRiderName(r.name)));
+      if(rider){
+        pos++;
+        if(pos>22) break;
+        positions[rider.id] = pos;
+        usedIds.add(rider.id);
+        if(hasHS && !isTripleCrown){ holeshotRiderId = rider.id; holeshotKnown = true; }
+      }
+    }
+  }
+
+  return { positions, holeshotRiderId, holeshotKnown };
+}
+
+async function autoParsePdf(){
+  const url = document.getElementById("pdfUrlInput").value.trim();
+  if(!url){ alert("Paste a PDF URL first."); return; }
+
+  // Try pdf.js via CDN
+  const pdfJsUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs";
+
+  try{
+    const { getDocument, GlobalWorkerOptions } = await import(pdfJsUrl);
+    // Disable worker for inline usage
+    GlobalWorkerOptions.workerSrc = "";
+
+    const loadingTask = getDocument({ url, disableWorker: true });
+    const pdf = await loadingTask.promise;
+    let fullText = "";
+    for(let i=1; i<=pdf.numPages; i++){
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      fullText += content.items.map(item=>item.str).join(" ") + "\n";
+    }
+
+    const { positions, holeshotRiderId, holeshotKnown } = parsePdfText(fullText);
+    const count = Object.keys(positions).length;
+    if(count===0){ alert("No rider names found in PDF. Try manual entry."); return; }
+
+    setPositionDropdowns(positions, holeshotRiderId, holeshotKnown);
+    alert(`Parsed ${count} riders from PDF.${!holeshotKnown?" Holeshot unknown — select manually if needed.":""}`);
+  }catch(err){
+    console.error("PDF parse error:", err);
+    // Fallback: raw text fetch
+    try{
+      const res = await fetch(url);
+      const text = await res.text();
+      const { positions, holeshotRiderId, holeshotKnown } = parsePdfText(text);
+      const count = Object.keys(positions).length;
+      if(count===0){ alert("Auto-parse failed. PDF source may block browser access. Use manual entry via dropdowns."); return; }
+      setPositionDropdowns(positions, holeshotRiderId, holeshotKnown);
+      alert(`Parsed ${count} riders (text fallback).`);
+    }catch(e2){
+      alert("Auto-parse failed. The PDF source may block browser access. Use the position dropdowns for manual entry.");
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  RESULTS SUBMIT / DELETE
+// ═══════════════════════════════════════════════════
+function submitResults(){
+  const round = Number(document.getElementById("resultsRoundSelect").value);
+  const wildcard = Number(document.getElementById("wildcardInput").value);
+  const holeshotRiderId = Number(document.getElementById("holeshotSelect").value||0);
+
+  if(!round) return alert("Select a round.");
+  if(!wildcard||wildcard<10||wildcard>22) return alert("Wildcard must be between 10 and 22.");
+
+  const positions = getPositionsFromDropdowns();
+  if(Object.keys(positions).length===0) return alert("Enter at least one result.");
+
+  // Duplicate check
+  const seen = {};
+  for(let pos=1;pos<=22;pos++){
+    const val = document.getElementById(`pos_${pos}`)?.value||"";
+    if(val){
+      if(seen[val]) return alert(`Duplicate rider found: ${riderById(Number(val))?.name}. Each rider can only appear once.`);
+      seen[val]=1;
+    }
+  }
+
+  const teamPoints = {};
+  state.teams.forEach(team=>{
+    let total = 0;
+    getTeamCurrentRiders(team.id).forEach(slot=>{
+      const finish = positions[slot.riderId];
+      if(finish){
+        total += pointsForFinish(finish);
+        if(holeshotRiderId===slot.riderId) total += 5;
+        if(Number(finish)===wildcard) total += 15;
+      }
+    });
+    teamPoints[team.id] = total;
+  });
+
+  state.roundResults[round] = {
+    submitted:true, round,
+    pdfUrl: document.getElementById("pdfUrlInput").value.trim(),
+    positions, holeshotRiderId, wildcardPosition:wildcard, teamPoints
+  };
+
+  if(round>=state.meta.currentRound && round<state.meta.totalRounds){
+    state.meta.currentRound = round+1;
+  }
+  saveState(); renderAll();
+  alert("Results submitted successfully.");
+}
+
+function deleteRoundResults(){
+  const round = Number(document.getElementById("resultsRoundSelect").value);
+  if(!round) return;
+  if(!state.roundResults[round]) return alert("No saved results for this round.");
+  if(!confirm(`Delete saved results for Round ${round}?`)) return;
+  delete state.roundResults[round];
+  saveState(); renderAll();
+}
+
+// ═══════════════════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════════════════
+function renderSettingsPage(){
+  document.getElementById("teamNameInputs").innerHTML = state.teams.map(t=>`
+    <div>
+      <label class="small">Team ${t.id}</label>
+      <input class="team-name-input" data-team-id="${t.id}" value="${escHtml(t.name)}" style="margin-top:4px;" />
+    </div>
+  `).join("");
+
+  document.getElementById("draftOrderInputs").innerHTML = getRoundOrder(1).map((tid,idx)=>`
+    <div style="display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center;margin-bottom:10px;">
+      <div><strong>Pick ${idx+1}</strong></div>
+      <select class="draft-order-select" data-slot="${idx}">
+        ${state.teams.map(t=>`<option value="${t.id}" ${t.id===tid?"selected":""}>${escHtml(t.name)}</option>`).join("")}
+      </select>
+    </div>
+  `).join("");
+}
+
+function saveTeamNames(){
+  document.querySelectorAll(".team-name-input").forEach(inp=>{
+    const team = teamById(Number(inp.dataset.teamId));
+    if(team) team.name = inp.value.trim()||team.name;
+  });
+  saveState(); renderAll();
+}
+
+function saveDraftOrder(){
+  const order = [];
+  document.querySelectorAll(".draft-order-select").forEach(sel=>order.push(Number(sel.value)));
+  if(new Set(order).size !== state.teams.length){ alert("Draft order must contain each team exactly once."); return; }
+  state.draftOrder = order;
+  saveState(); renderAll();
+}
+
+function clearAllData(){
+  if(!confirm("This will wipe ALL league data. Continue?")) return;
+  if(!confirm("Final confirmation: clear all data?")) return;
+  state = deepClone(DEFAULT_STATE);
+  saveState(); renderAll();
+}
+
+function escHtml(str){
+  return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ═══════════════════════════════════════════════════
+//  EVENT WIRING
+// ═══════════════════════════════════════════════════
+function wireEvents(){
+  document.getElementById("closePopupBtn").onclick = closePopup;
+  document.getElementById("riderPopup").addEventListener("click", e=>{ if(e.target.id==="riderPopup") closePopup(); });
+
+  document.getElementById("assignRiderBtn").onclick = assignRider;
+  document.getElementById("resetDraftBtn").onclick = clearDraftOnly;
+  document.getElementById("addReplacementBtn").onclick = addReplacement;
+  document.getElementById("restoreRiderBtn").onclick = restoreOriginalRider;
+  document.getElementById("injuryTeamSelect").onchange = renderInjurySelectors;
+  document.getElementById("returnTeamSelect").onchange = renderInjurySelectors;
+  document.getElementById("riderSearch").oninput = renderRiderGrid;
+  document.getElementById("statusFilter").onchange = renderRiderGrid;
+
+  document.getElementById("openResultsSiteBtn").onclick = ()=>window.open(state.settings.resultsSourceUrl,"_blank");
+  document.getElementById("parsePdfBtn").onclick = autoParsePdf;
+  document.getElementById("clearPositionsBtn").onclick = clearPositionDropdowns;
+  document.getElementById("randomizeWildcardBtn").onclick = ()=>{
+    document.getElementById("wildcardInput").value = Math.floor(Math.random()*13)+10;
+    updateResultsPreview();
+  };
+  document.getElementById("submitResultsBtn").onclick = submitResults;
+  document.getElementById("deleteRoundResultsBtn").onclick = deleteRoundResults;
+  document.getElementById("holeshotSelect").onchange = ()=>{
+    const val = Number(document.getElementById("holeshotSelect").value||0);
+    const note = document.getElementById("holeshotNote");
+    if(val){
+      note.className="hs-note detected";
+      note.textContent=`Holeshot: Manually selected — ${riderById(val)?.name||""}`;
+    }else{
+      note.className="hs-note unknown";
+      note.textContent="Holeshot: Unknown — select manually if needed";
+    }
+    updateResultsPreview();
+  };
+  document.getElementById("wildcardInput").oninput = updateResultsPreview;
+  document.getElementById("resultsRoundSelect").onchange = updateResultsPreview;
+  document.getElementById("saveTeamsBtn").onclick = saveTeamNames;
+  document.getElementById("saveDraftOrderBtn").onclick = saveDraftOrder;
+  document.getElementById("clearAllBtn").onclick = clearAllData;
+}
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+recalcAllRoundPoints();
+renderAll();
+wireEvents();
+</script>
+
 </body>
 </html>
