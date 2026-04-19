@@ -492,17 +492,19 @@ input:focus, select:focus, textarea:focus { border-color: rgba(255,77,26,.5); }
         <h2>Results Admin</h2>
         <div class="toolbar">
           <select id="resultsRoundSelect"></select>
-          <input id="pdfUrlInput" placeholder="Paste AMA PDF URL here" />
-          <button class="btn secondary" id="openResultsSiteBtn">Open Results Site</button>
-        </div>
-        <div class="toolbar">
-          <button class="btn" id="parsePdfBtn">Auto-Parse PDF</button>
-        </div>
-        <div class="small" style="margin-bottom:14px;">
-          Auto-parse supports Format A (standard race result, detects holeshot) and Format B (triple crown overall, no holeshot detection). Uses pdf.js for text extraction.
         </div>
 
 ```
+    <div style="margin-bottom:14px;">
+      <label class="small" style="display:block;margin-bottom:6px;">Upload PDF Results File</label>
+      <label id="pdfUploadLabel" style="display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--panel-2);border:1px dashed var(--border);border-radius:10px;padding:12px 14px;transition:.15s;">
+        <span style="font-size:20px;">📄</span>
+        <span id="pdfUploadText" class="small">Tap to choose PDF from Files…</span>
+        <input type="file" id="pdfFileInput" accept="application/pdf,.pdf" style="display:none;" />
+      </label>
+      <div class="small" style="margin-top:6px;">Supports Format A (standard race result, auto-detects holeshot) and Format B (triple crown overall, holeshot unknown).</div>
+    </div>
+
     <!-- ─── POSITION DROPDOWNS ─── -->
     <div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -1138,20 +1140,29 @@ function parsePdfText(text){
   return { positions, holeshotRiderId, holeshotKnown };
 }
 
-async function autoParsePdf(){
-  const url = document.getElementById("pdfUrlInput").value.trim();
-  if(!url){ alert("Paste a PDF URL first."); return; }
+async function parsePdfFile(file){
+  const label = document.getElementById("pdfUploadLabel");
+  const textEl = document.getElementById("pdfUploadText");
+  textEl.textContent = "Parsing…";
+  label.style.borderColor = "rgba(255,77,26,.5)";
 
-  // Try pdf.js via CDN
-  const pdfJsUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs";
+  const PDFJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+  const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+  // Load pdf.js if not already loaded
+  if(!window.pdfjsLib){
+    await new Promise((res, rej)=>{
+      const s = document.createElement("script");
+      s.src = PDFJS_URL;
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+  }
 
   try{
-    const { getDocument, GlobalWorkerOptions } = await import(pdfJsUrl);
-    // Disable worker for inline usage
-    GlobalWorkerOptions.workerSrc = "";
-
-    const loadingTask = getDocument({ url, disableWorker: true });
-    const pdf = await loadingTask.promise;
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     let fullText = "";
     for(let i=1; i<=pdf.numPages; i++){
       const page = await pdf.getPage(i);
@@ -1161,24 +1172,20 @@ async function autoParsePdf(){
 
     const { positions, holeshotRiderId, holeshotKnown } = parsePdfText(fullText);
     const count = Object.keys(positions).length;
-    if(count===0){ alert("No rider names found in PDF. Try manual entry."); return; }
+
+    if(count===0){
+      textEl.textContent = "⚠️ No riders found — check PDF or use dropdowns manually";
+      label.style.borderColor = "rgba(240,69,69,.5)";
+      return;
+    }
 
     setPositionDropdowns(positions, holeshotRiderId, holeshotKnown);
-    alert(`Parsed ${count} riders from PDF.${!holeshotKnown?" Holeshot unknown — select manually if needed.":""}`);
+    textEl.textContent = `✅ Parsed ${count} riders from "${file.name}"${!holeshotKnown ? " — holeshot unknown" : ""}`;
+    label.style.borderColor = "rgba(45,212,110,.5)";
   }catch(err){
     console.error("PDF parse error:", err);
-    // Fallback: raw text fetch
-    try{
-      const res = await fetch(url);
-      const text = await res.text();
-      const { positions, holeshotRiderId, holeshotKnown } = parsePdfText(text);
-      const count = Object.keys(positions).length;
-      if(count===0){ alert("Auto-parse failed. PDF source may block browser access. Use manual entry via dropdowns."); return; }
-      setPositionDropdowns(positions, holeshotRiderId, holeshotKnown);
-      alert(`Parsed ${count} riders (text fallback).`);
-    }catch(e2){
-      alert("Auto-parse failed. The PDF source may block browser access. Use the position dropdowns for manual entry.");
-    }
+    textEl.textContent = "❌ Parse failed — use dropdowns to enter manually";
+    label.style.borderColor = "rgba(240,69,69,.5)";
   }
 }
 
@@ -1222,7 +1229,6 @@ function submitResults(){
 
   state.roundResults[round] = {
     submitted:true, round,
-    pdfUrl: document.getElementById("pdfUrlInput").value.trim(),
     positions, holeshotRiderId, wildcardPosition:wildcard, teamPoints
   };
 
