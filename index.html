@@ -526,6 +526,42 @@
     .log-entry.log-warn    .log-text { color: #ffd66a; }
     .log-entry.log-info    .log-text { color: var(--text); }
 
+    /* ─── DRAFT ORDER REORDER ─── */
+    .draft-order-row {
+      display: grid;
+      grid-template-columns: 36px 1fr 44px 44px;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 4px;
+      margin-bottom: 4px;
+      background: var(--panel-2);
+      border: 1px solid var(--border-2);
+      border-radius: 10px;
+    }
+    .draft-order-pick {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: 16px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .draft-order-team {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: .3px;
+    }
+    .draft-order-row .btn-mini {
+      padding: 8px 10px;
+      font-size: 13px;
+      text-align: center;
+      min-width: 40px;
+    }
+    .draft-order-row .btn-mini:disabled {
+      opacity: .3;
+      cursor: not-allowed;
+    }
+
     /* ─── CONNECTION STATUS ─── */
     .conn-dot {
       display: inline-block;
@@ -832,10 +868,12 @@
     <span class="chev">▼</span>
   </summary>
   <div class="settings-body">
+    <div class="small" style="margin-bottom:10px;">
+      Tap ▲/▼ to reorder. Changes save automatically.
+    </div>
     <div id="draftOrderInputs"></div>
-    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn green" id="saveDraftOrderBtn">Save Draft Order</button>
-      <button class="btn secondary" id="randomizeDraftOrderBtn">🎲 Randomize</button>
+    <div style="margin-top:12px;">
+      <button class="btn secondary" id="randomizeDraftOrderBtn">🎲 Randomize Order</button>
     </div>
   </div>
 </details>
@@ -2368,17 +2406,37 @@ function renderSettingsPage(){
     </div>
   `).join("");
 
-  document.getElementById("draftOrderInputs").innerHTML = getRoundOrder(1).map((tid,idx)=>`
-    <div style="display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center;margin-bottom:10px;">
-      <div><strong>Pick ${idx+1}</strong></div>
-      <select class="draft-order-select" data-slot="${idx}">
-        ${state.teams.map(t=>`<option value="${t.id}" ${t.id===tid?"selected":""}>${escHtml(t.name)}</option>`).join("")}
-      </select>
-    </div>
-  `).join("");
+  document.getElementById("draftOrderInputs").innerHTML = state.draftOrder.map((tid,idx)=>{
+    const team = teamById(tid);
+    const isFirst = idx === 0;
+    const isLast  = idx === state.draftOrder.length - 1;
+    return `<div class="draft-order-row" data-slot="${idx}">
+      <div class="draft-order-pick">${idx+1}</div>
+      <div class="draft-order-team">${escHtml(team?.name || "?")}</div>
+      <button class="btn secondary btn-mini draft-order-up" data-slot="${idx}" ${isFirst?'disabled':''} aria-label="Move up">▲</button>
+      <button class="btn secondary btn-mini draft-order-down" data-slot="${idx}" ${isLast?'disabled':''} aria-label="Move down">▼</button>
+    </div>`;
+  }).join("");
+
+  document.querySelectorAll(".draft-order-up").forEach(btn => {
+    btn.onclick = () => moveDraftOrderSlot(Number(btn.dataset.slot), -1);
+  });
+  document.querySelectorAll(".draft-order-down").forEach(btn => {
+    btn.onclick = () => moveDraftOrderSlot(Number(btn.dataset.slot), +1);
+  });
 
   renderRiderPool();
   renderAliases();
+}
+
+function moveDraftOrderSlot(slot, direction){
+  const newSlot = slot + direction;
+  if(newSlot < 0 || newSlot >= state.draftOrder.length) return;
+  const order = [...state.draftOrder];
+  [order[slot], order[newSlot]] = [order[newSlot], order[slot]];
+  state.draftOrder = order;
+  saveState();
+  renderAll();
 }
 
 function saveTeamNames(){
@@ -2388,15 +2446,6 @@ function saveTeamNames(){
   });
   saveState(); renderAll();
   logMessage("Team names saved.", "success");
-}
-
-function saveDraftOrder(){
-  const order = [];
-  document.querySelectorAll(".draft-order-select").forEach(sel=>order.push(Number(sel.value)));
-  if(new Set(order).size !== state.teams.length){ logMessage("Draft order must contain each team exactly once.", "error"); return; }
-  state.draftOrder = order;
-  saveState(); renderAll();
-  logMessage("Draft order saved.", "success");
 }
 
 function randomizeDraftOrder(){
@@ -2644,7 +2693,6 @@ function wireEvents(){
   document.getElementById("wildcardInput").oninput = updateResultsPreview;
   document.getElementById("resultsRoundSelect").onchange = updateResultsPreview;
   document.getElementById("saveTeamsBtn").onclick = saveTeamNames;
-  document.getElementById("saveDraftOrderBtn").onclick = saveDraftOrder;
   document.getElementById("randomizeDraftOrderBtn").onclick = randomizeDraftOrder;
   document.getElementById("clearAllBtn").onclick = clearAllData;
 
