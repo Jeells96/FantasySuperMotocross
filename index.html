@@ -719,7 +719,13 @@
 <div class="panel">
   <h2>Injury Standby</h2>
   <div class="small" style="margin-bottom:8px;">
-    Assign a backup rider to a drafted rider. The standby scores <strong>only for rounds where the original rider didn't race.</strong> Add a standby when someone's injured — no need to remove it, the scoring handles it automatically.
+    Assign a backup rider. The standby scores <strong>only for rounds where the original rider didn't race.</strong>
+    <br><br>
+    <strong>Replacement pool (based on injured rider's overall pick #):</strong><br>
+    • Pick #1–5 → any rider, no restrictions<br>
+    • Pick #6–10 → any rider except top 5 picks<br>
+    • Pick #11–15 → any rider except top 10 picks<br>
+    • Pick #16–20 → any rider except top 15 picks
   </div>
   <div class="toolbar">
     <select id="injuryTeamSelect"></select>
@@ -733,7 +739,7 @@
     <button class="btn secondary" id="restoreRiderBtn">Remove Standby</button>
   </div>
   <div class="small muted">
-    Standby must come from undrafted riders. Removing a standby just clears the backup — the original rider is always on the team.
+    Temporary backup only — the original rider always counts first if they raced that round.
   </div>
 </div>
 ```
@@ -1379,30 +1385,85 @@ function renderDraftControls(){
   renderInjurySelectors();
 }
 
-// Returns the pool of riders eligible as a standby for a given original rider.
-// R1 original → any rider (no restrictions, even already locked R2 picks)
-// R2 original → undrafted riders + any rider picked only in R2 (regardless of how many times)
+// Overall pick number (1..20) for a given team's rider — based on snake draft order
+// Returns null if rider isn't drafted for that team
+function getOverallPickNumber(teamId, riderId){
+  const pick = state.draftPicks.find(p => p.teamId === teamId && p.riderId === riderId);
+  if(!pick) return null;
+  const r1Order = [...state.draftOrder];
+  const r2Order = [...state.draftOrder].reverse();
+  const slots = [
+    ...r1Order.map(tid => ({ teamId: tid, round: 1 })),
+    ...r2Order.map(tid => ({ teamId: tid, round: 2 }))
+  ];
+  for(let i = 0; i < slots.length; i++){
+    if(slots[i].teamId === teamId && slots[i].round === pick.round){
+      return i + 1;
+    }
+  }
+  return null;
+}
+
+// Returns a map of riderId → array of pick numbers they occupy (can be 1 or 2 entries)
+function getAllPickNumbersByRider(){
+  const r1Order = [...state.draftOrder];
+  const r2Order = [...state.draftOrder].reverse();
+  const slots = [
+    ...r1Order.map(tid => ({ teamId: tid, round: 1 })),
+    ...r2Order.map(tid => ({ teamId: tid, round: 2 }))
+  ];
+  const map = {};
+  slots.forEach((slot, idx) => {
+    const pick = state.draftPicks.find(p => p.teamId===slot.teamId && p.round===slot.round);
+    if(pick){
+      if(!map[pick.riderId]) map[pick.riderId] = [];
+      map[pick.riderId].push(idx + 1);
+    }
+  });
+  return map;
+}
+
+// Returns the pool of riders eligible as a standby for the given injured rider.
+// Rule (by overall pick number of the injured rider):
+//   Pick 1–5   → anyone (no restrictions)
+//   Pick 6–10  → anyone EXCEPT riders drafted at picks 1–5
+//   Pick 11–15 → anyone EXCEPT riders drafted at picks 1–10
+//   Pick 16–20 → anyone EXCEPT riders drafted at picks 1–15
+// A rider drafted at multiple picks is only excluded if ANY of their picks falls in the excluded range.
 function getStandbyPool(teamId, originalRiderId){
   const activeStandbys = new Set(
     state.replacements.filter(r => r.active).map(r => r.replacementRiderId)
   );
-  // Which round was the original rider drafted in for this team?
-  const pick = state.draftPicks.find(p => p.teamId === teamId && p.riderId === originalRiderId);
-  const pickRound = pick ? pick.round : null;
-
-  if(pickRound === 1){
-    // Round 1 rider injured → any rider except those already active as a standby elsewhere
+  const overallPick = getOverallPickNumber(teamId, originalRiderId);
+  if(overallPick === null){
+    // Rider isn't drafted for this team — fall back to unrestricted
     return state.riders.filter(r => r.id !== originalRiderId && !activeStandbys.has(r.id));
-  } else {
-    // Round 2 rider injured → undrafted OR picked only in round 2
-    const r1Ids = new Set(state.draftPicks.filter(p => p.round === 1).map(p => p.riderId));
-    return state.riders.filter(r => {
-      if(r.id === originalRiderId) return false;
-      if(activeStandbys.has(r.id)) return false;
-      if(r1Ids.has(r.id)) return false; // R1 protected riders excluded
-      return true; // undrafted or R2-drafted (any count) are both OK
+  }
+
+  // Determine the top-tier cutoff that's off-limits
+  let excludedMax = 0;
+  if(overallPick <= 5)       excludedMax = 0;
+  else if(overallPick <= 10) excludedMax = 5;
+  else if(overallPick <= 15) excludedMax = 10;
+  else                       excludedMax = 15;
+
+  const pickMap = getAllPickNumbersByRider();
+  const excludedRiderIds = new Set();
+  if(excludedMax > 0){
+    Object.entries(pickMap).forEach(([rid, picks]) => {
+      // If ANY of the rider's picks falls inside the excluded range, they're out
+      if(picks.some(n => n >= 1 && n <= excludedMax)){
+        excludedRiderIds.add(Number(rid));
+      }
     });
   }
+
+  return state.riders.filter(r => {
+    if(r.id === originalRiderId) return false;
+    if(activeStandbys.has(r.id)) return false;
+    if(excludedRiderIds.has(r.id)) return false;
+    return true;
+  });
 }
 
 function renderInjurySelectors(){
@@ -1413,34 +1474,38 @@ function renderInjurySelectors(){
   const injRep     = document.getElementById("injuryReplacementSelect");
   const retOrig    = document.getElementById("returnOriginalRiderSelect");
 
-  // Original rider selector
+  // Original rider selector — show their overall pick number
   if(injTeamId){
     const teamRiders = getTeamOriginalRiders(injTeamId);
     const opts = teamRiders.map(r => {
-      const pick = state.draftPicks.find(p => p.teamId===injTeamId && p.riderId===r.id);
-      const rnd = pick ? ` (R${pick.round})` : "";
-      return `<option value="${r.id}">${escHtml(r.name)}${rnd}</option>`;
+      const pickNum = getOverallPickNumber(injTeamId, r.id);
+      const tag = pickNum ? ` (Pick #${pickNum})` : "";
+      return `<option value="${r.id}">${escHtml(r.name)}${tag}</option>`;
     }).join("");
     injOrig.innerHTML = `<option value="">Select Original Rider</option>${opts}`;
   } else {
     injOrig.innerHTML = `<option value="">Select Original Rider</option>`;
   }
 
-  // Standby pool — depends on which original rider is selected and their draft round
+  // Standby pool — depends on pick tier of the injured rider
   if(injTeamId && injOrigId){
     const pool = getStandbyPool(injTeamId, injOrigId).sort((a,b)=>a.name.localeCompare(b.name));
-    const pick = state.draftPicks.find(p => p.teamId===injTeamId && p.riderId===injOrigId);
-    const isR1 = pick?.round === 1;
-    const label = isR1
-      ? "Any rider available (R1 replacement — no restrictions)"
-      : "Undrafted or R2 riders available";
-    injRep.innerHTML = `<option value="">${escHtml(label)}</option>` +
+    const overallPick = getOverallPickNumber(injTeamId, injOrigId);
+    let tierLabel = "Any rider (no restrictions)";
+    if(overallPick){
+      if(overallPick <= 5)       tierLabel = `Pick #${overallPick} — any rider (no restrictions)`;
+      else if(overallPick <= 10) tierLabel = `Pick #${overallPick} — anyone except top 5 picks`;
+      else if(overallPick <= 15) tierLabel = `Pick #${overallPick} — anyone except top 10 picks`;
+      else                       tierLabel = `Pick #${overallPick} — anyone except top 15 picks`;
+    }
+
+    const pickMap = getAllPickNumbersByRider();
+    injRep.innerHTML = `<option value="">${escHtml(tierLabel)}</option>` +
       pool.map(r => {
-        const status = getRiderStatus(r.id);
-        const tag = status === "AVAILABLE" ? "" :
-                    status === "TOP 10 PROTECTED" ? " [R1 pick]" :
-                    status === "PICKED ONCE" ? " [R2 ×1]" :
-                    status === "LOCKED" ? " [R2 ×2]" : "";
+        const picks = pickMap[r.id];
+        const tag = picks && picks.length
+          ? ` [#${picks.join(", #")}]`
+          : "";
         return `<option value="${r.id}">${escHtml(r.name)}${tag}</option>`;
       }).join("");
   } else {
