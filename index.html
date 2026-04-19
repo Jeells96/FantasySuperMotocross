@@ -1,0 +1,1030 @@
+import { useState, useEffect, useCallback } from “react”;
+
+// ── CONSTANTS ──────────────────────────────────────────────────────────────────
+const TEAMS_DEFAULT = [
+“Jaren”,“Savannah”,“Jaycee”,“Maisy”,“Grandpa”,
+“Grandma”,“Parker”,“Josie”,“Kennedy”,“John”
+];
+
+const RIDERS_DEFAULT = [
+{ id:1,  name:“Hunter Lawrence”,   team:“Honda HRC Progressive”,                    number:96  },
+{ id:2,  name:“Cooper Webb”,       team:“Monster Energy Yamaha Star Racing”,         number:1   },
+{ id:3,  name:“Ken Roczen”,        team:“Twisted Tea Suzuki”,                        number:94  },
+{ id:4,  name:“Chase Sexton”,      team:“Monster Energy Kawasaki”,                   number:4   },
+{ id:5,  name:“Eli Tomac”,         team:“Red Bull KTM Factory Racing”,               number:3   },
+{ id:6,  name:“Jorge Prado”,       team:“Red Bull KTM Factory Racing”,               number:26  },
+{ id:7,  name:“Justin Hill”,       team:“Team Tedder Racing KTM”,                    number:46  },
+{ id:8,  name:“Dylan Ferrandis”,   team:“Troy Lee Designs Red Bull Ducati”,          number:14  },
+{ id:9,  name:“Justin Cooper”,     team:“Monster Energy Yamaha Star Racing”,         number:32  },
+{ id:10, name:“Aaron Plessinger”,  team:“Red Bull KTM Factory Racing”,               number:7   },
+{ id:11, name:“Garrett Marchbanks”,team:“Monster Energy Kawasaki”,                   number:36  },
+{ id:12, name:“Colt Nichols”,      team:“Twisted Tea Suzuki”,                        number:45  },
+{ id:13, name:“Shane McElrath”,    team:“Quadlock Honda Racing”,                     number:12  },
+{ id:14, name:“Dean Wilson”,       team:“Quadlock Honda Racing”,                     number:15  },
+{ id:15, name:“Christian Craig”,   team:“Quadlock Honda Racing”,                     number:28  },
+{ id:16, name:“Joey Savatgy”,      team:“Quadlock Honda Racing”,                     number:17  },
+{ id:17, name:“Malcolm Stewart”,   team:“Rockstar Energy Husqvarna”,                 number:27  },
+{ id:18, name:“Jason Anderson”,    team:“Twisted Tea Suzuki”,                        number:21  },
+{ id:19, name:“RJ Hampshire”,      team:“Rockstar Energy Husqvarna”,                 number:24  },
+{ id:20, name:“Justin Barcia”,     team:“Troy Lee Designs Red Bull Ducati”,          number:51  },
+{ id:21, name:“Jordon Smith”,      team:“Triumph Factory Racing”,                    number:20  },
+{ id:22, name:“Austin Forkner”,    team:“Triumph Factory Racing”,                    number:33  },
+{ id:23, name:“Tristan Lane”,      team:“Privateer Yamaha”,                          number:711 },
+{ id:24, name:“Freddie Noren”,     team:“Privateer Yamaha”,                          number:63  },
+{ id:25, name:“Kevin Moranz”,      team:“Champion Tool Storage KMR KTM”,             number:78  },
+{ id:26, name:“Vince Friese”,      team:“Privateer Kawasaki”,                        number:719 },
+{ id:27, name:“Mitchell Harrison”, team:“Partzilla Blaster PRMX Kawasaki”,           number:41  },
+];
+
+const POSITION_POINTS = {1:15,2:14,3:13,4:12,5:11,6:10,7:9,8:8,9:7,10:6,
+11:5,12:4,13:3,14:2,15:1,16:1,17:1,18:1,19:1,20:1,21:1,22:1};
+
+const ROUNDS = [
+{rnd:1, date:“Jan 10”,  venue:“Anaheim”,      stadium:“Angel Stadium”},
+{rnd:2, date:“Jan 17”,  venue:“San Diego”,    stadium:“Snapdragon Stadium”},
+{rnd:3, date:“Jan 24”,  venue:“Anaheim”,      stadium:“Angel Stadium”},
+{rnd:4, date:“Jan 31”,  venue:“Houston”,      stadium:“NRG Stadium”},
+{rnd:5, date:“Feb 7”,   venue:“Glendale”,     stadium:“State Farm Stadium”},
+{rnd:6, date:“Feb 14”,  venue:“Seattle”,      stadium:“Lumen Field”},
+{rnd:7, date:“Feb 21”,  venue:“Arlington”,    stadium:“AT&T Stadium”},
+{rnd:8, date:“Feb 28”,  venue:“Daytona”,      stadium:“Daytona International Speedway”},
+{rnd:9, date:“Mar 7”,   venue:“Indianapolis”, stadium:“Lucas Oil Stadium”},
+{rnd:10,date:“Mar 21”,  venue:“Birmingham”,   stadium:“Protective Stadium”},
+{rnd:11,date:“Mar 28”,  venue:“Detroit”,      stadium:“Ford Field”},
+{rnd:12,date:“Apr 4”,   venue:“St. Louis”,    stadium:“The Dome at America’s Center”},
+{rnd:13,date:“Apr 11”,  venue:“Nashville”,    stadium:“Nissan Stadium”},
+{rnd:14,date:“Apr 18”,  venue:“Cleveland”,    stadium:“Huntington Bank Field”},
+{rnd:15,date:“Apr 25”,  venue:“Philadelphia”, stadium:“Lincoln Financial Field”},
+{rnd:16,date:“May 2”,   venue:“Denver”,       stadium:“Empower Field at Mile High”},
+{rnd:17,date:“May 9”,   venue:“Salt Lake City”,stadium:“Rice-Eccles Stadium”},
+];
+
+// ── STORAGE HELPERS ────────────────────────────────────────────────────────────
+const STORAGE_KEY = “fsx-league-v1”;
+async function saveData(data) {
+try { await window.storage.set(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+}
+async function loadData() {
+try {
+const r = await window.storage.get(STORAGE_KEY);
+return r ? JSON.parse(r.value) : null;
+} catch(e) { return null; }
+}
+
+// ── SCORING ────────────────────────────────────────────────────────────────────
+function calcTeamPoints(roster, raceResults) {
+// roster: [riderId, riderId]
+// raceResults: [{riderId, position, holeshot}], wildcardPos
+let total = 0;
+if (!raceResults) return 0;
+const { results, wildcardPos } = raceResults;
+roster.forEach(rid => {
+const r = results.find(x => x.riderId === rid);
+if (!r) return;
+let pts = POSITION_POINTS[r.position] || 0;
+if (r.holeshot) pts += 5;
+if (wildcardPos && r.position === wildcardPos) pts += 15;
+total += pts;
+});
+return total;
+}
+
+// ── PDF PARSER ─────────────────────────────────────────────────────────────────
+async function parsePdfUrl(url) {
+const res = await fetch(`https://api.anthropic.com/v1/messages`, {
+method:“POST”,
+headers:{“Content-Type”:“application/json”},
+body: JSON.stringify({
+model:“claude-sonnet-4-20250514”,
+max_tokens:1000,
+system:`You parse AMA Supercross race result PDFs. Given the text content of a race result, extract the 450SX main event results and return ONLY a JSON object like: {"venue":"Nashville","date":"Apr 11, 2026","results":[{"position":1,"name":"Hunter Lawrence","holeshot":false},{"position":10,"name":"Shane McElrath","holeshot":true},...]} The holeshot winner has "(HS)" next to their name in the source. Include all finishers positions 1-22. Return ONLY valid JSON, no markdown.`,
+messages:[{role:“user”, content:`Parse this race result PDF content and extract results:\n\nURL: ${url}\n\nPlease fetch and parse the race results from this PDF URL. The format has columns: POS # RIDER BIKE INTERVAL etc. Look for (HS) next to a rider name for holeshot.`}]
+})
+});
+const data = await res.json();
+const text = data.content?.map(c=>c.text||””).join(””);
+const clean = text.replace(/`json|`/g,””).trim();
+return JSON.parse(clean);
+}
+
+// ── STYLES ─────────────────────────────────────────────────────────────────────
+const css = `
+@import url(‘https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Rajdhani:wght@400;600;700&display=swap’);
+
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+–bg:#0a0a0c;
+–bg2:#111116;
+–bg3:#1a1a22;
+–panel:#16161f;
+–border:#2a2a38;
+–accent:#ff5500;
+–accent2:#ffaa00;
+–text:#e8e8f0;
+–muted:#6b6b80;
+–green:#00e676;
+–gold:#ffd600;
+–red:#ff1744;
+}
+body{background:var(–bg);color:var(–text);font-family:‘Rajdhani’,sans-serif;min-height:100vh;overflow-x:hidden;}
+
+/* noise overlay */
+body::before{content:’’;position:fixed;inset:0;opacity:.03;pointer-events:none;z-index:9999;
+background-image:url(“data:image/svg+xml,%3Csvg viewBox=‘0 0 256 256’ xmlns=‘http://www.w3.org/2000/svg’%3E%3Cfilter id=‘noise’%3E%3CfeTurbulence type=‘fractalNoise’ baseFrequency=‘0.9’ numOctaves=‘4’ stitchTiles=‘stitch’/%3E%3C/filter%3E%3Crect width=‘100%25’ height=‘100%25’ filter=‘url(%23noise)’/%3E%3C/svg%3E”);
+}
+
+.app{display:flex;flex-direction:column;min-height:100vh;}
+
+/* HEADER */
+.header{background:var(–bg2);border-bottom:2px solid var(–accent);padding:0 20px;position:sticky;top:0;z-index:100;
+box-shadow:0 4px 30px rgba(255,85,0,.3);}
+.header-inner{display:flex;align-items:center;justify-content:space-between;max-width:1200px;margin:0 auto;height:60px;}
+.logo{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:1.5rem;letter-spacing:.05em;
+background:linear-gradient(135deg,var(–accent),var(–accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.logo span{color:var(–muted);-webkit-text-fill-color:var(–muted);font-weight:400;font-size:1rem;}
+.nav{display:flex;gap:4px;}
+.nav-btn{background:none;border:none;color:var(–muted);font-family:‘Barlow Condensed’,sans-serif;font-size:1rem;
+font-weight:700;letter-spacing:.08em;padding:8px 14px;cursor:pointer;border-radius:4px;transition:all .2s;text-transform:uppercase;}
+.nav-btn:hover{color:var(–text);background:var(–bg3);}
+.nav-btn.active{color:var(–accent);border-bottom:2px solid var(–accent);}
+
+/* MAIN */
+.main{flex:1;max-width:1200px;margin:0 auto;width:100%;padding:24px 20px;}
+
+/* PAGE TITLE */
+.page-title{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:2.5rem;letter-spacing:.05em;
+text-transform:uppercase;margin-bottom:4px;}
+.page-title .accent{color:var(–accent);}
+.page-sub{color:var(–muted);font-size:1rem;margin-bottom:24px;}
+
+/* CARDS */
+.card{background:var(–panel);border:1px solid var(–border);border-radius:8px;padding:20px;}
+.card-sm{background:var(–panel);border:1px solid var(–border);border-radius:8px;padding:14px 16px;}
+
+/* STANDINGS */
+.standings-grid{display:flex;flex-direction:column;gap:8px;}
+.standing-row{display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:12px;
+background:var(–panel);border:1px solid var(–border);border-radius:8px;padding:12px 16px;transition:all .2s;}
+.standing-row:hover{border-color:var(–accent);transform:translateX(4px);}
+.standing-row.first{border-color:var(–gold);background:linear-gradient(90deg,rgba(255,214,0,.08),var(–panel));}
+.standing-row.second{border-color:#aaa;}
+.standing-row.third{border-color:#cd7f32;}
+.rank{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:1.8rem;
+color:var(–muted);text-align:center;min-width:40px;}
+.rank.gold{color:var(–gold);}
+.rank.silver{color:#ccc;}
+.rank.bronze{color:#cd7f32;}
+.team-info{display:flex;flex-direction:column;}
+.team-name{font-family:‘Barlow Condensed’,sans-serif;font-weight:700;font-size:1.2rem;letter-spacing:.05em;}
+.team-riders{color:var(–muted);font-size:.85rem;}
+.team-pts{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:1.8rem;color:var(–accent);}
+
+/* ROUND BREAKDOWN */
+.rounds-table{width:100%;border-collapse:collapse;font-size:.9rem;margin-top:16px;}
+.rounds-table th{text-align:left;padding:8px 10px;color:var(–muted);font-family:‘Barlow Condensed’,sans-serif;
+font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(–border);}
+.rounds-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);}
+.rounds-table tr:hover td{background:rgba(255,85,0,.05);}
+.pts-cell{font-weight:700;color:var(–accent2);}
+
+/* DRAFT BOARD */
+.riders-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
+.rider-card-btn{background:var(–panel);border:1px solid var(–border);border-radius:8px;padding:14px;
+cursor:pointer;text-align:left;transition:all .2s;width:100%;}
+.rider-card-btn:hover{border-color:var(–accent);transform:translateY(-2px);box-shadow:0 6px 20px rgba(255,85,0,.2);}
+.rider-card-btn.protected{border-color:var(–gold);background:rgba(255,214,0,.05);}
+.rider-card-btn.picked-once{border-color:var(–accent2);background:rgba(255,170,0,.05);}
+.rider-card-btn.picked-twice{border-color:var(–border);opacity:.5;}
+.rider-num{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:1.6rem;color:var(–accent);line-height:1;}
+.rider-name-card{font-family:‘Barlow Condensed’,sans-serif;font-weight:700;font-size:1.05rem;letter-spacing:.03em;margin:4px 0 2px;}
+.rider-team-card{color:var(–muted);font-size:.78rem;line-height:1.3;}
+.status-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:700;
+letter-spacing:.1em;text-transform:uppercase;margin-top:8px;}
+.badge-available{background:rgba(0,230,118,.15);color:var(–green);border:1px solid var(–green);}
+.badge-protected{background:rgba(255,214,0,.15);color:var(–gold);border:1px solid var(–gold);}
+.badge-once{background:rgba(255,170,0,.15);color:var(–accent2);border:1px solid var(–accent2);}
+.badge-locked{background:rgba(255,23,68,.1);color:var(–red);border:1px solid var(–red);}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal{background:var(–bg2);border:1px solid var(–border);border-radius:12px;width:100%;max-width:480px;
+box-shadow:0 20px 60px rgba(0,0,0,.8);animation:modalIn .2s ease;}
+@keyframes modalIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(–border);display:flex;justify-content:space-between;align-items:center;}
+.modal-body{padding:20px 24px;}
+.modal-close{background:none;border:none;color:var(–muted);font-size:1.4rem;cursor:pointer;padding:4px 8px;}
+.modal-close:hover{color:var(–text);}
+.modal-rider-num{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:3rem;color:var(–accent);line-height:1;}
+.modal-rider-name{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:1.6rem;letter-spacing:.03em;}
+.modal-team{color:var(–muted);margin-bottom:16px;}
+.modal-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:.95rem;}
+.modal-label{color:var(–muted);}
+.modal-val{font-weight:700;}
+
+/* ASSIGN */
+.assign-section{margin-top:16px;}
+.assign-label{color:var(–muted);font-size:.85rem;margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em;}
+.assign-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.assign-btn{background:var(–bg3);border:1px solid var(–border);color:var(–text);padding:8px 10px;
+border-radius:6px;cursor:pointer;font-family:‘Rajdhani’,sans-serif;font-size:.9rem;font-weight:600;
+transition:all .2s;text-align:left;}
+.assign-btn:hover{border-color:var(–accent);color:var(–accent);}
+.assign-btn.assigned{border-color:var(–green);color:var(–green);background:rgba(0,230,118,.08);}
+.assign-btn:disabled{opacity:.4;cursor:not-allowed;}
+.remove-btn{background:rgba(255,23,68,.1);border:1px solid var(–red);color:var(–red);padding:6px 12px;
+border-radius:6px;cursor:pointer;font-size:.85rem;font-weight:700;margin-top:12px;width:100%;transition:all .2s;}
+.remove-btn:hover{background:rgba(255,23,68,.2);}
+
+/* RESULTS / ADMIN */
+.input-group{margin-bottom:16px;}
+.input-label{display:block;color:var(–muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+.text-input{width:100%;background:var(–bg3);border:1px solid var(–border);color:var(–text);
+padding:10px 14px;border-radius:6px;font-family:‘Rajdhani’,sans-serif;font-size:1rem;outline:none;transition:border .2s;}
+.text-input:focus{border-color:var(–accent);}
+.btn{padding:10px 20px;border-radius:6px;border:none;cursor:pointer;font-family:‘Barlow Condensed’,sans-serif;
+font-weight:700;font-size:1rem;letter-spacing:.08em;text-transform:uppercase;transition:all .2s;}
+.btn-primary{background:var(–accent);color:#fff;}
+.btn-primary:hover{background:#ff7733;}
+.btn-secondary{background:var(–bg3);color:var(–text);border:1px solid var(–border);}
+.btn-secondary:hover{border-color:var(–accent);color:var(–accent);}
+.btn-success{background:var(–green);color:#000;}
+.btn-danger{background:var(–red);color:#fff;}
+.btn-gold{background:var(–gold);color:#000;}
+.btn-link{background:none;border:1px solid var(–border);color:var(–accent2);padding:10px 16px;}
+.btn-link:hover{border-color:var(–accent2);}
+.btn-sm{padding:6px 12px;font-size:.85rem;}
+
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+
+/* PARSED RESULTS */
+.results-list{max-height:320px;overflow-y:auto;border:1px solid var(–border);border-radius:6px;}
+.result-item{display:grid;grid-template-columns:40px 1fr auto;gap:8px;align-items:center;
+padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.04);font-size:.9rem;}
+.result-item:last-child{border-bottom:none;}
+.result-pos{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:1.1rem;color:var(–accent);}
+.result-name{font-weight:600;}
+.hs-tag{background:var(–accent);color:#fff;font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.05em;}
+.wc-tag{background:var(–gold);color:#000;font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.05em;}
+
+/* WILDCARD */
+.wildcard-box{background:linear-gradient(135deg,rgba(255,170,0,.1),rgba(255,85,0,.1));border:1px solid var(–accent2);
+border-radius:8px;padding:16px;margin-bottom:16px;}
+.wildcard-pos{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:3rem;color:var(–gold);line-height:1;}
+.wildcard-label{color:var(–muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.1em;}
+
+/* SETTINGS */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.setting-item{display:flex;align-items:center;gap:10px;background:var(–panel);border:1px solid var(–border);
+border-radius:8px;padding:10px 14px;}
+.setting-num{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:1.2rem;color:var(–accent);min-width:24px;}
+.setting-input{flex:1;background:transparent;border:none;border-bottom:1px solid var(–border);
+color:var(–text);font-family:‘Rajdhani’,sans-serif;font-size:1rem;font-weight:600;padding:4px 0;outline:none;}
+.setting-input:focus{border-bottom-color:var(–accent);}
+
+/* DANGER ZONE */
+.danger-zone{border:1px solid var(–red);border-radius:8px;padding:20px;margin-top:24px;background:rgba(255,23,68,.05);}
+.danger-title{color:var(–red);font-family:‘Barlow Condensed’,sans-serif;font-weight:700;font-size:1.1rem;
+letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(–bg2);border:1px solid var(–accent);
+border-radius:8px;padding:12px 20px;font-weight:600;z-index:999;animation:toastIn .3s ease;box-shadow:0 8px 30px rgba(0,0,0,.5);}
+@keyframes toastIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* ROUND PILLS */
+.round-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+.round-pill{background:var(–panel);border:1px solid var(–border);border-radius:20px;padding:4px 12px;
+font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.round-pill.done{border-color:var(–green);color:var(–green);}
+.round-pill.active-round{border-color:var(–accent);color:var(–accent);background:rgba(255,85,0,.1);}
+
+/* SECTION HEADER */
+.section-header{font-family:‘Barlow Condensed’,sans-serif;font-weight:700;font-size:1.1rem;
+letter-spacing:.1em;text-transform:uppercase;color:var(–muted);margin-bottom:12px;
+padding-bottom:8px;border-bottom:1px solid var(–border);}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.filter-btn{background:var(–panel);border:1px solid var(–border);color:var(–muted);padding:6px 14px;
+border-radius:20px;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .2s;}
+.filter-btn.active{border-color:var(–accent);color:var(–accent);background:rgba(255,85,0,.1);}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:48px 24px;color:var(–muted);}
+.empty-icon{font-size:2.5rem;margin-bottom:12px;}
+
+/* LOADING */
+.loading{display:flex;align-items:center;gap:10px;color:var(–muted);padding:16px 0;}
+.spinner{width:20px;height:20px;border:2px solid var(–border);border-top-color:var(–accent);
+border-radius:50%;animation:spin .6s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* RESPONSIVE */
+@media(max-width:600px){
+.settings-grid{grid-template-columns:1fr;}
+.assign-grid{grid-template-columns:1fr;}
+.riders-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}
+.nav-btn{padding:8px 8px;font-size:.85rem;}
+.logo span{display:none;}
+}
+`;
+
+// ── MAIN APP ───────────────────────────────────────────────────────────────────
+export default function App() {
+const [page, setPage] = useState(“standings”);
+const [teams, setTeams] = useState(TEAMS_DEFAULT.map((n,i)=>({id:i,name:n,roster:[]})));
+const [riders] = useState(RIDERS_DEFAULT);
+const [raceResults, setRaceResults] = useState({}); // {roundNum: {venue, date, results:[{riderId,position,holeshot}], wildcardPos}}
+const [selectedRider, setSelectedRider] = useState(null);
+const [toast, setToast] = useState(null);
+const [loaded, setLoaded] = useState(false);
+
+// Load from storage
+useEffect(() => {
+loadData().then(d => {
+if (d) {
+if (d.teams) setTeams(d.teams);
+if (d.raceResults) setRaceResults(d.raceResults);
+}
+setLoaded(true);
+});
+}, []);
+
+const persist = useCallback((t, r) => {
+saveData({ teams: t, raceResults: r });
+}, []);
+
+const showToast = (msg) => {
+setToast(msg);
+setTimeout(() => setToast(null), 3000);
+};
+
+const updateTeams = (newTeams) => {
+setTeams(newTeams);
+persist(newTeams, raceResults);
+};
+
+const updateResults = (newResults) => {
+setRaceResults(newResults);
+persist(teams, newResults);
+};
+
+// Rider draft status
+const getRiderStatus = (riderId) => {
+const picks = teams.filter(t => t.roster.includes(riderId));
+const isProtected = picks.some(t => {
+const idx = t.roster.indexOf(riderId);
+// Protected = picked as first rider (round 1 pick)
+return idx === 0 && teams.filter(x=>x.roster[0]===riderId).length > 0;
+});
+// A rider is “top 10 protected” if they were picked as anyone’s FIRST pick
+// We track this via a separate field
+if (picks.length === 0) return “available”;
+// Check protected flag
+const anyProtected = picks.some(t => t.protectedRider === riderId || t.roster.indexOf(riderId) === 0 && t.round1Pick === riderId);
+return picks.length >= 2 ? “locked” : picks.length === 1 ? “once” : “available”;
+};
+
+// Simplified: track which riders were assigned as round-1 picks via team.r1 array
+const getRiderStatusFull = (riderId) => {
+const pickedBy = teams.filter(t => t.roster.includes(riderId));
+const isR1 = teams.some(t => t.r1 === riderId);
+if (pickedBy.length === 0) return { status:“available”, teams:[] };
+if (isR1) return { status:“protected”, teams: pickedBy };
+if (pickedBy.length >= 2) return { status:“locked”, teams: pickedBy };
+return { status:“once”, teams: pickedBy };
+};
+
+// Standings calc
+const getStandings = () => {
+return teams.map(team => {
+let total = 0;
+const byRound = {};
+Object.entries(raceResults).forEach(([rnd, rr]) => {
+const pts = calcTeamPoints(team.roster, rr);
+byRound[rnd] = pts;
+total += pts;
+});
+const riderNames = team.roster.map(rid => riders.find(r=>r.id===rid)?.name || “”).filter(Boolean);
+return { …team, total, byRound, riderNames };
+}).sort((a,b) => b.total - a.total);
+};
+
+if (!loaded) return (
+<div style={{display:“flex”,alignItems:“center”,justifyContent:“center”,height:“100vh”,flexDirection:“column”,gap:16}}>
+<style>{css}</style>
+<div className="spinner" style={{width:40,height:40}}/>
+<div style={{color:“var(–muted)”}}>Loading league data…</div>
+</div>
+);
+
+return (
+<div className="app">
+<style>{css}</style>
+<header className="header">
+<div className="header-inner">
+<div className="logo">⚡ FSX LEAGUE <span>2026</span></div>
+<nav className="nav">
+{[[“standings”,“🏆 Standings”],[“draft”,“🏍️ Draft”],[“results”,“📋 Results”],[“settings”,“⚙️ Settings”]].map(([p,label])=>(
+<button key={p} className={`nav-btn${page===p?" active":""}`} onClick={()=>setPage(p)}>{label}</button>
+))}
+</nav>
+</div>
+</header>
+<main className="main">
+{page===“standings” && <StandingsPage standings={getStandings()} rounds={ROUNDS} raceResults={raceResults}/>}
+{page===“draft” && <DraftPage teams={teams} riders={riders} getRiderStatus={getRiderStatusFull}
+onSelectRider={setSelectedRider} updateTeams={updateTeams} showToast={showToast}/>}
+{page===“results” && <ResultsPage teams={teams} riders={riders} raceResults={raceResults}
+updateResults={updateResults} showToast={showToast} rounds={ROUNDS}/>}
+{page===“settings” && <SettingsPage teams={teams} updateTeams={updateTeams} showToast={showToast}
+raceResults={raceResults} updateResults={updateResults}/>}
+</main>
+
+```
+  {selectedRider && (
+    <RiderModal rider={selectedRider} teams={teams} riders={riders}
+      getRiderStatus={getRiderStatusFull} updateTeams={updateTeams}
+      onClose={()=>setSelectedRider(null)} showToast={showToast}/>
+  )}
+
+  {toast && <div className="toast">{toast}</div>}
+</div>
+```
+
+);
+}
+
+// ── STANDINGS PAGE ─────────────────────────────────────────────────────────────
+function StandingsPage({ standings, rounds, raceResults }) {
+const [expanded, setExpanded] = useState(null);
+const completedRounds = Object.keys(raceResults).map(Number);
+
+return (
+<div>
+<div className="page-title">Season <span className="accent">Standings</span></div>
+<div className="page-sub">2026 Monster Energy AMA Supercross · 17 Rounds</div>
+
+```
+  {standings.every(s=>s.total===0) && (
+    <div className="empty"><div className="empty-icon">🏁</div>No race results yet. Submit results in the Results tab.</div>
+  )}
+
+  <div className="standings-grid">
+    {standings.map((team, i) => {
+      const rankClass = i===0?"first":i===1?"second":i===2?"third":"";
+      const rankColor = i===0?"gold":i===1?"silver":i===2?"bronze":"";
+      return (
+        <div key={team.id}>
+          <div className={`standing-row ${rankClass}`} style={{cursor:"pointer"}}
+            onClick={()=>setExpanded(expanded===team.id?null:team.id)}>
+            <div className={`rank ${rankColor}`}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</div>
+            <div className="team-info">
+              <div className="team-name">{team.name}</div>
+              <div className="team-riders">{team.riderNames.join(" · ") || "No riders drafted"}</div>
+            </div>
+            <div className="team-pts">{team.total} <span style={{fontSize:"1rem",color:"var(--muted)"}}>pts</span></div>
+          </div>
+          {expanded===team.id && completedRounds.length > 0 && (
+            <div className="card" style={{marginTop:4,borderRadius:"0 0 8px 8px",borderTop:"none"}}>
+              <table className="rounds-table">
+                <thead>
+                  <tr><th>Round</th><th>Venue</th><th>Pts</th></tr>
+                </thead>
+                <tbody>
+                  {completedRounds.sort((a,b)=>a-b).map(rnd=>(
+                    <tr key={rnd}>
+                      <td>Rnd {rnd}</td>
+                      <td style={{color:"var(--muted)"}}>{raceResults[rnd]?.venue||""}</td>
+                      <td className="pts-cell">{team.byRound[rnd]||0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      );
+    })}
+  </div>
+
+  {/* Round schedule */}
+  <div style={{marginTop:32}}>
+    <div className="section-header">2026 Schedule</div>
+    <div className="round-pills">
+      {rounds.map(r=>(
+        <div key={r.rnd} className={`round-pill ${raceResults[r.rnd]?"done":""}${r.rnd===14?" active-round":""}`}>
+          R{r.rnd} {r.venue}
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
+```
+
+);
+}
+
+// ── DRAFT PAGE ─────────────────────────────────────────────────────────────────
+function DraftPage({ teams, riders, getRiderStatus, onSelectRider, updateTeams, showToast }) {
+const [filter, setFilter] = useState(“all”);
+
+const filtered = riders.filter(r => {
+const { status } = getRiderStatus(r.id);
+if (filter===“available”) return status===“available”;
+if (filter===“protected”) return status===“protected”;
+if (filter===“once”) return status===“once”;
+if (filter===“locked”) return status===“locked”;
+return true;
+});
+
+const counts = {
+available: riders.filter(r=>getRiderStatus(r.id).status===“available”).length,
+protected: riders.filter(r=>getRiderStatus(r.id).status===“protected”).length,
+once: riders.filter(r=>getRiderStatus(r.id).status===“once”).length,
+locked: riders.filter(r=>getRiderStatus(r.id).status===“locked”).length,
+};
+
+const statusClass = (status) => ({available:””,protected:“protected”,once:“picked-once”,locked:“picked-twice”}[status]||””);
+const badgeClass = (status) => ({available:“badge-available”,protected:“badge-protected”,once:“badge-once”,locked:“badge-locked”}[status]||””);
+const badgeLabel = (status) => ({available:“Available”,protected:“🔒 R1 Protected”,once:“Picked ×1”,locked:“Locked ×2”}[status]||status);
+
+return (
+<div>
+<div className="page-title">Draft <span className="accent">Board</span></div>
+<div className="page-sub">Click any rider to assign to a team or view details</div>
+
+```
+  <div className="filter-bar">
+    {[["all","All Riders",riders.length],["available","Available",counts.available],
+      ["protected","R1 Protected",counts.protected],["once","Picked ×1",counts.once],
+      ["locked","Locked",counts.locked]].map(([f,label,cnt])=>(
+      <button key={f} className={`filter-btn${filter===f?" active":""}`} onClick={()=>setFilter(f)}>
+        {label} <span style={{opacity:.6}}>({cnt})</span>
+      </button>
+    ))}
+  </div>
+
+  <div className="riders-grid">
+    {filtered.map(rider => {
+      const { status } = getRiderStatus(rider.id);
+      return (
+        <button key={rider.id} className={`rider-card-btn ${statusClass(status)}`}
+          onClick={()=>onSelectRider(rider)}>
+          <div className="rider-num">#{rider.number}</div>
+          <div className="rider-name-card">{rider.name}</div>
+          <div className="rider-team-card">{rider.team}</div>
+          <span className={`status-badge ${badgeClass(status)}`}>{badgeLabel(status)}</span>
+        </button>
+      );
+    })}
+  </div>
+
+  {/* Team roster summary */}
+  <div style={{marginTop:32}}>
+    <div className="section-header">Team Rosters</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10}}>
+      {teams.map(team=>(
+        <div key={team.id} className="card-sm">
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:"1.1rem",marginBottom:8}}>{team.name}</div>
+          {team.roster.length===0 && <div style={{color:"var(--muted)",fontSize:".85rem"}}>No riders drafted</div>}
+          {team.roster.map((rid,i)=>{
+            const rider = riders.find(r=>r.id===rid);
+            const isR1 = team.r1===rid;
+            return (
+              <div key={rid} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                <span style={{color:"var(--accent)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:"1rem"}}>#{rider?.number}</span>
+                <span style={{flex:1,fontSize:".9rem",fontWeight:600}}>{rider?.name}</span>
+                {isR1 && <span className="status-badge badge-protected" style={{fontSize:".6rem",padding:"1px 5px"}}>R1</span>}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
+```
+
+);
+}
+
+// ── RIDER MODAL ────────────────────────────────────────────────────────────────
+function RiderModal({ rider, teams, riders, getRiderStatus, updateTeams, onClose, showToast }) {
+const { status, teams: pickedByTeams } = getRiderStatus(rider.id);
+const badgeClass = {available:“badge-available”,protected:“badge-protected”,once:“badge-once”,locked:“badge-locked”}[status]||””;
+const badgeLabel = {available:“Available”,protected:“🔒 Round 1 Protected”,once:“Picked Once”,locked:“Locked (×2)”}[status]||status;
+
+const canAssignToTeam = (team) => {
+if (team.roster.length >= 2) return false;
+if (team.roster.includes(rider.id)) return false;
+if (status === “locked”) return false;
+if (status === “protected”) return false; // already picked in R1
+return true;
+};
+
+const assignRider = (team, isR1) => {
+// Validate R2 rules
+if (isR1) {
+// Can only be R1 if no one has picked them yet
+if (status !== “available”) { showToast(“Rider already picked — can’t assign as R1”); return; }
+} else {
+// R2: rider must not be protected
+if (status === “protected”) { showToast(“R1 Protected riders cannot be picked in Round 2”); return; }
+if (status === “locked”) { showToast(“This rider is already picked by 2 teams”); return; }
+}
+
+```
+const newTeams = teams.map(t => {
+  if (t.id !== team.id) return t;
+  const newRoster = [...t.roster, rider.id];
+  const newR1 = isR1 ? rider.id : t.r1;
+  return { ...t, roster: newRoster, r1: newR1 };
+});
+updateTeams(newTeams);
+showToast(`${rider.name} assigned to ${team.name}!`);
+onClose();
+```
+
+};
+
+const removeFromTeam = (team) => {
+const newTeams = teams.map(t => {
+if (t.id !== team.id) return t;
+const newRoster = t.roster.filter(rid => rid !== rider.id);
+const newR1 = t.r1 === rider.id ? null : t.r1;
+return { …t, roster: newRoster, r1: newR1 };
+});
+updateTeams(newTeams);
+showToast(`${rider.name} removed from ${team.name}`);
+onClose();
+};
+
+return (
+<div className=“modal-overlay” onClick={e=>e.target===e.currentTarget&&onClose()}>
+<div className="modal">
+<div className="modal-header">
+<div>
+<div className="modal-rider-num">#{rider.number}</div>
+<div className="modal-rider-name">{rider.name}</div>
+</div>
+<button className="modal-close" onClick={onClose}>✕</button>
+</div>
+<div className="modal-body">
+<div className="modal-team">{rider.team}</div>
+<span className={`status-badge ${badgeClass}`} style={{marginBottom:16,display:“inline-block”}}>{badgeLabel}</span>
+
+```
+      {pickedByTeams.length > 0 && (
+        <div>
+          {pickedByTeams.map(t=>(
+            <div key={t.id} className="modal-row">
+              <span className="modal-label">Drafted by</span>
+              <span className="modal-val" style={{color:"var(--green)"}}>{t.name} {t.r1===rider.id?"(R1 Pick)":"(R2 Pick)"}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {pickedByTeams.length > 0 && (
+        <div style={{marginTop:12}}>
+          {pickedByTeams.map(t=>(
+            <button key={t.id} className="remove-btn" onClick={()=>removeFromTeam(t)}>
+              Remove from {t.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {status !== "locked" && (
+        <div className="assign-section">
+          <div className="assign-label">
+            {status==="available" ? "Assign to team (choose round):" : "Assign as R2 pick to:"}
+          </div>
+
+          {status === "available" && (
+            <>
+              <div style={{color:"var(--accent)",fontWeight:700,fontSize:".85rem",marginBottom:6,textTransform:"uppercase",letterSpacing:".08em"}}>Round 1 Pick (Protected)</div>
+              <div className="assign-grid" style={{marginBottom:12}}>
+                {teams.map(t=>{
+                  const alreadyHasR1 = t.r1 != null;
+                  const full = t.roster.length >= 2;
+                  return (
+                    <button key={t.id} className={`assign-btn`}
+                      disabled={alreadyHasR1||full}
+                      onClick={()=>assignRider(t,true)}>
+                      {t.name} {alreadyHasR1?"(R1 taken)":full?"(full)":""}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{color:"var(--accent2)",fontWeight:700,fontSize:".85rem",marginBottom:6,textTransform:"uppercase",letterSpacing:".08em"}}>Round 2 Pick</div>
+            </>
+          )}
+
+          <div className="assign-grid">
+            {teams.map(t=>{
+              const disabled = !canAssignToTeam(t) || (status==="once" && t.roster.includes(rider.id));
+              const hasRider = t.roster.includes(rider.id);
+              return (
+                <button key={t.id} className={`assign-btn${hasRider?" assigned":""}`}
+                  disabled={disabled}
+                  onClick={()=>assignRider(t,false)}>
+                  {t.name} {t.roster.length>=2&&!hasRider?"(full)":""}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+</div>
+```
+
+);
+}
+
+// ── RESULTS PAGE ───────────────────────────────────────────────────────────────
+function ResultsPage({ teams, riders, raceResults, updateResults, showToast, rounds }) {
+const [pdfUrl, setPdfUrl] = useState(””);
+const [parsing, setParsing] = useState(false);
+const [parsed, setParsed] = useState(null);
+const [wildcardPos, setWildcardPos] = useState(””);
+const [selectedRound, setSelectedRound] = useState(null);
+const [viewRound, setViewRound] = useState(null);
+
+const randomizeWildcard = () => {
+const pos = Math.floor(Math.random() * 13) + 10; // 10-22
+setWildcardPos(String(pos));
+showToast(`Wildcard position randomized: P${pos}!`);
+};
+
+const handleParse = async () => {
+if (!pdfUrl.trim()) { showToast(“Please enter a PDF URL”); return; }
+setParsing(true);
+setParsed(null);
+try {
+const result = await parsePdfUrl(pdfUrl.trim());
+// Match parsed names to our rider database
+const matched = result.results.map(r => {
+const dbRider = riders.find(rd =>
+rd.name.toLowerCase().includes(r.name.toLowerCase().split(” “)[1]||r.name.toLowerCase()) ||
+r.name.toLowerCase().includes(rd.name.toLowerCase().split(” “)[1]||””)
+);
+return { …r, riderId: dbRider?.id || null, dbName: dbRider?.name || r.name };
+});
+setParsed({ …result, results: matched });
+showToast(`✅ Parsed! ${result.venue} results loaded`);
+} catch(e) {
+showToast(“❌ Failed to parse PDF. Check the URL and try again.”);
+}
+setParsing(false);
+};
+
+const handleSubmit = () => {
+if (!parsed) { showToast(“No results to submit”); return; }
+if (!selectedRound) { showToast(“Select a round number”); return; }
+const wc = wildcardPos ? parseInt(wildcardPos) : null;
+if (wc && (wc < 10 || wc > 22)) { showToast(“Wildcard must be between 10–22”); return; }
+
+```
+const newResults = {
+  ...raceResults,
+  [selectedRound]: {
+    venue: parsed.venue,
+    date: parsed.date,
+    results: parsed.results.filter(r=>r.riderId).map(r=>({riderId:r.riderId,position:r.position,holeshot:r.holeshot})),
+    wildcardPos: wc
+  }
+};
+updateResults(newResults);
+showToast(`✅ Round ${selectedRound} (${parsed.venue}) results saved!`);
+setParsed(null);
+setPdfUrl("");
+setWildcardPos("");
+setSelectedRound(null);
+```
+
+};
+
+const completedRounds = Object.keys(raceResults).map(Number).sort((a,b)=>a-b);
+
+return (
+<div>
+<div className="page-title">Race <span className="accent">Results</span></div>
+<div className="page-sub">Paste the official AMA PDF URL to import race results</div>
+
+```
+  {/* Quick link */}
+  <div style={{marginBottom:20}}>
+    <button className="btn btn-link" onClick={()=>window.open("https://www.supercrosslive.com/results/","_blank")}>
+      🔗 Open SupercrossLive Results
+    </button>
+  </div>
+
+  <div style={{display:"grid",gridTemplateColumns:"1fr",gap:16,maxWidth:700}}>
+
+    {/* PDF Input */}
+    <div className="card">
+      <div className="section-header">Import Race Results</div>
+      <div className="input-group">
+        <label className="input-label">AMA Results PDF URL</label>
+        <input className="text-input" value={pdfUrl} onChange={e=>setPdfUrl(e.target.value)}
+          placeholder="https://s3.amazonaws.com/assets.liveracemedia.com/..." />
+      </div>
+      <div className="btn-row">
+        <button className="btn btn-primary" onClick={handleParse} disabled={parsing}>
+          {parsing ? "Parsing..." : "Parse PDF"}
+        </button>
+      </div>
+      {parsing && <div className="loading"><div className="spinner"/><span>Fetching and parsing results...</span></div>}
+    </div>
+
+    {/* Parsed Results */}
+    {parsed && (
+      <div className="card">
+        <div className="section-header">{parsed.venue} — {parsed.date}</div>
+
+        {/* Round selector */}
+        <div className="input-group">
+          <label className="input-label">Assign to Round</label>
+          <div className="round-pills">
+            {rounds.map(r=>(
+              <div key={r.rnd} className={`round-pill${selectedRound===r.rnd?" active-round":""}${raceResults[r.rnd]?" done":""}`}
+                style={{cursor:"pointer"}} onClick={()=>setSelectedRound(r.rnd)}>
+                R{r.rnd} · {r.venue}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Wildcard */}
+        <div className="wildcard-box">
+          <div className="wildcard-label">Wildcard Position (+15 pts)</div>
+          <div className="wildcard-pos">{wildcardPos ? `P${wildcardPos}` : "—"}</div>
+          <div className="btn-row" style={{marginTop:10}}>
+            <button className="btn btn-gold btn-sm" onClick={randomizeWildcard}>🎲 Randomize (10–22)</button>
+            <input className="text-input" value={wildcardPos} onChange={e=>setWildcardPos(e.target.value)}
+              placeholder="Or type position" style={{width:160,padding:"6px 10px"}}/>
+          </div>
+        </div>
+
+        {/* Results list */}
+        <div style={{marginBottom:12}}>
+          <div className="assign-label">Finishing Order</div>
+          <div className="results-list">
+            {parsed.results.map(r=>(
+              <div key={r.position} className="result-item">
+                <div className="result-pos">P{r.position}</div>
+                <div className="result-name">
+                  {r.dbName}
+                  {!r.riderId && <span style={{color:"var(--red)",fontSize:".75rem",marginLeft:6}}>⚠ unmatched</span>}
+                </div>
+                <div style={{display:"flex",gap:4}}>
+                  {r.holeshot && <span className="hs-tag">HS</span>}
+                  {wildcardPos && r.position===parseInt(wildcardPos) && <span className="wc-tag">WC</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button className="btn btn-success" style={{width:"100%"}} onClick={handleSubmit}>
+          ✅ Save Round {selectedRound||"?"} Results
+        </button>
+      </div>
+    )}
+
+    {/* Completed rounds */}
+    {completedRounds.length > 0 && (
+      <div className="card">
+        <div className="section-header">Completed Rounds</div>
+        {completedRounds.map(rnd=>{
+          const rr = raceResults[rnd];
+          return (
+            <div key={rnd} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+              padding:"10px 0",borderBottom:"1px solid var(--border)"}}>
+              <div>
+                <span style={{color:"var(--green)",fontWeight:700,marginRight:10}}>Rnd {rnd}</span>
+                <span>{rr.venue}</span>
+                <span style={{color:"var(--muted)",marginLeft:10,fontSize:".85rem"}}>{rr.date}</span>
+                {rr.wildcardPos && <span style={{marginLeft:10,color:"var(--gold)",fontSize:".85rem"}}>WC: P{rr.wildcardPos}</span>}
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button className="btn btn-secondary btn-sm" onClick={()=>setViewRound(viewRound===rnd?null:rnd)}>
+                  {viewRound===rnd?"Hide":"View"}
+                </button>
+                <button className="btn btn-sm" style={{background:"rgba(255,23,68,.15)",color:"var(--red)",border:"1px solid var(--red)"}}
+                  onClick={()=>{
+                    const nr={...raceResults};delete nr[rnd];updateResults(nr);showToast(`Round ${rnd} deleted`);
+                  }}>Del</button>
+              </div>
+            </div>
+          );
+        })}
+        {viewRound && raceResults[viewRound] && (
+          <div style={{marginTop:12}}>
+            <div className="results-list">
+              {raceResults[viewRound].results.map(r=>{
+                const rider = riders.find(rd=>rd.id===r.riderId);
+                return (
+                  <div key={r.position} className="result-item">
+                    <div className="result-pos">P{r.position}</div>
+                    <div className="result-name">{rider?.name||"Unknown"}</div>
+                    <div style={{display:"flex",gap:4}}>
+                      {r.holeshot&&<span className="hs-tag">HS</span>}
+                      {raceResults[viewRound].wildcardPos===r.position&&<span className="wc-tag">WC</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+</div>
+```
+
+);
+}
+
+// ── SETTINGS PAGE ──────────────────────────────────────────────────────────────
+function SettingsPage({ teams, updateTeams, showToast, raceResults, updateResults }) {
+const [names, setNames] = useState(teams.map(t=>t.name));
+const [confirmReset, setConfirmReset] = useState(false);
+
+const saveNames = () => {
+const newTeams = teams.map((t,i)=>({…t,name:names[i]}));
+updateTeams(newTeams);
+showToast(“Team names saved!”);
+};
+
+const resetAll = () => {
+const fresh = TEAMS_DEFAULT.map((n,i)=>({id:i,name:n,roster:[],r1:null}));
+updateTeams(fresh);
+updateResults({});
+setNames(TEAMS_DEFAULT);
+setConfirmReset(false);
+showToast(“🔄 League reset! Fresh season ready.”);
+};
+
+return (
+<div>
+<div className="page-title">League <span className="accent">Settings</span></div>
+<div className="page-sub">Manage team names and league configuration</div>
+
+```
+  <div style={{maxWidth:600}}>
+    <div className="card" style={{marginBottom:16}}>
+      <div className="section-header">Team Names</div>
+      <div className="settings-grid">
+        {names.map((name,i)=>(
+          <div key={i} className="setting-item">
+            <div className="setting-num">{i+1}</div>
+            <input className="setting-input" value={name}
+              onChange={e=>{const n=[...names];n[i]=e.target.value;setNames(n);}}/>
+          </div>
+        ))}
+      </div>
+      <div style={{marginTop:16}}>
+        <button className="btn btn-primary" onClick={saveNames}>Save Team Names</button>
+      </div>
+    </div>
+
+    <div className="card" style={{marginBottom:16}}>
+      <div className="section-header">League Info</div>
+      <div className="modal-row"><span className="modal-label">Season</span><span className="modal-val">2026 AMA Supercross</span></div>
+      <div className="modal-row"><span className="modal-label">Total Rounds</span><span className="modal-val">17</span></div>
+      <div className="modal-row"><span className="modal-label">Rounds Complete</span><span className="modal-val" style={{color:"var(--green)"}}>{Object.keys(raceResults).length}</span></div>
+      <div className="modal-row"><span className="modal-label">Teams</span><span className="modal-val">{teams.length}</span></div>
+      <div className="modal-row"><span className="modal-label">Riders in Pool</span><span className="modal-val">{RIDERS_DEFAULT.length}</span></div>
+      <div className="modal-row"><span className="modal-label">Holeshot Bonus</span><span className="modal-val">+5 pts</span></div>
+      <div className="modal-row"><span className="modal-label">Wildcard Bonus</span><span className="modal-val">+15 pts (P10–P22)</span></div>
+    </div>
+
+    <div className="danger-zone">
+      <div className="danger-title">⚠️ Danger Zone</div>
+      <p style={{color:"var(--muted)",fontSize:".9rem",marginBottom:16}}>
+        Reset everything for a new season. This will clear all draft picks, team rosters, and race results. This cannot be undone.
+      </p>
+      {!confirmReset ? (
+        <button className="btn btn-danger" onClick={()=>setConfirmReset(true)}>Reset League (New Season)</button>
+      ) : (
+        <div>
+          <p style={{color:"var(--red)",fontWeight:700,marginBottom:10}}>Are you sure? ALL data will be deleted.</p>
+          <div className="btn-row">
+            <button className="btn btn-danger" onClick={resetAll}>Yes, Reset Everything</button>
+            <button className="btn btn-secondary" onClick={()=>setConfirmReset(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+</div>
+```
+
+);
+}
