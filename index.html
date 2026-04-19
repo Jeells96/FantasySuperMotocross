@@ -4,10 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fantasy SuperMotocross League</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.js"></script>
   <style>
     :root{
-      --bg:#090c10;
       --panel:#12171e;
       --panel2:#1a212b;
       --panel3:#232c38;
@@ -16,15 +14,14 @@
       --muted:#9aa6b5;
       --accent:#ff5a1f;
       --green:#22c55e;
-      --gold:#d9a928;
       --yellow:#e5d14a;
       --red:#ef4444;
-      --blue:#38bdf8;
       --radius:16px;
       --shadow:0 14px 34px rgba(0,0,0,.35);
     }
 
     *{box-sizing:border-box}
+
     body{
       margin:0;
       font-family:Arial, Helvetica, sans-serif;
@@ -180,14 +177,17 @@
     }
 
     button.btn:hover{transform:translateY(-1px)}
+
     button.btn.secondary{
       background:var(--panel2);
       border-color:var(--border);
     }
+
     button.btn.green{
       background:linear-gradient(180deg, rgba(34,197,94,.22), rgba(34,197,94,.05)), var(--panel2);
       border-color:rgba(34,197,94,.4);
     }
+
     button.btn.red{
       background:linear-gradient(180deg, rgba(239,68,68,.22), rgba(239,68,68,.05)), var(--panel2);
       border-color:rgba(239,68,68,.4);
@@ -405,10 +405,10 @@
     </section>
 
     <nav class="nav">
-      <button class="tab-btn active" data-page="standingsPage">Standings</button>
-      <button class="tab-btn" data-page="draftPage">Draft Board</button>
-      <button class="tab-btn" data-page="resultsPage">Race Results</button>
-      <button class="tab-btn" data-page="settingsPage">Settings</button>
+      <button type="button" class="tab-btn active" data-page="standingsPage">Standings</button>
+      <button type="button" class="tab-btn" data-page="draftPage">Draft Board</button>
+      <button type="button" class="tab-btn" data-page="resultsPage">Race Results</button>
+      <button type="button" class="tab-btn" data-page="settingsPage">Settings</button>
     </nav>
 
     <section id="standingsPage" class="page active">
@@ -491,10 +491,10 @@
               <option value="2">Round 2</option>
             </select>
             <select id="draftRiderSelect"></select>
-            <button class="btn green" id="assignRiderBtn">Assign Rider</button>
+            <button type="button" class="btn green" id="assignRiderBtn">Assign Rider</button>
           </div>
           <div class="toolbar">
-            <button class="btn secondary" id="resetDraftBtn">Clear Draft Only</button>
+            <button type="button" class="btn secondary" id="resetDraftBtn">Clear Draft Only</button>
           </div>
           <div class="small">
             Round 1 riders must be unique. Round 1 riders become Top 10 Protected. Round 2 cannot use protected riders. Round 2 riders can be drafted by a maximum of 2 teams.
@@ -507,13 +507,13 @@
             <select id="injuryTeamSelect"></select>
             <select id="injuryOriginalRiderSelect"></select>
             <select id="injuryReplacementSelect"></select>
-            <button class="btn" id="addReplacementBtn">Add Replacement</button>
+            <button type="button" class="btn" id="addReplacementBtn">Add Replacement</button>
           </div>
           <div class="assign-row">
             <select id="returnTeamSelect"></select>
             <select id="returnOriginalRiderSelect"></select>
             <div></div>
-            <button class="btn secondary" id="restoreRiderBtn">Restore Original</button>
+            <button type="button" class="btn secondary" id="restoreRiderBtn">Restore Original</button>
           </div>
           <div class="small">
             Replacement rider must be undrafted and available. When the original rider returns, switch back to the original rider.
@@ -544,12 +544,12 @@
           <div class="toolbar">
             <select id="resultsRoundSelect"></select>
             <input id="pdfUrlInput" placeholder="Paste AMA PDF URL here" />
-            <button class="btn secondary" id="openResultsSiteBtn">Results Site</button>
+            <button type="button" class="btn secondary" id="openResultsSiteBtn">Results Site</button>
           </div>
 
           <div class="toolbar">
-            <button class="btn" id="parsePdfBtn">Auto-Parse PDF</button>
-            <button class="btn secondary" id="loadSampleBtn">Clear Entry</button>
+            <button type="button" class="btn" id="parsePdfBtn">Auto-Parse PDF</button>
+            <button type="button" class="btn secondary" id="loadSampleBtn">Clear Entry</button>
           </div>
 
           <div class="small">
@@ -571,14 +571,14 @@
               <label class="small">Wildcard Position</label>
               <div style="display:flex; gap:8px;">
                 <input type="number" id="wildcardInput" min="10" max="22" value="10" />
-                <button class="btn secondary" id="randomizeWildcardBtn" type="button">Randomize</button>
+                <button type="button" class="btn secondary" id="randomizeWildcardBtn">Randomize</button>
               </div>
             </div>
           </div>
 
           <div class="toolbar" style="margin-top:12px;">
-            <button class="btn green" id="submitResultsBtn">Submit Results</button>
-            <button class="btn red" id="deleteRoundResultsBtn">Delete Round</button>
+            <button type="button" class="btn green" id="submitResultsBtn">Submit Results</button>
+            <button type="button" class="btn red" id="deleteRoundResultsBtn">Delete Round</button>
           </div>
         </div>
 
@@ -600,7 +600,7 @@
           <h2>Team Names</h2>
           <div id="teamNameInputs" class="grid-3"></div>
           <div style="margin-top:12px;">
-            <button class="btn green" id="saveTeamsBtn">Save Team Names</button>
+            <button type="button" class="btn green" id="saveTeamsBtn">Save Team Names</button>
           </div>
         </div>
 
@@ -608,7 +608,7 @@
           <h2>Draft Order</h2>
           <div id="draftOrderInputs"></div>
           <div style="margin-top:12px;">
-            <button class="btn green" id="saveDraftOrderBtn">Save Draft Order</button>
+            <button type="button" class="btn green" id="saveDraftOrderBtn">Save Draft Order</button>
           </div>
         </div>
       </div>
@@ -618,7 +618,7 @@
         <div class="small" style="margin-bottom:12px;">
           This wipes all saved data.
         </div>
-        <button class="btn red" id="clearAllBtn">RESET ALL DATA</button>
+        <button type="button" class="btn red" id="clearAllBtn">RESET ALL DATA</button>
       </div>
     </section>
 
@@ -634,16 +634,14 @@
           <h2 id="popupRiderName" style="margin:0 0 6px;"></h2>
           <div id="popupRiderTeam" class="muted"></div>
         </div>
-        <button class="close-x" id="closePopupBtn">&times;</button>
+        <button type="button" class="close-x" id="closePopupBtn">&times;</button>
       </div>
       <div id="popupContent"></div>
     </div>
   </div>
 
   <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js";
-
-    const STORAGE_KEY = "fantasySuperMotoLeague_v2";
+    const STORAGE_KEY = "fantasySuperMotoLeague_v3";
 
     const DEFAULT_STATE = {
       meta: {
@@ -696,20 +694,30 @@
       replacements: [],
       roundResults: {},
       settings: {
-        resultsSourceUrl: "https://www.supercrosslive.com/results/"
+        resultsSourceUrl: "https://www.supermotocross.com/results"
       }
     };
 
-    const ROUND_SCHEDULE = [
-      { round:1 }, { round:2 }, { round:3 }, { round:4 }, { round:5 }, { round:6 },
-      { round:7 }, { round:8 }, { round:9 }, { round:10 }, { round:11 }, { round:12 },
-      { round:13 }, { round:14 }, { round:15 }, { round:16 }, { round:17 }
-    ];
-
-    let state = loadState();
+    const ROUND_SCHEDULE = Array.from({length:17}, (_,i) => ({ round: i + 1 }));
 
     function deepClone(obj){
       return JSON.parse(JSON.stringify(obj));
+    }
+
+    function mergeDeep(defaults, saved){
+      const out = deepClone(defaults);
+      if(saved && typeof saved === "object"){
+        Object.keys(saved).forEach(key => {
+          if(Array.isArray(saved[key])){
+            out[key] = saved[key];
+          } else if(saved[key] && typeof saved[key] === "object" && !Array.isArray(saved[key]) && out[key] && typeof out[key] === "object" && !Array.isArray(out[key])){
+            out[key] = { ...out[key], ...saved[key] };
+          } else {
+            out[key] = saved[key];
+          }
+        });
+      }
+      return out;
     }
 
     function loadState(){
@@ -717,14 +725,13 @@
         const raw = localStorage.getItem(STORAGE_KEY);
         if(!raw) return deepClone(DEFAULT_STATE);
         const parsed = JSON.parse(raw);
-        return {
-          ...deepClone(DEFAULT_STATE),
-          ...parsed
-        };
+        return mergeDeep(DEFAULT_STATE, parsed);
       }catch(e){
         return deepClone(DEFAULT_STATE);
       }
     }
+
+    let state = loadState();
 
     function saveState(){
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -822,7 +829,6 @@
         .sort((a,b) => a.round - b.round);
 
       const riders = [];
-
       for(const pick of basePicks){
         const replacement = replacements.find(rep => rep.originalRiderId === pick.riderId);
         if(replacement){
@@ -841,7 +847,6 @@
           });
         }
       }
-
       return riders.slice(0,2);
     }
 
@@ -883,7 +888,6 @@
         state.teams.forEach(team => {
           const riders = getTeamCurrentRiders(team.id);
           let total = 0;
-
           riders.forEach(slot => {
             const finish = rr.positions[slot.riderId];
             if(finish){
@@ -892,25 +896,12 @@
               if(Number(rr.wildcardPosition) === Number(finish)) total += 15;
             }
           });
-
           teamPoints[team.id] = total;
         });
 
         rr.teamPoints = teamPoints;
       });
-
       saveState();
-    }
-
-    function renderNav(){
-      document.querySelectorAll(".tab-btn").forEach(btn => {
-        btn.onclick = () => {
-          document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-          document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-          btn.classList.add("active");
-          document.getElementById(btn.dataset.page).classList.add("active");
-        };
-      });
     }
 
     function renderSchedule(){
@@ -997,8 +988,8 @@
     }
 
     function renderInjurySelectors(){
-      const injuryTeamId = Number(document.getElementById("injuryTeamSelect")?.value || 0);
-      const returnTeamId = Number(document.getElementById("returnTeamSelect")?.value || 0);
+      const injuryTeamId = Number(document.getElementById("injuryTeamSelect").value || 0);
+      const returnTeamId = Number(document.getElementById("returnTeamSelect").value || 0);
 
       const injuryOriginal = document.getElementById("injuryOriginalRiderSelect");
       const injuryReplacement = document.getElementById("injuryReplacementSelect");
@@ -1012,7 +1003,7 @@
 
       injuryReplacement.innerHTML = `<option value="">Select Replacement Rider</option>${availableReplacementOptions}`;
 
-      if(injuryTeamId){
+            if(injuryTeamId){
         const originals = getTeamOriginalRiders(injuryTeamId)
           .map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`)
           .join("");
@@ -1261,6 +1252,12 @@
     }
 
     async function extractPdfText(url){
+      if (!window.pdfjsLib) {
+        throw new Error("PDF library failed to load.");
+      }
+
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js";
+
       const loadingTask = pdfjsLib.getDocument(url);
       const pdf = await loadingTask.promise;
       let fullText = "";
@@ -1597,13 +1594,13 @@
         updateResultsPreview();
       });
       document.getElementById("wildcardInput").addEventListener("input", updateResultsPreview);
-
       document.getElementById("saveTeamsBtn").addEventListener("click", saveTeamNames);
       document.getElementById("saveDraftOrderBtn").addEventListener("click", saveDraftOrder);
       document.getElementById("clearAllBtn").addEventListener("click", clearAllData);
     }
 
     document.addEventListener("DOMContentLoaded", () => {
+      renderNav();
       recalcAllRoundPoints();
       renderAll();
       bindStaticEvents();
