@@ -1,1122 +1,1574 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-<meta name="theme-color" content="#0a0a0c"/>
-<title>FSX Fantasy League</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-:root{
-  --bg:#0a0a0c;--bg2:#131319;--bg3:#1c1c26;--panel:#17171f;
-  --border:#2a2a38;--accent:#ff5500;--accent-2:#ffaa00;
-  --text:#e8e8f0;--muted:#7a7a90;--green:#00e676;--gold:#ffd600;--red:#ff2d55;
-}
-html,body,#root{height:100%;}
-body{background:var(--bg);color:var(--text);font-family:'Rajdhani',system-ui,sans-serif;
-  -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overflow-x:hidden;}
-.app{min-height:100vh;display:flex;flex-direction:column;}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fantasy Supercross League</title>
+  <style>
+    :root{
+      --bg:#080a0d;
+      --panel:#11151b;
+      --panel-2:#171d25;
+      --panel-3:#1d2530;
+      --border:#2a3441;
+      --text:#f3f5f7;
+      --muted:#a8b0b8;
+      --accent:#ff5b1f;
+      --accent-2:#baff39;
+      --gold:#d8a622;
+      --yellow:#d9c94a;
+      --green:#22c55e;
+      --red:#ef4444;
+      --gray:#6b7280;
+      --blue:#38bdf8;
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+      --radius:16px;
+    }
 
-/* HEADER */
-.header{background:var(–bg2);border-bottom:2px solid var(–accent);position:sticky;top:0;z-index:100;
-box-shadow:0 4px 24px rgba(255,85,0,.2);padding:0 14px;}
-.header-inner{display:flex;align-items:center;justify-content:space-between;max-width:1100px;margin:0 auto;height:56px;gap:8px;}
-.logo{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:1.35rem;letter-spacing:.04em;
-background:linear-gradient(135deg,var(–accent),var(–accent-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap;}
-.nav{display:flex;gap:0;}
-.nav button{background:none;border:none;color:var(–muted);font-family:‘Barlow Condensed’,sans-serif;
-font-weight:700;font-size:.92rem;letter-spacing:.06em;text-transform:uppercase;padding:8px 10px;
-border-bottom:2px solid transparent;cursor:pointer;transition:all .15s;}
-.nav button.active{color:var(–accent);border-bottom-color:var(–accent);}
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(255,91,31,.18), transparent 28%),
+        linear-gradient(180deg, #090b0f 0%, #0b0f14 100%);
+      color:var(--text);
+    }
 
-/* MAIN */
-main{flex:1;max-width:1100px;margin:0 auto;width:100%;padding:20px 14px 60px;}
-.page-title{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:2.1rem;
-letter-spacing:.03em;text-transform:uppercase;line-height:1;margin-bottom:3px;}
-.page-title .accent{color:var(–accent);}
-.page-sub{color:var(–muted);font-size:.96rem;margin-bottom:20px;}
+    a{color:var(--blue); text-decoration:none}
+    button, input, select, textarea{
+      font:inherit;
+    }
 
-.card{background:var(–panel);border:1px solid var(–border);border-radius:10px;padding:16px;margin-bottom:14px;}
-.section-h{font-family:‘Barlow Condensed’,sans-serif;font-weight:700;font-size:.9rem;letter-spacing:.12em;
-text-transform:uppercase;color:var(–muted);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(–border);}
+    .app{
+      width:min(1400px, 100%);
+      margin:0 auto;
+      padding:18px 14px 32px;
+    }
 
-/* BUTTONS */
-.btn{padding:10px 18px;border-radius:7px;border:none;cursor:pointer;font-family:‘Barlow Condensed’,sans-serif;
-font-weight:700;font-size:.96rem;letter-spacing:.06em;text-transform:uppercase;transition:all .15s;
-display:inline-flex;align-items:center;gap:6px;justify-content:center;}
-.btn:disabled{opacity:.4;cursor:not-allowed;}
-.btn:active:not(:disabled){transform:scale(.97);}
-.btn-primary{background:var(–accent);color:#fff;}
-.btn-primary:hover:not(:disabled){background:#ff6e1f;}
-.btn-success{background:var(–green);color:#000;}
-.btn-secondary{background:var(–bg3);color:var(–text);border:1px solid var(–border);}
-.btn-secondary:hover{border-color:var(–accent);color:var(–accent);}
-.btn-danger{background:var(–red);color:#fff;}
-.btn-gold{background:var(–gold);color:#000;}
-.btn-sm{padding:7px 12px;font-size:.84rem;}
-.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+    .hero{
+      background:linear-gradient(135deg, rgba(255,91,31,.14), rgba(186,255,57,.08)), var(--panel);
+      border:1px solid var(--border);
+      border-radius:22px;
+      padding:20px;
+      box-shadow:var(--shadow);
+      margin-bottom:16px;
+    }
 
-/* STANDINGS */
-.stand-row{display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:12px;
-background:var(–panel);border:1px solid var(–border);border-radius:10px;padding:13px 15px;
-cursor:pointer;transition:all .15s;margin-bottom:8px;}
-.stand-row:active{transform:scale(.99);}
-.stand-row.gold{border-color:var(–gold);background:linear-gradient(90deg,rgba(255,214,0,.08),var(–panel));}
-.stand-row.silver{border-color:#bbb;}
-.stand-row.bronze{border-color:#cd7f32;}
-.rank{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:1.7rem;text-align:center;line-height:1;}
-.t-name{font-family:‘Barlow Condensed’,sans-serif;font-weight:700;font-size:1.15rem;letter-spacing:.03em;}
-.t-sub{color:var(–muted);font-size:.78rem;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
-.t-pts{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:1.7rem;color:var(–accent);line-height:1;}
-.t-pts-u{font-size:.76rem;color:var(–muted);font-weight:500;}
-.breakdown{background:var(–bg2);border:1px solid var(–border);border-top:none;border-radius:0 0 10px 10px;
-margin:-9px 0 8px;padding:12px 15px;}
-.breakdown table{width:100%;font-size:.88rem;border-collapse:collapse;}
-.breakdown th{text-align:left;color:var(–muted);font-family:‘Barlow Condensed’,sans-serif;
-font-size:.76rem;letter-spacing:.1em;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(–border);}
-.breakdown td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.04);}
-.breakdown td.pts{font-weight:700;color:var(–accent-2);text-align:right;}
+    .hero-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+      flex-wrap:wrap;
+    }
 
-.schedule-pills{display:flex;gap:5px;flex-wrap:wrap;}
-.pill{background:var(–panel);border:1px solid var(–border);color:var(–muted);
-border-radius:16px;padding:4px 10px;font-size:.74rem;font-weight:600;white-space:nowrap;}
-.pill.done{border-color:var(–green);color:var(–green);}
-.pill.current{border-color:var(–accent);color:var(–accent);background:rgba(255,85,0,.1);}
+    .title{
+      font-size:30px;
+      font-weight:900;
+      letter-spacing:.5px;
+      margin:0 0 6px;
+    }
 
-/* DRAFT */
-.filter-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
-.filter-bar button{background:var(–panel);border:1px solid var(–border);color:var(–muted);
-border-radius:18px;padding:6px 12px;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;}
-.filter-bar button.active{border-color:var(–accent);color:var(–accent);background:rgba(255,85,0,.1);}
+    .subtitle{
+      color:var(--muted);
+      margin:0;
+      line-height:1.45;
+      font-size:14px;
+    }
 
-.riders-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:24px;}
-.rider-card{background:var(–panel);border:1px solid var(–border);border-radius:9px;padding:12px;
-cursor:pointer;text-align:left;font-family:inherit;color:inherit;transition:all .15s;width:100%;}
-.rider-card:active{transform:scale(.98);}
-.rider-card.protected{border-color:var(–gold);background:rgba(255,214,0,.05);}
-.rider-card.once{border-color:var(–accent-2);background:rgba(255,170,0,.05);}
-.rider-card.locked{opacity:.45;}
-.r-num{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:1.55rem;color:var(–accent);line-height:1;}
-.r-name{font-family:‘Barlow Condensed’,sans-serif;font-weight:700;font-size:.98rem;margin:4px 0 1px;}
-.r-team{color:var(–muted);font-size:.7rem;line-height:1.3;}
-.badge{display:inline-block;padding:2px 7px;border-radius:12px;font-size:.64rem;font-weight:700;
-letter-spacing:.08em;text-transform:uppercase;margin-top:7px;}
-.b-av{background:rgba(0,230,118,.12);color:var(–green);border:1px solid rgba(0,230,118,.35);}
-.b-pr{background:rgba(255,214,0,.12);color:var(–gold);border:1px solid rgba(255,214,0,.35);}
-.b-on{background:rgba(255,170,0,.12);color:var(–accent-2);border:1px solid rgba(255,170,0,.35);}
-.b-lk{background:rgba(255,45,85,.1);color:var(–red);border:1px solid rgba(255,45,85,.3);}
+    .pill-row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
 
-.rosters-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;}
-.roster-card{background:var(–panel);border:1px solid var(–border);border-radius:9px;padding:12px 14px;}
-.roster-name{font-family:‘Barlow Condensed’,sans-serif;font-weight:700;font-size:1.02rem;margin-bottom:8px;}
-.roster-r{display:flex;align-items:center;gap:7px;margin-bottom:5px;font-size:.85rem;}
-.roster-r .num{color:var(–accent);font-family:‘Barlow Condensed’,sans-serif;font-weight:700;min-width:30px;}
-.roster-empty{color:var(–muted);font-size:.8rem;font-style:italic;}
+    .pill{
+      border:1px solid var(--border);
+      background:var(--panel-2);
+      color:var(--text);
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+    }
 
-/* MODAL */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;display:flex;
-align-items:flex-end;justify-content:center;padding:0;}
-@media(min-width:640px){.overlay{align-items:center;padding:20px;}}
-.modal{background:var(–bg2);border:1px solid var(–border);border-radius:14px 14px 0 0;
-width:100%;max-width:500px;max-height:92vh;display:flex;flex-direction:column;
-animation:slideUp .25s ease;box-shadow:0 -10px 40px rgba(0,0,0,.6);}
-@media(min-width:640px){.modal{border-radius:14px;}}
-@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
-.modal-head{padding:18px 20px 12px;border-bottom:1px solid var(–border);display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
-.modal-body{padding:16px 20px 24px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-.modal-close{background:none;border:none;color:var(–muted);font-size:1.5rem;cursor:pointer;
-font-family:inherit;line-height:1;padding:0 4px;}
-.m-num{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:2.3rem;color:var(–accent);line-height:1;}
-.m-name{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:1.3rem;}
-.m-team{color:var(–muted);font-size:.88rem;margin-bottom:12px;}
-.m-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:.9rem;}
-.assign-lbl{font-size:.76rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin:12px 0 6px;}
-.assign-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
-.assign-grid button{background:var(–bg3);border:1px solid var(–border);color:var(–text);
-padding:9px 10px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:.88rem;
-font-weight:600;text-align:left;transition:all .15s;}
-.assign-grid button:hover:not(:disabled){border-color:var(–accent);color:var(–accent);}
-.assign-grid button:disabled{opacity:.3;cursor:not-allowed;}
-.assign-grid button.on{border-color:var(–green);color:var(–green);background:rgba(0,230,118,.07);}
-.remove-btn{background:rgba(255,45,85,.1);border:1px solid rgba(255,45,85,.4);color:var(–red);
-padding:8px 12px;border-radius:6px;cursor:pointer;font-size:.85rem;font-weight:700;
-width:100%;margin-top:6px;font-family:inherit;}
+    .nav{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
+      margin:14px 0 18px;
+    }
 
-/* RESULTS PAGE */
-.round-box{background:var(–panel);border:1px solid var(–border);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:border-color .15s;}
-.round-box.saved{border-color:rgba(0,230,118,.4);}
-.round-head{padding:13px 15px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;}
-.round-r{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:1.35rem;
-color:var(–accent);min-width:46px;line-height:1;}
-.round-r.done{color:var(–green);}
-.round-info{flex:1;min-width:0;}
-.round-label{font-weight:700;font-size:.98rem;}
-.round-meta{color:var(–muted);font-size:.76rem;margin-top:2px;}
-.round-status{display:flex;align-items:center;gap:8px;flex-shrink:0;}
-.round-badge{font-size:.7rem;font-weight:700;letter-spacing:.08em;color:var(–green);}
-.caret{color:var(–muted);font-size:1.05rem;line-height:1;}
-.round-body{padding:14px 15px 16px;border-top:1px solid var(–border);background:var(–bg2);}
+    .nav button{
+      background:var(--panel);
+      color:var(--text);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px 10px;
+      font-weight:800;
+      cursor:pointer;
+      transition:.2s;
+    }
 
-.input-lbl{display:block;color:var(–muted);font-size:.76rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;font-weight:600;}
-.txt-input{width:100%;background:var(–bg3);border:1px solid var(–border);color:var(–text);
-padding:10px 13px;border-radius:6px;font-family:inherit;font-size:1rem;outline:none;transition:border .15s;}
-.txt-input:focus{border-color:var(–accent);}
+    .nav button.active,
+    .nav button:hover{
+      border-color:var(--accent);
+      background:linear-gradient(180deg, rgba(255,91,31,.18), rgba(255,91,31,.05)), var(--panel-2);
+      transform:translateY(-1px);
+    }
 
-.pos-grid{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
-.pos-row{display:grid;grid-template-columns:44px 1fr;gap:8px;align-items:center;}
-.pos-row label{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:.95rem;color:var(–accent);text-align:center;}
-.pos-row.top3 label{color:var(–gold);font-size:1.05rem;}
-.pos-row select{width:100%;background:var(–bg3);border:1px solid var(–border);color:var(–text);
-padding:9px 10px;border-radius:6px;font-family:inherit;font-size:.92rem;outline:none;
--webkit-appearance:none;appearance:none;
-background-image:url(“data:image/svg+xml,%3Csvg xmlns=‘http://www.w3.org/2000/svg’ width=‘12’ height=‘8’ viewBox=‘0 0 12 8’%3E%3Cpath fill=’%237a7a90’ d=‘M6 8L0 0h12z’/%3E%3C/svg%3E”);
-background-repeat:no-repeat;background-position:right 12px center;padding-right:30px;}
-.pos-row select:focus{border-color:var(–accent);}
-.pos-row.wc label{color:var(–gold);}
-.pos-row.wc select{border-color:rgba(255,214,0,.4);}
+    .page{
+      display:none;
+      gap:14px;
+    }
 
-.wc-box{background:linear-gradient(135deg,rgba(255,170,0,.08),rgba(255,85,0,.06));
-border:1px solid rgba(255,170,0,.3);border-radius:8px;padding:13px;margin:12px 0;}
-.wc-label{color:var(–muted);font-size:.76rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;font-weight:600;}
-.wc-pos{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:2.2rem;color:var(–gold);line-height:1;}
-.wc-controls{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;}
-.wc-controls input{width:110px;padding:7px 10px;font-size:.92rem;}
+    .page.active{
+      display:grid;
+    }
 
-.hs-row{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;margin:10px 0;padding:10px 12px;
-background:rgba(255,85,0,.06);border:1px solid rgba(255,85,0,.3);border-radius:7px;}
-.hs-row label{font-family:‘Barlow Condensed’,sans-serif;font-weight:800;color:var(–accent);
-font-size:.92rem;letter-spacing:.05em;text-transform:uppercase;}
-.hs-row select{background:var(–bg3);border:1px solid var(–border);color:var(–text);
-padding:8px 10px;border-radius:6px;font-family:inherit;font-size:.92rem;outline:none;width:100%;}
+    .grid-2{
+      display:grid;
+      grid-template-columns:1.3fr .9fr;
+      gap:14px;
+    }
 
-.saved-list{border:1px solid var(–border);border-radius:7px;overflow:hidden;}
-.saved-item{display:grid;grid-template-columns:38px 1fr auto;gap:8px;padding:7px 12px;
-border-bottom:1px solid rgba(255,255,255,.04);font-size:.88rem;align-items:center;}
-.saved-item:last-child{border-bottom:none;}
-.saved-pos{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;color:var(–accent);}
-.saved-tags{display:flex;gap:4px;}
-.tag-hs{background:var(–accent);color:#fff;font-size:.6rem;font-weight:700;padding:2px 5px;border-radius:3px;}
-.tag-wc{background:var(–gold);color:#000;font-size:.6rem;font-weight:700;padding:2px 5px;border-radius:3px;}
+    .grid-3{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:14px;
+    }
 
-/* SETTINGS */
-.team-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
-.team-item{display:flex;align-items:center;gap:9px;background:var(–bg3);border:1px solid var(–border);
-border-radius:7px;padding:9px 12px;}
-.team-item .n{font-family:‘Barlow Condensed’,sans-serif;font-weight:900;font-size:1.1rem;color:var(–accent);min-width:20px;}
-.team-item input{flex:1;background:transparent;border:none;border-bottom:1px solid var(–border);
-color:var(–text);font-family:inherit;font-size:.96rem;font-weight:600;padding:3px 0;outline:none;min-width:0;}
-.team-item input:focus{border-bottom-color:var(–accent);}
+    .panel{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow:var(--shadow);
+    }
 
-.danger{border:1px solid rgba(255,45,85,.35);border-radius:9px;padding:16px;margin-top:16px;
-background:rgba(255,45,85,.04);}
-.danger-t{color:var(–red);font-family:‘Barlow Condensed’,sans-serif;font-weight:800;font-size:1rem;
-letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;}
+    .panel h2,
+    .panel h3{
+      margin:0 0 12px;
+      font-size:18px;
+      line-height:1.2;
+    }
 
-/* TOAST */
-.toast{position:fixed;bottom:max(18px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
-background:var(–bg2);border:1px solid var(–accent);border-radius:9px;padding:11px 17px;
-font-weight:600;z-index:500;animation:toastIn .25s ease;box-shadow:0 8px 26px rgba(0,0,0,.5);
-max-width:340px;text-align:center;font-size:.92rem;}
-@keyframes toastIn{from{opacity:0;transform:translate(-50%,10px);}to{opacity:1;transform:translate(-50%,0);}}
+    .small{
+      font-size:12px;
+      color:var(--muted);
+    }
 
-/* EMPTY STATE */
-.empty{text-align:center;padding:50px 20px;color:var(–muted);}
-.empty .icon{font-size:2.4rem;margin-bottom:10px;}
+    .stat-grid{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
+    }
 
-/* ERROR BOUNDARY */
-.err-boundary{padding:24px;max-width:600px;margin:40px auto;background:var(–panel);
-border:1px solid var(–red);border-radius:10px;}
-.err-boundary h2{color:var(–red);font-family:‘Barlow Condensed’,sans-serif;margin-bottom:10px;}
-.err-boundary pre{background:var(–bg);padding:12px;border-radius:6px;overflow-x:auto;
-font-size:.82rem;margin:10px 0;white-space:pre-wrap;color:var(–muted);}
+    .stat{
+      background:var(--panel-2);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px;
+    }
 
-/* RESPONSIVE */
-@media(max-width:540px){
-.team-grid{grid-template-columns:1fr;}
-.assign-grid{grid-template-columns:1fr;}
-.rosters-grid{grid-template-columns:1fr 1fr;}
-.riders-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}
-.page-title{font-size:1.85rem;}
-.logo{font-size:1.2rem;}
-.nav button{padding:8px 7px;font-size:.82rem;letter-spacing:.04em;}
-}
-</style>
+    .stat .label{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
 
+    .stat .value{
+      font-size:22px;
+      font-weight:900;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+    }
+
+    th, td{
+      padding:10px 8px;
+      text-align:left;
+      border-bottom:1px solid #202832;
+      font-size:14px;
+      vertical-align:top;
+    }
+
+    th{
+      color:#dce1e7;
+      font-size:12px;
+      text-transform:uppercase;
+      letter-spacing:.6px;
+    }
+
+    tr:hover td{
+      background:rgba(255,255,255,.02);
+    }
+
+    .status{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.4px;
+      border:1px solid transparent;
+      white-space:nowrap;
+    }
+
+    .available{ background:rgba(34,197,94,.14); color:#92f0af; border-color:rgba(34,197,94,.35);}
+    .protected{ background:rgba(216,166,34,.18); color:#ffd669; border-color:rgba(216,166,34,.35);}
+    .picked-once{ background:rgba(217,201,74,.16); color:#fff38b; border-color:rgba(217,201,74,.35);}
+    .locked{ background:rgba(239,68,68,.16); color:#ff9898; border-color:rgba(239,68,68,.35);}
+    .injured{ background:rgba(107,114,128,.2); color:#d1d5db; border-color:rgba(107,114,128,.35);}
+
+    .card-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));
+      gap:12px;
+    }
+
+    .rider-card{
+      background:linear-gradient(180deg, rgba(255,255,255,.02), transparent), var(--panel-2);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:14px;
+      cursor:pointer;
+      transition:.18s ease;
+    }
+
+    .rider-card:hover{
+      transform:translateY(-2px);
+      border-color:#445467;
+    }
+
+    .rider-name{
+      font-weight:900;
+      font-size:16px;
+      margin-bottom:4px;
+    }
+
+    .rider-team{
+      color:var(--muted);
+      font-size:13px;
+      min-height:34px;
+      line-height:1.3;
+      margin-bottom:10px;
+    }
+
+    .toolbar{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+
+    .toolbar > *{
+      flex:1 1 160px;
+    }
+
+    input, select, textarea{
+      width:100%;
+      background:var(--panel-3);
+      border:1px solid var(--border);
+      color:var(--text);
+      padding:12px 12px;
+      border-radius:12px;
+      outline:none;
+    }
+
+    textarea{
+      min-height:120px;
+      resize:vertical;
+    }
+
+    .btn{
+      background:linear-gradient(180deg, rgba(255,91,31,.25), rgba(255,91,31,.06)), var(--panel-2);
+      color:var(--text);
+      border:1px solid rgba(255,91,31,.45);
+      padding:12px 14px;
+      border-radius:12px;
+      font-weight:900;
+      cursor:pointer;
+      transition:.18s ease;
+    }
+
+    .btn:hover{ transform:translateY(-1px); }
+    .btn.secondary{
+      background:var(--panel-2);
+      border-color:var(--border);
+    }
+    .btn.green{
+      background:linear-gradient(180deg, rgba(34,197,94,.22), rgba(34,197,94,.05)), var(--panel-2);
+      border-color:rgba(34,197,94,.4);
+    }
+    .btn.red{
+      background:linear-gradient(180deg, rgba(239,68,68,.22), rgba(239,68,68,.05)), var(--panel-2);
+      border-color:rgba(239,68,68,.4);
+    }
+
+    .two-col{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .round-row{
+      display:grid;
+      grid-template-columns:75px 110px 1fr 1.2fr;
+      gap:8px;
+      align-items:center;
+      padding:9px 0;
+      border-bottom:1px solid #202832;
+    }
+
+    .round-row:last-child{ border-bottom:0; }
+
+    .muted{
+      color:var(--muted);
+    }
+
+    .chip{
+      display:inline-block;
+      padding:6px 8px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:800;
+      background:var(--panel-3);
+      border:1px solid var(--border);
+      margin:2px 4px 2px 0;
+    }
+
+    .popup{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.68);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      z-index:1000;
+    }
+
+    .popup.show{ display:flex; }
+
+    .popup-card{
+      width:min(560px, 100%);
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:20px;
+      padding:18px;
+      box-shadow:var(--shadow);
+    }
+
+    .popup-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      margin-bottom:12px;
+    }
+
+    .close-x{
+      background:transparent;
+      border:0;
+      color:#fff;
+      font-size:24px;
+      cursor:pointer;
+      line-height:1;
+    }
+
+    .danger-zone{
+      border:1px solid rgba(239,68,68,.35);
+      background:rgba(239,68,68,.06);
+      border-radius:14px;
+      padding:14px;
+    }
+
+    .footer-note{
+      text-align:center;
+      color:var(--muted);
+      font-size:12px;
+      margin-top:16px;
+    }
+
+    .scroll-x{
+      overflow:auto;
+    }
+
+    @media (max-width: 980px){
+      .nav{ grid-template-columns:repeat(2,1fr); }
+      .grid-2, .grid-3{ grid-template-columns:1fr; }
+      .stat-grid{ grid-template-columns:repeat(2,1fr); }
+    }
+
+    @media (max-width: 640px){
+      .title{ font-size:24px; }
+      .stat-grid{ grid-template-columns:1fr 1fr; }
+      .round-row{
+        grid-template-columns:1fr;
+        gap:6px;
+        padding:12px 0;
+      }
+      .two-col{ grid-template-columns:1fr; }
+    }
+  </style>
 </head>
 <body>
-<div id="root"></div>
-
-<script type="text/babel" data-presets="react">
-const { useState, useEffect, useRef, useMemo } = React;
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   DATA
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-const TEAMS_DEFAULT = ["Jaren","Savannah","Jaycee","Maisy","Grandpa","Grandma","Parker","Josie","Kennedy","John"];
-
-const RIDERS = [
-  {id:1,  number:96,  name:"Hunter Lawrence",    team:"Honda HRC Progressive"},
-  {id:2,  number:1,   name:"Cooper Webb",        team:"Monster Energy Yamaha Star Racing"},
-  {id:3,  number:94,  name:"Ken Roczen",         team:"Twisted Tea Suzuki"},
-  {id:4,  number:4,   name:"Chase Sexton",       team:"Monster Energy Kawasaki"},
-  {id:5,  number:3,   name:"Eli Tomac",          team:"Red Bull KTM Factory Racing"},
-  {id:6,  number:26,  name:"Jorge Prado",        team:"Red Bull KTM Factory Racing"},
-  {id:7,  number:46,  name:"Justin Hill",        team:"Team Tedder Racing KTM"},
-  {id:8,  number:14,  name:"Dylan Ferrandis",    team:"Troy Lee Designs Red Bull Ducati"},
-  {id:9,  number:32,  name:"Justin Cooper",      team:"Monster Energy Yamaha Star Racing"},
-  {id:10, number:7,   name:"Aaron Plessinger",   team:"Red Bull KTM Factory Racing"},
-  {id:11, number:36,  name:"Garrett Marchbanks", team:"Monster Energy Kawasaki"},
-  {id:12, number:45,  name:"Colt Nichols",       team:"Twisted Tea Suzuki"},
-  {id:13, number:12,  name:"Shane McElrath",     team:"Quadlock Honda Racing"},
-  {id:14, number:15,  name:"Dean Wilson",        team:"Quadlock Honda Racing"},
-  {id:15, number:28,  name:"Christian Craig",    team:"Quadlock Honda Racing"},
-  {id:16, number:17,  name:"Joey Savatgy",       team:"Quadlock Honda Racing"},
-  {id:17, number:27,  name:"Malcolm Stewart",    team:"Rockstar Energy Husqvarna"},
-  {id:18, number:21,  name:"Jason Anderson",     team:"Twisted Tea Suzuki"},
-  {id:19, number:24,  name:"RJ Hampshire",       team:"Rockstar Energy Husqvarna"},
-  {id:20, number:51,  name:"Justin Barcia",      team:"Troy Lee Designs Red Bull Ducati"},
-  {id:21, number:20,  name:"Jordon Smith",       team:"Triumph Factory Racing"},
-  {id:22, number:33,  name:"Austin Forkner",     team:"Triumph Factory Racing"},
-  {id:23, number:711, name:"Tristan Lane",       team:"Privateer Yamaha"},
-  {id:24, number:63,  name:"Freddie Noren",      team:"Privateer Yamaha"},
-  {id:25, number:78,  name:"Kevin Moranz",       team:"Champion Tool Storage KMR KTM"},
-  {id:26, number:719, name:"Vince Friese",       team:"Privateer Kawasaki"},
-  {id:27, number:41,  name:"Mitchell Harrison",  team:"Partzilla Blaster PRMX Kawasaki"},
-];
-
-const TOTAL_ROUNDS = 17;
-const ROUNDS = Array.from({length: TOTAL_ROUNDS}, (_, i) => ({rnd: i + 1}));
-
-// Position scoring: 1st=15, 2nd=14, ..., 14th=2, 15th-22nd=1 each
-const POS_PTS = {};
-for (let p = 1; p <= 14; p++) POS_PTS[p] = 16 - p;
-for (let p = 15; p <= 22; p++) POS_PTS[p] = 1;
-
-const HOLESHOT_BONUS = 5;
-const WILDCARD_BONUS = 15;
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   STORAGE
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-const STORAGE_KEY = "fsx-league-data";
-
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (e) { return null; }
-}
-
-function saveData(data) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (e) { /* quota exceeded or disabled */ }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   HELPERS
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-function getRiderById(id) {
-  return RIDERS.find(r => r.id === id) || null;
-}
-
-// Rider status in the draft:
-//   "available"  — not picked
-//   "protected"  — picked in Round 1 (locked, only on one team)
-//   "once"       — picked once in Round 2 (one more team can pick them)
-//   "locked"     — picked by 2 teams in Round 2
-function getRiderStatus(riderId, teams) {
-  const pickedBy = teams.filter(t => (t.roster || []).includes(riderId));
-  if (pickedBy.length === 0) return {status: "available", pickedBy};
-  const isR1 = teams.some(t => t.r1 === riderId);
-  if (isR1) return {status: "protected", pickedBy};
-  if (pickedBy.length >= 2) return {status: "locked", pickedBy};
-  return {status: "once", pickedBy};
-}
-
-// Compute a team's points for a single round.
-function calcRoundPoints(roster, roundData) {
-  if (!roundData || !roundData.results) return 0;
-  let total = 0;
-  for (const riderId of (roster || [])) {
-    const entry = roundData.results.find(r => r.riderId === riderId);
-    if (!entry) continue;
-    total += POS_PTS[entry.position] || 0;
-    if (roundData.holeshotRiderId === riderId) total += HOLESHOT_BONUS;
-    if (roundData.wildcardPos && entry.position === roundData.wildcardPos) total += WILDCARD_BONUS;
-  }
-  return total;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ERROR BOUNDARY — prevents blank page on crash
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-class ErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = {error: null}; }
-  static getDerivedStateFromError(error) { return {error}; }
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="err-boundary">
-          <h2>⚠️ Something went wrong</h2>
-          <p>The app crashed. Details below — please share this with Jaren if it keeps happening.</p>
-          <pre>{String(this.state.error && this.state.error.stack || this.state.error)}</pre>
-
-```
-      <div className="btn-row">
-        <button className="btn btn-primary" onClick={() => location.reload()}>Reload</button>
-        <button className="btn btn-danger" onClick={() => {
-          if (confirm("Clear all saved data and reload? This cannot be undone.")) {
-            localStorage.removeItem(STORAGE_KEY); location.reload();
-          }
-        }}>Clear Data & Reload</button>
-      </div>
-    </div>
-  );
-}
-return this.props.children;
-```
-
-}
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-APP
-═══════════════════════════════════════════════════════════════════════════ */
-
-function App() {
-const [page, setPage] = useState(“standings”);
-const [teams, setTeams] = useState(() => TEAMS_DEFAULT.map((name, i) => ({id: i, name, roster: [], r1: null})));
-const [results, setResults] = useState({});
-const [selectedRider, setSelectedRider] = useState(null);
-const [toast, setToast] = useState(null);
-const toastTimer = useRef(null);
-const [loaded, setLoaded] = useState(false);
-
-// Load from localStorage on mount
-useEffect(() => {
-const d = loadData();
-if (d) {
-if (Array.isArray(d.teams)) setTeams(d.teams);
-if (d.results && typeof d.results === “object”) setResults(d.results);
-}
-setLoaded(true);
-}, []);
-
-// Persist on change (skip initial mount before loaded)
-useEffect(() => {
-if (!loaded) return;
-saveData({teams, results});
-}, [teams, results, loaded]);
-
-const showToast = (msg) => {
-setToast(msg);
-clearTimeout(toastTimer.current);
-toastTimer.current = setTimeout(() => setToast(null), 3000);
-};
-
-return (
-<div className="app">
-<header className="header">
-<div className="header-inner">
-<div className="logo">⚡ FSX LEAGUE</div>
-<nav className="nav">
-<button className={page===“standings”?“active”:””} onClick={() => setPage(“standings”)}>🏆 Stand</button>
-<button className={page===“draft”?“active”:””}     onClick={() => setPage(“draft”)}>🏍️ Draft</button>
-<button className={page===“results”?“active”:””}   onClick={() => setPage(“results”)}>📋 Results</button>
-<button className={page===“settings”?“active”:””}  onClick={() => setPage(“settings”)}>⚙️</button>
-</nav>
-</div>
-</header>
-
-```
-  <main>
-    {page === "standings" && <Standings teams={teams} results={results} />}
-    {page === "draft" &&     <Draft teams={teams} onSelect={setSelectedRider} />}
-    {page === "results" &&   <Results teams={teams} results={results} setResults={setResults} showToast={showToast} />}
-    {page === "settings" &&  <Settings teams={teams} setTeams={setTeams} results={results} setResults={setResults} showToast={showToast} />}
-  </main>
-
-  {selectedRider && (
-    <RiderModal rider={selectedRider} teams={teams} setTeams={setTeams}
-      onClose={() => setSelectedRider(null)} showToast={showToast} />
-  )}
-
-  {toast && <div className="toast">{toast}</div>}
-</div>
-```
-
-);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-STANDINGS PAGE
-═══════════════════════════════════════════════════════════════════════════ */
-
-function Standings({teams, results}) {
-const [expanded, setExpanded] = useState(null);
-const doneRounds = Object.keys(results).map(Number).sort((a, b) => a - b);
-
-const standings = useMemo(() => {
-return teams.map(team => {
-let total = 0;
-const byRound = {};
-for (const [rnd, data] of Object.entries(results)) {
-const pts = calcRoundPoints(team.roster, data);
-byRound[rnd] = pts;
-total += pts;
-}
-const riderNames = (team.roster || []).map(id => getRiderById(id)?.name).filter(Boolean);
-return {…team, total, byRound, riderNames};
-}).sort((a, b) => b.total - a.total);
-}, [teams, results]);
-
-const medal = (i) => i === 0 ? “🥇” : i === 1 ? “🥈” : i === 2 ? “🥉” : (i + 1);
-const rowClass = (i) => i === 0 ? “gold” : i === 1 ? “silver” : i === 2 ? “bronze” : “”;
-const rankColor = (i) => i === 0 ? “var(–gold)” : i === 1 ? “#ccc” : i === 2 ? “#cd7f32” : “var(–muted)”;
-
-const nextRound = ROUNDS.find(r => !results[r.rnd]);
-const allEmpty = standings.every(s => s.total === 0);
-
-return (
-<div>
-<div className="page-title">Season <span className="accent">Standings</span></div>
-<div className="page-sub">Fantasy Supercross · {doneRounds.length} of {TOTAL_ROUNDS} rounds complete</div>
-
-```
-  {allEmpty ? (
-    <div className="empty">
-      <div className="icon">🏁</div>
-      <div>No results yet — go to the Results tab to enter this week's finishers.</div>
-    </div>
-  ) : (
-    standings.map((team, i) => (
-      <div key={team.id}>
-        <div className={"stand-row " + rowClass(i)} onClick={() => setExpanded(expanded === team.id ? null : team.id)}>
-          <div className="rank" style={{color: rankColor(i)}}>{medal(i)}</div>
-          <div>
-            <div className="t-name">{team.name}</div>
-            <div className="t-sub">{team.riderNames.join(" · ") || "No riders drafted"}</div>
-          </div>
-          <div className="t-pts">{team.total}<span className="t-pts-u"> pts</span></div>
+  <div class="app">
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <h1 class="title">Fantasy Supercross League</h1>
+          <p class="subtitle">2026 AMA Monster Energy Supercross Championship • 450SX only • 10 teams • 2 riders per team • 17 rounds</p>
         </div>
-        {expanded === team.id && doneRounds.length > 0 && (
-          <div className="breakdown">
-            <table>
-              <thead><tr><th>Round</th><th>Label</th><th style={{textAlign:"right"}}>Pts</th></tr></thead>
-              <tbody>
-                {doneRounds.map(rnd => (
-                  <tr key={rnd}>
-                    <td>R{rnd}</td>
-                    <td style={{color:"var(--muted)"}}>{results[rnd]?.label || "—"}</td>
-                    <td className="pts">{team.byRound[rnd] || 0}</td>
-                  </tr>
-                ))}
-              </tbody>
+        <div class="small">
+          Created: April 18, 2026<br />
+          Current Round: <strong id="currentRoundBadge">14</strong> — Cleveland
+        </div>
+      </div>
+      <div class="pill-row">
+        <span class="pill">Snake Draft</span>
+        <span class="pill">Round 1 Protected Riders</span>
+        <span class="pill">Round 2 Duplicates Allowed Max 2</span>
+        <span class="pill">Holeshot +5</span>
+        <span class="pill">Wildcard +15</span>
+        <span class="pill">Local Storage Enabled</span>
+      </div>
+    </section>
+
+    <nav class="nav">
+      <button class="tab-btn active" data-page="standingsPage">Standings</button>
+      <button class="tab-btn" data-page="draftPage">Draft Board</button>
+      <button class="tab-btn" data-page="resultsPage">Race Results</button>
+      <button class="tab-btn" data-page="settingsPage">Settings</button>
+    </nav>
+
+    <!-- STANDINGS PAGE -->
+    <section id="standingsPage" class="page active">
+      <div class="grid-2">
+        <div class="panel">
+          <h2>Season Standings</h2>
+          <div class="scroll-x">
+            <table id="standingsTable">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Team</th>
+                  <th>Rider 1</th>
+                  <th>Rider 2</th>
+                  <th>Total</th>
+                  <th>Latest Round</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
             </table>
           </div>
-        )}
-      </div>
-    ))
-  )}
+        </div>
 
-  <div className="card" style={{marginTop:24}}>
-    <div className="section-h">Season Progress</div>
-    <div className="schedule-pills">
-      {ROUNDS.map(r => {
-        const saved = results[r.rnd];
-        const isCurrent = !saved && nextRound && nextRound.rnd === r.rnd;
-        const label = saved && saved.label ? `R${r.rnd} ${saved.label}` : `R${r.rnd}`;
-        return (
-          <div key={r.rnd} className={"pill " + (saved?"done":"") + (isCurrent?" current":"")}>{label}</div>
-        );
-      })}
-    </div>
-  </div>
-</div>
-```
-
-);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-DRAFT PAGE
-═══════════════════════════════════════════════════════════════════════════ */
-
-function Draft({teams, onSelect}) {
-const [filter, setFilter] = useState(“all”);
-
-const statusByRider = useMemo(() => {
-const m = {};
-for (const r of RIDERS) m[r.id] = getRiderStatus(r.id, teams).status;
-return m;
-}, [teams]);
-
-const counts = useMemo(() => {
-const c = {available: 0, protected: 0, once: 0, locked: 0};
-for (const id in statusByRider) c[statusByRider[id]]++;
-return c;
-}, [statusByRider]);
-
-const visible = RIDERS.filter(r => filter === “all” || statusByRider[r.id] === filter);
-
-const cardClass = (s) => s === “protected” ? “protected” : s === “once” ? “once” : s === “locked” ? “locked” : “”;
-const badgeFor = (s) => {
-if (s === “protected”) return <span className="badge b-pr">🔒 R1 Protected</span>;
-if (s === “once”)      return <span className="badge b-on">Picked ×1</span>;
-if (s === “locked”)    return <span className="badge b-lk">Locked ×2</span>;
-return <span className="badge b-av">Available</span>;
-};
-
-return (
-<div>
-<div className="page-title">Draft <span className="accent">Board</span></div>
-<div className="page-sub">Tap any rider to assign · R1 picks become top-10 protected</div>
-
-```
-  <div className="filter-bar">
-    <button className={filter==="all"?"active":""} onClick={() => setFilter("all")}>All ({RIDERS.length})</button>
-    <button className={filter==="available"?"active":""} onClick={() => setFilter("available")}>Available ({counts.available})</button>
-    <button className={filter==="protected"?"active":""} onClick={() => setFilter("protected")}>R1 Protected ({counts.protected})</button>
-    <button className={filter==="once"?"active":""} onClick={() => setFilter("once")}>Picked ×1 ({counts.once})</button>
-    <button className={filter==="locked"?"active":""} onClick={() => setFilter("locked")}>Locked ({counts.locked})</button>
-  </div>
-
-  <div className="riders-grid">
-    {visible.map(r => {
-      const s = statusByRider[r.id];
-      return (
-        <button key={r.id} className={"rider-card " + cardClass(s)} onClick={() => onSelect(r)}>
-          <div className="r-num">#{r.number}</div>
-          <div className="r-name">{r.name}</div>
-          <div className="r-team">{r.team}</div>
-          {badgeFor(s)}
-        </button>
-      );
-    })}
-  </div>
-
-  <div className="section-h">Team Rosters</div>
-  <div className="rosters-grid">
-    {teams.map(team => (
-      <div key={team.id} className="roster-card">
-        <div className="roster-name">{team.name}</div>
-        {(!team.roster || team.roster.length === 0) && <div className="roster-empty">No riders yet</div>}
-        {(team.roster || []).map(rid => {
-          const r = getRiderById(rid);
-          if (!r) return null;
-          return (
-            <div key={rid} className="roster-r">
-              <span className="num">#{r.number}</span>
-              <span style={{flex:1}}>{r.name}</span>
-              {team.r1 === rid && <span className="badge b-pr" style={{fontSize:".58rem",padding:"1px 5px",marginTop:0}}>R1</span>}
+        <div class="panel">
+          <h2>League Snapshot</h2>
+          <div class="stat-grid">
+            <div class="stat">
+              <div class="label">Teams</div>
+              <div class="value" id="statTeams">10</div>
             </div>
-          );
-        })}
-      </div>
-    ))}
-  </div>
-</div>
-```
+            <div class="stat">
+              <div class="label">Riders Drafted</div>
+              <div class="value" id="statDrafted">0</div>
+            </div>
+            <div class="stat">
+              <div class="label">Results Submitted</div>
+              <div class="value" id="statResults">0</div>
+            </div>
+            <div class="stat">
+              <div class="label">Current Round</div>
+              <div class="value" id="statRound">14</div>
+            </div>
+          </div>
 
-);
-}
+          <div style="margin-top:14px;">
+            <h3>Scoring Rules</h3>
+            <div class="small">
+              1st = 15 • 2nd = 14 • 3rd = 13 • 4th = 12 • 5th = 11 • 6th = 10 • 7th = 9 • 8th = 8 • 9th = 7 • 10th = 6 • 11th = 5 • 12th = 4 • 13th = 3 • 14th = 2 • 15th–22nd = 1
+              <br /><br />
+              Holeshot = +5 • Wildcard Finish = +15
+            </div>
+          </div>
 
-/* ═══════════════════════════════════════════════════════════════════════════
-RIDER ASSIGNMENT MODAL
-═══════════════════════════════════════════════════════════════════════════ */
-
-function RiderModal({rider, teams, setTeams, onClose, showToast}) {
-const {status, pickedBy} = getRiderStatus(rider.id, teams);
-
-const assign = (team, asR1) => {
-// Validation
-if (asR1 && status !== “available”) { showToast(“Can only assign as R1 if rider is available”); return; }
-if (!asR1 && status === “protected”) { showToast(“R1 protected riders can’t be R2 picks”); return; }
-if (!asR1 && status === “locked”) { showToast(“This rider already has 2 R2 picks”); return; }
-if ((team.roster || []).length >= 2) { showToast(team.name + “ already has 2 riders”); return; }
-if ((team.roster || []).includes(rider.id)) { showToast(“Rider already on this team”); return; }
-if (asR1 && team.r1 != null) { showToast(team.name + “ already has an R1 pick”); return; }
-
-```
-setTeams(teams.map(t => {
-  if (t.id !== team.id) return t;
-  return {
-    ...t,
-    roster: [...(t.roster || []), rider.id],
-    r1: asR1 ? rider.id : t.r1
-  };
-}));
-showToast("✅ " + rider.name + " → " + team.name + " (" + (asR1 ? "R1 Protected" : "R2 Pick") + ")");
-onClose();
-```
-
-};
-
-const unassign = (team) => {
-setTeams(teams.map(t => {
-if (t.id !== team.id) return t;
-return {
-…t,
-roster: (t.roster || []).filter(id => id !== rider.id),
-r1: t.r1 === rider.id ? null : t.r1
-};
-}));
-showToast(“Removed “ + rider.name + “ from “ + team.name);
-onClose();
-};
-
-const badgeLabel = {available:“Available”, protected:“🔒 Round 1 Protected”, once:“Picked Once (R2)”, locked:“Locked — 2 Teams”}[status];
-const badgeCls   = {available:“b-av”, protected:“b-pr”, once:“b-on”, locked:“b-lk”}[status];
-
-return (
-<div className=“overlay” onClick={e => e.target === e.currentTarget && onClose()}>
-<div className="modal">
-<div className="modal-head">
-<div>
-<div className="m-num">#{rider.number}</div>
-<div className="m-name">{rider.name}</div>
-</div>
-<button className="modal-close" onClick={onClose}>✕</button>
-</div>
-<div className="modal-body">
-<div className="m-team">{rider.team}</div>
-<span className={“badge “ + badgeCls}>{badgeLabel}</span>
-
-```
-      {pickedBy.length > 0 && pickedBy.map(t => (
-        <div key={t.id} className="m-row">
-          <span style={{color:"var(--muted)"}}>On roster of</span>
-          <span style={{fontWeight:700,color:"var(--green)"}}>{t.name} · {t.r1 === rider.id ? "R1" : "R2"}</span>
-        </div>
-      ))}
-
-      {pickedBy.length > 0 && (
-        <div style={{marginTop:10}}>
-          {pickedBy.map(t => (
-            <button key={t.id} className="remove-btn" onClick={() => unassign(t)}>
-              Remove from {t.name}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {status !== "locked" && (
-        <div style={{marginTop:8}}>
-          {status === "available" && (
-            <>
-              <div className="assign-lbl" style={{color:"var(--accent)"}}>Assign as Round 1 Pick (Protected)</div>
-              <div className="assign-grid">
-                {teams.map(t => {
-                  const disabled = t.r1 != null || (t.roster || []).length >= 2;
-                  return (
-                    <button key={t.id} disabled={disabled} onClick={() => assign(t, true)}>
-                      {t.name}{disabled ? " ✗" : ""}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="assign-lbl" style={{color:"var(--accent-2)"}}>Assign as Round 2 Pick</div>
-            </>
-          )}
-          {status !== "available" && (
-            <div className="assign-lbl" style={{color:"var(--accent-2)"}}>Assign as Round 2 Pick</div>
-          )}
-          <div className="assign-grid">
-            {teams.map(t => {
-              const on = (t.roster || []).includes(rider.id);
-              const full = (t.roster || []).length >= 2;
-              const disabled = on || full || status === "protected" || status === "locked";
-              return (
-                <button key={t.id} className={on?"on":""} disabled={disabled} onClick={() => assign(t, false)}>
-                  {t.name}{on ? " ✓" : full ? " ✗" : ""}
-                </button>
-              );
-            })}
+          <div style="margin-top:14px;">
+            <h3>Round Schedule</h3>
+            <div id="scheduleList" class="small"></div>
           </div>
         </div>
-      )}
-    </div>
-  </div>
-</div>
-```
+      </div>
 
-);
-}
+      <div class="panel">
+        <h2>Round-by-Round Totals</h2>
+        <div class="scroll-x">
+          <table id="roundTotalsTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
 
-/* ═══════════════════════════════════════════════════════════════════════════
-RESULTS PAGE
-═══════════════════════════════════════════════════════════════════════════ */
-
-function Results({teams, results, setResults, showToast}) {
-const [expanded, setExpanded] = useState(null);
-
-// Auto-expand next incomplete round once on mount
-useEffect(() => {
-const next = ROUNDS.find(r => !results[r.rnd]);
-if (next) setExpanded(next.rnd);
-// eslint-disable-next-line
-}, []);
-
-const saveRound = (rnd, data) => {
-setResults({…results, [rnd]: data});
-showToast(“✅ Round “ + rnd + “ saved!”);
-// Auto-advance to next incomplete
-const next = ROUNDS.find(r => r.rnd !== rnd && !{…results, [rnd]: data}[r.rnd]);
-setExpanded(next ? next.rnd : null);
-};
-
-const deleteRound = (rnd) => {
-if (!confirm(“Delete Round “ + rnd + “ results? This cannot be undone.”)) return;
-const next = {…results};
-delete next[rnd];
-setResults(next);
-showToast(“Round “ + rnd + “ deleted”);
-};
-
-return (
-<div>
-<div className="page-title">Race <span className="accent">Results</span></div>
-<div className="page-sub">Tap a round · pick the rider for each position · save</div>
-
-```
-  {ROUNDS.map(r => (
-    <RoundCard key={r.rnd}
-      roundNum={r.rnd}
-      saved={results[r.rnd]}
-      isExpanded={expanded === r.rnd}
-      onToggle={() => setExpanded(expanded === r.rnd ? null : r.rnd)}
-      onSave={(data) => saveRound(r.rnd, data)}
-      onDelete={() => deleteRound(r.rnd)}
-      teams={teams}
-      showToast={showToast}
-    />
-  ))}
-</div>
-```
-
-);
-}
-
-function RoundCard({roundNum, saved, isExpanded, onToggle, onSave, onDelete, teams, showToast}) {
-return (
-<div className={“round-box” + (saved?” saved”:””)}>
-<div className="round-head" onClick={onToggle}>
-<div className={“round-r” + (saved?” done”:””)}>R{roundNum}</div>
-<div className="round-info">
-<div className="round-label">{saved && saved.label ? saved.label : “Round “ + roundNum}</div>
-<div className="round-meta">
-{saved ? (“Saved” + (saved.wildcardPos ? “ · WC: P” + saved.wildcardPos : “”)) : “Tap to enter results”}
-</div>
-</div>
-<div className="round-status">
-{saved && <span className="round-badge">✅ SAVED</span>}
-<span className="caret">{isExpanded ? “▾” : “▸”}</span>
-</div>
-</div>
-
-```
-  {isExpanded && (
-    <div className="round-body">
-      {saved
-        ? <SavedRoundView saved={saved} onDelete={onDelete} teams={teams} />
-        : <RoundEntryForm roundNum={roundNum} onSave={onSave} showToast={showToast} />
-      }
-    </div>
-  )}
-</div>
-```
-
-);
-}
-
-function SavedRoundView({saved, onDelete, teams}) {
-// Compute each team’s points this round so the admin sees what happened
-const teamPts = teams.map(t => ({
-name: t.name,
-pts: calcRoundPoints(t.roster, saved)
-})).sort((a, b) => b.pts - a.pts);
-
-return (
-<div>
-<div style={{marginBottom:12,color:“var(–muted)”,fontSize:”.88rem”}}>
-{saved.label && <><b style={{color:“var(–text)”}}>{saved.label}</b> · </>}
-Holeshot: {(() => {
-const hr = getRiderById(saved.holeshotRiderId);
-return hr ? “#” + hr.number + “ “ + hr.name : “—”;
-})()}
-</div>
-
-```
-  <div className="section-h">Finishing Order</div>
-  <div className="saved-list" style={{marginBottom:14}}>
-    {(saved.results || []).map(r => {
-      const rider = getRiderById(r.riderId);
-      return (
-        <div key={r.position} className="saved-item">
-          <div className="saved-pos">P{r.position}</div>
-          <div>{rider ? ("#" + rider.number + " " + rider.name) : "—"}</div>
-          <div className="saved-tags">
-            {saved.holeshotRiderId === r.riderId && <span className="tag-hs">HS</span>}
-            {saved.wildcardPos === r.position && <span className="tag-wc">WC</span>}
+    <!-- DRAFT BOARD PAGE -->
+    <section id="draftPage" class="page">
+      <div class="grid-2">
+        <div class="panel">
+          <h2>Draft Controls</h2>
+          <div class="toolbar">
+            <select id="draftTeamSelect"></select>
+            <select id="draftRoundSelect">
+              <option value="1">Round 1</option>
+              <option value="2">Round 2</option>
+            </select>
+            <select id="draftRiderSelect"></select>
+            <button class="btn green" id="assignRiderBtn">Assign Rider</button>
+          </div>
+          <div class="toolbar">
+            <button class="btn secondary" id="resetDraftBtn">Clear Draft Only</button>
+          </div>
+          <div class="small">
+            Round 1: all 10 picks must be unique. Those riders become Top 10 Protected and cannot be drafted in round 2.<br />
+            Round 2: rider must not be from round 1 protected pool. A rider can be drafted by a maximum of 2 teams in round 2.
           </div>
         </div>
-      );
-    })}
-  </div>
 
-  <div className="section-h">Fantasy Team Points</div>
-  <div className="saved-list" style={{marginBottom:14}}>
-    {teamPts.map((t, i) => (
-      <div key={t.name} className="saved-item">
-        <div className="saved-pos" style={{color: i===0?"var(--gold)":"var(--accent)"}}>{i+1}</div>
-        <div>{t.name}</div>
-        <div style={{fontWeight:700,color:"var(--accent-2)"}}>{t.pts} pts</div>
+        <div class="panel">
+          <h2>Injury Replacement</h2>
+          <div class="toolbar">
+            <select id="injuryTeamSelect"></select>
+            <select id="injuryOriginalRiderSelect"></select>
+            <select id="injuryReplacementSelect"></select>
+            <button class="btn" id="addReplacementBtn">Add Temporary Replacement</button>
+          </div>
+          <div class="toolbar">
+            <select id="returnTeamSelect"></select>
+            <select id="returnOriginalRiderSelect"></select>
+            <button class="btn secondary" id="restoreRiderBtn">Restore Original Rider</button>
+          </div>
+          <div class="small">
+            Replacement rider must come from undrafted available riders. When the original rider returns, the team switches back to the original rider.
+          </div>
+        </div>
       </div>
-    ))}
-  </div>
 
-  <button className="btn btn-danger btn-sm" onClick={onDelete} style={{width:"100%"}}>
-    🗑 Delete & Re-enter
-  </button>
-</div>
-```
-
-);
-}
-
-function RoundEntryForm({roundNum, onSave, showToast}) {
-const [label, setLabel] = useState(””);
-// positions: {1: riderId, 2: riderId, …}
-const [positions, setPositions] = useState({});
-const [holeshotRiderId, setHoleshotRiderId] = useState(null);
-const [wildcardPos, setWildcardPos] = useState(””);
-
-const setPos = (pos, riderId) => {
-setPositions(s => ({…s, [pos]: riderId}));
-};
-
-const randomizeWC = () => {
-const p = Math.floor(Math.random() * 13) + 10;
-setWildcardPos(String(p));
-showToast(“🎲 Wildcard: P” + p);
-};
-
-const handleSave = () => {
-// Build results array from positions, including only filled-in positions
-const resultsArr = [];
-for (let p = 1; p <= 22; p++) {
-const rid = positions[p];
-if (rid) resultsArr.push({position: p, riderId: rid});
-}
-if (resultsArr.length === 0) {
-showToast(“⚠️ Pick at least one rider before saving”);
-return;
-}
-
-```
-// Check for duplicate riders in positions
-const seen = new Set();
-for (const r of resultsArr) {
-  if (seen.has(r.riderId)) {
-    showToast("⚠️ A rider is listed in two positions — please fix");
-    return;
-  }
-  seen.add(r.riderId);
-}
-
-// Validate wildcard
-const wc = wildcardPos ? parseInt(wildcardPos, 10) : null;
-if (wc !== null && (isNaN(wc) || wc < 10 || wc > 22)) {
-  showToast("⚠️ Wildcard must be between 10 and 22");
-  return;
-}
-
-onSave({
-  label: label.trim(),
-  results: resultsArr,
-  holeshotRiderId: holeshotRiderId || null,
-  wildcardPos: wc
-});
-```
-
-};
-
-// For the position dropdown: show only riders not already picked in earlier positions (soft filter)
-// But allow editing — if a rider is already picked, still show them
-const usedRiderIds = new Set(Object.values(positions).filter(Boolean));
-
-return (
-<div>
-<label className="input-lbl">Label (Optional — e.g. “Cleveland”)</label>
-<input className=“txt-input” value={label} onChange={e => setLabel(e.target.value)}
-placeholder=“Venue or week label”/>
-
-```
-  <div className="hs-row" style={{marginTop:14}}>
-    <label>🚀 Holeshot</label>
-    <select value={holeshotRiderId || ""} onChange={e => setHoleshotRiderId(e.target.value ? parseInt(e.target.value) : null)}>
-      <option value="">— select rider —</option>
-      {RIDERS.map(r => <option key={r.id} value={r.id}>#{r.number} {r.name}</option>)}
-    </select>
-  </div>
-
-  <div className="wc-box">
-    <div className="wc-label">Wildcard Position (+15 pts, P10–P22)</div>
-    <div className="wc-pos">{wildcardPos ? "P" + wildcardPos : "—"}</div>
-    <div className="wc-controls">
-      <button className="btn btn-gold btn-sm" onClick={randomizeWC}>🎲 Randomize</button>
-      <input className="txt-input" type="number" min="10" max="22" value={wildcardPos}
-        onChange={e => setWildcardPos(e.target.value)} placeholder="or 10–22"/>
-    </div>
-  </div>
-
-  <div className="section-h" style={{marginTop:14}}>Finishing Order (P1 – P22)</div>
-  <div className="pos-grid">
-    {Array.from({length: 22}, (_, i) => i + 1).map(p => {
-      const isTop3 = p <= 3;
-      const isWC = wildcardPos && parseInt(wildcardPos) === p;
-      return (
-        <div key={p} className={"pos-row" + (isTop3?" top3":"") + (isWC?" wc":"")}>
-          <label>{isWC?"⭐ ":""}P{p}</label>
-          <select value={positions[p] || ""} onChange={e => setPos(p, e.target.value ? parseInt(e.target.value) : null)}>
-            <option value="">— select rider —</option>
-            {RIDERS.map(r => {
-              const alreadyUsed = usedRiderIds.has(r.id) && positions[p] !== r.id;
-              return (
-                <option key={r.id} value={r.id} disabled={alreadyUsed}>
-                  #{r.number} {r.name}{alreadyUsed ? " (used)" : ""}
-                </option>
-              );
-            })}
+      <div class="panel">
+        <h2>Draft Board</h2>
+        <div class="toolbar">
+          <input id="riderSearch" placeholder="Search riders..." />
+          <select id="statusFilter">
+            <option value="ALL">All statuses</option>
+            <option value="AVAILABLE">Available</option>
+            <option value="TOP 10 PROTECTED">Top 10 Protected</option>
+            <option value="PICKED ONCE">Picked Once</option>
+            <option value="LOCKED">Locked</option>
           </select>
         </div>
-      );
-    })}
-  </div>
+        <div id="riderGrid" class="card-grid"></div>
+      </div>
+    </section>
 
-  <button className="btn btn-success" style={{width:"100%",marginTop:6}} onClick={handleSave}>
-    ✅ Save Round {roundNum}
-  </button>
-</div>
-```
+    <!-- RESULTS PAGE -->
+    <section id="resultsPage" class="page">
+      <div class="grid-2">
+        <div class="panel">
+          <h2>Results Admin</h2>
+          <div class="toolbar">
+            <select id="resultsRoundSelect"></select>
+            <input id="pdfUrlInput" placeholder="Paste AMA PDF URL here" />
+            <button class="btn secondary" id="openResultsSiteBtn">Open Results Site</button>
+          </div>
 
-);
-}
+          <div class="toolbar">
+            <button class="btn" id="parsePdfBtn">Auto-Parse PDF URL</button>
+            <button class="btn secondary" id="loadSampleBtn">Load Manual Entry Template</button>
+          </div>
 
-/* ═══════════════════════════════════════════════════════════════════════════
-SETTINGS PAGE
-═══════════════════════════════════════════════════════════════════════════ */
+          <div class="small">
+            PDF auto-parse is a browser-side best-effort parser using the PDF URL text response if allowed by the source. If the source blocks browser access, use the manual results entry below.
+          </div>
 
-function Settings({teams, setTeams, results, setResults, showToast}) {
-const [names, setNames] = useState(teams.map(t => t.name));
-const [confirmReset, setConfirmReset] = useState(false);
+          <div style="margin-top:14px;">
+            <label class="small">Manual Results Entry (one rider per line in finishing order)</label>
+            <textarea id="manualResultsInput" placeholder="Example:
+1. Cooper Webb
+2. Chase Sexton
+3. Ken Roczen
+..."></textarea>
+          </div>
 
-useEffect(() => { setNames(teams.map(t => t.name)); }, [teams]);
+          <div class="two-col" style="margin-top:12px;">
+            <div>
+              <label class="small">Holeshot Winner</label>
+              <select id="holeshotSelect"></select>
+            </div>
+            <div>
+              <label class="small">Wildcard Position</label>
+              <div style="display:flex; gap:8px;">
+                <input type="number" id="wildcardInput" min="10" max="22" value="10" />
+                <button class="btn secondary" id="randomizeWildcardBtn" type="button">Randomize</button>
+              </div>
+            </div>
+          </div>
 
-const saveNames = () => {
-setTeams(teams.map((t, i) => ({…t, name: names[i] || t.name})));
-showToast(“✅ Team names saved”);
-};
-
-const fullReset = () => {
-setTeams(TEAMS_DEFAULT.map((name, i) => ({id: i, name, roster: [], r1: null})));
-setResults({});
-setConfirmReset(false);
-showToast(“🔄 League reset”);
-};
-
-const clearResultsOnly = () => {
-if (!confirm(“Clear all race results but keep rosters? (Useful for testing.)”)) return;
-setResults({});
-showToast(“Race results cleared”);
-};
-
-return (
-<div>
-<div className="page-title">League <span className="accent">Settings</span></div>
-<div className="page-sub">Manage team names and league data</div>
-
-```
-  <div className="card">
-    <div className="section-h">Team Names</div>
-    <div className="team-grid">
-      {names.map((n, i) => (
-        <div key={i} className="team-item">
-          <div className="n">{i+1}</div>
-          <input value={n} onChange={e => {
-            const next = [...names]; next[i] = e.target.value; setNames(next);
-          }}/>
+          <div class="toolbar" style="margin-top:12px;">
+            <button class="btn green" id="submitResultsBtn">Submit Results</button>
+            <button class="btn red" id="deleteRoundResultsBtn">Delete This Round Results</button>
+          </div>
         </div>
-      ))}
-    </div>
-    <div className="btn-row">
-      <button className="btn btn-primary" onClick={saveNames}>Save Names</button>
-    </div>
-  </div>
 
-  <div className="card">
-    <div className="section-h">League Info</div>
-    <div className="m-row"><span style={{color:"var(--muted)"}}>Total Rounds</span><span style={{fontWeight:700}}>{TOTAL_ROUNDS}</span></div>
-    <div className="m-row"><span style={{color:"var(--muted)"}}>Rounds Complete</span><span style={{fontWeight:700,color:"var(--green)"}}>{Object.keys(results).length}</span></div>
-    <div className="m-row"><span style={{color:"var(--muted)"}}>Teams</span><span style={{fontWeight:700}}>{teams.length}</span></div>
-    <div className="m-row"><span style={{color:"var(--muted)"}}>Rider Pool</span><span style={{fontWeight:700}}>{RIDERS.length}</span></div>
-    <div className="m-row"><span style={{color:"var(--muted)"}}>Holeshot Bonus</span><span style={{fontWeight:700}}>+{HOLESHOT_BONUS} pts</span></div>
-    <div className="m-row"><span style={{color:"var(--muted)"}}>Wildcard Bonus</span><span style={{fontWeight:700}}>+{WILDCARD_BONUS} pts (P10–P22)</span></div>
-  </div>
-
-  <div className="card">
-    <div className="section-h">Tools</div>
-    <div className="btn-row">
-      <button className="btn btn-secondary btn-sm" onClick={clearResultsOnly}>Clear Race Results (Keep Rosters)</button>
-    </div>
-  </div>
-
-  <div className="danger">
-    <div className="danger-t">⚠️ New Season Reset</div>
-    <p style={{color:"var(--muted)",fontSize:".88rem",marginBottom:12}}>
-      Wipes all rosters, draft picks, and race results. Use this at the start of a new season. Cannot be undone.
-    </p>
-    {!confirmReset ? (
-      <button className="btn btn-danger" onClick={() => setConfirmReset(true)}>Reset Everything</button>
-    ) : (
-      <div>
-        <p style={{color:"var(--red)",fontWeight:700,marginBottom:10}}>Are you sure? This deletes everything.</p>
-        <div className="btn-row">
-          <button className="btn btn-danger" onClick={fullReset}>Yes, Reset</button>
-          <button className="btn btn-secondary" onClick={() => setConfirmReset(false)}>Cancel</button>
+        <div class="panel">
+          <h2>Parsed / Pending Results Preview</h2>
+          <div id="resultsPreview" class="small">No results loaded yet.</div>
         </div>
       </div>
-    )}
+
+      <div class="panel">
+        <h2>Round Schedule</h2>
+        <div id="scheduleAdminList"></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS PAGE -->
+    <section id="settingsPage" class="page">
+      <div class="grid-2">
+        <div class="panel">
+          <h2>Team Names</h2>
+          <div id="teamNameInputs" class="grid-3"></div>
+          <div style="margin-top:12px;">
+            <button class="btn green" id="saveTeamsBtn">Save Team Names</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Draft Order</h2>
+          <div id="draftOrderInputs"></div>
+          <div style="margin-top:12px;">
+            <button class="btn green" id="saveDraftOrderBtn">Save Draft Order</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel danger-zone">
+        <h2>Reset / Clear All</h2>
+        <div class="small" style="margin-bottom:12px;">
+          This wipes all saved data, including draft picks, replacements, team names, results, standings, and settings.
+        </div>
+        <button class="btn red" id="clearAllBtn">RESET ALL DATA</button>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      Fantasy Supercross League • Single-file local storage build for GitHub Pages
+    </div>
   </div>
-</div>
-```
 
-);
-}
+  <div class="popup" id="riderPopup">
+    <div class="popup-card">
+      <div class="popup-head">
+        <div>
+          <h2 id="popupRiderName" style="margin:0 0 6px;"></h2>
+          <div id="popupRiderTeam" class="muted"></div>
+        </div>
+        <button class="close-x" id="closePopupBtn">&times;</button>
+      </div>
+      <div id="popupContent"></div>
+    </div>
+  </div>
 
-/* ═══════════════════════════════════════════════════════════════════════════
-RENDER
-═══════════════════════════════════════════════════════════════════════════ */
+  <script>
+    const STORAGE_KEY = "fantasySupercrossLeague_v1";
 
-const root = ReactDOM.createRoot(document.getElementById(“root”));
-root.render(
-<ErrorBoundary>
-<App />
-</ErrorBoundary>
-);
-</script>
+    const DEFAULT_STATE = {
+      meta: {
+        currentRound: 14,
+        season: 2026,
+        totalRounds: 17
+      },
+      teams: [
+        { id: 1, name: "Jaren" },
+        { id: 2, name: "Savannah" },
+        { id: 3, name: "Jaycee" },
+        { id: 4, name: "Maisy" },
+        { id: 5, name: "Grandpa" },
+        { id: 6, name: "Grandma" },
+        { id: 7, name: "Parker" },
+        { id: 8, name: "Josie" },
+        { id: 9, name: "Kennedy" },
+        { id: 10, name: "John" }
+      ],
+      draftOrder: [1,2,3,4,5,6,7,8,9,10],
+      riders: [
+        { id: 1, name: "Hunter Lawrence", realTeam: "Honda HRC Progressive" },
+        { id: 2, name: "Cooper Webb", realTeam: "Monster Energy Yamaha Star Racing" },
+        { id: 3, name: "Ken Roczen", realTeam: "Twisted Tea Suzuki" },
+        { id: 4, name: "Chase Sexton", realTeam: "Monster Energy Kawasaki" },
+        { id: 5, name: "Eli Tomac", realTeam: "Red Bull KTM Factory Racing" },
+        { id: 6, name: "Jorge Prado", realTeam: "Red Bull KTM Factory Racing" },
+        { id: 7, name: "Justin Hill", realTeam: "Team Tedder Racing KTM" },
+        { id: 8, name: "Dylan Ferrandis", realTeam: "Troy Lee Designs Red Bull Ducati" },
+        { id: 9, name: "Justin Cooper", realTeam: "Monster Energy Yamaha Star Racing" },
+        { id: 10, name: "Aaron Plessinger", realTeam: "Red Bull KTM Factory Racing" },
+        { id: 11, name: "Garrett Marchbanks", realTeam: "Monster Energy Kawasaki" },
+        { id: 12, name: "Colt Nichols", realTeam: "Twisted Tea Suzuki" },
+        { id: 13, name: "Shane McElrath", realTeam: "Quadlock Honda Racing" },
+        { id: 14, name: "Dean Wilson", realTeam: "Quadlock Honda Racing" },
+        { id: 15, name: "Christian Craig", realTeam: "Quadlock Honda Racing" },
+        { id: 16, name: "Joey Savatgy", realTeam: "Quadlock Honda Racing" },
+        { id: 17, name: "Malcolm Stewart", realTeam: "Rockstar Energy Husqvarna" },
+        { id: 18, name: "Jason Anderson", realTeam: "Twisted Tea Suzuki" },
+        { id: 19, name: "RJ Hampshire", realTeam: "Rockstar Energy Husqvarna" },
+        { id: 20, name: "Justin Barcia", realTeam: "Troy Lee Designs Red Bull Ducati" },
+        { id: 21, name: "Jordon Smith", realTeam: "Triumph Factory Racing" },
+        { id: 22, name: "Austin Forkner", realTeam: "Triumph Factory Racing" },
+        { id: 23, name: "Tristan Lane", realTeam: "Privateer Yamaha" },
+        { id: 24, name: "Freddie Noren", realTeam: "Privateer Yamaha" },
+        { id: 25, name: "Kevin Moranz", realTeam: "Champion Tool Storage KMR KTM" },
+        { id: 26, name: "Vince Friese", realTeam: "Privateer Kawasaki" },
+        { id: 27, name: "Mitchell Harrison", realTeam: "Partzilla Blaster PRMX Kawasaki" }
+      ],
+      draftPicks: [],
+      replacements: [],
+      roundResults: {},
+      settings: {
+        resultsSourceUrl: "https://www.supercrosslive.com/results/"
+      }
+    };
 
+    const ROUND_SCHEDULE = [
+      { round:1, date:"2026-01-10", city:"Anaheim", venue:"Angel Stadium" },
+      { round:2, date:"2026-01-17", city:"San Diego", venue:"Snapdragon Stadium" },
+      { round:3, date:"2026-01-24", city:"Anaheim", venue:"Angel Stadium" },
+      { round:4, date:"2026-01-31", city:"Houston", venue:"NRG Stadium" },
+      { round:5, date:"2026-02-07", city:"Glendale", venue:"State Farm Stadium" },
+      { round:6, date:"2026-02-14", city:"Seattle", venue:"Lumen Field" },
+      { round:7, date:"2026-02-21", city:"Arlington", venue:"AT&T Stadium" },
+      { round:8, date:"2026-02-28", city:"Daytona", venue:"Daytona International Speedway" },
+      { round:9, date:"2026-03-07", city:"Indianapolis", venue:"Lucas Oil Stadium" },
+      { round:10, date:"2026-03-21", city:"Birmingham", venue:"Protective Stadium" },
+      { round:11, date:"2026-03-28", city:"Detroit", venue:"Ford Field" },
+      { round:12, date:"2026-04-04", city:"St. Louis", venue:"The Dome at America’s Center" },
+      { round:13, date:"2026-04-11", city:"Nashville", venue:"Nissan Stadium" },
+      { round:14, date:"2026-04-18", city:"Cleveland", venue:"Huntington Bank Field" },
+      { round:15, date:"2026-04-25", city:"Philadelphia", venue:"Lincoln Financial Field" },
+      { round:16, date:"2026-05-02", city:"Denver", venue:"Empower Field at Mile High" },
+      { round:17, date:"2026-05-09", city:"Salt Lake City", venue:"Rice-Eccles Stadium" }
+    ];
+
+    let state = loadState();
+
+    function deepClone(obj){
+      return JSON.parse(JSON.stringify(obj));
+    }
+
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(!raw) return deepClone(DEFAULT_STATE);
+        const parsed = JSON.parse(raw);
+        return mergeState(deepClone(DEFAULT_STATE), parsed);
+      }catch(e){
+        return deepClone(DEFAULT_STATE);
+      }
+    }
+
+    function mergeState(base, saved){
+      const out = deepClone(base);
+      for(const key in saved){
+        out[key] = saved[key];
+      }
+      return out;
+    }
+
+    function saveState(){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function riderById(id){
+      return state.riders.find(r => r.id === Number(id));
+    }
+
+    function teamById(id){
+      return state.teams.find(t => t.id === Number(id));
+    }
+
+    function getTop10ProtectedRiderIds(){
+      return state.draftPicks.filter(p => p.round === 1).map(p => p.riderId);
+    }
+
+    function getRound2PickCount(riderId){
+      return state.draftPicks.filter(p => p.round === 2 && p.riderId === riderId).length;
+    }
+
+    function getRiderAssignments(riderId){
+      return state.draftPicks
+        .filter(p => p.riderId === riderId)
+        .map(p => ({
+          teamName: teamById(p.teamId)?.name || "Unknown",
+          round: p.round
+        }));
+    }
+
+    function getRiderStatus(riderId){
+      const protectedIds = getTop10ProtectedRiderIds();
+      if(protectedIds.includes(riderId)) return "TOP 10 PROTECTED";
+      const round2Count = getRound2PickCount(riderId);
+      if(round2Count === 1) return "PICKED ONCE";
+      if(round2Count >= 2) return "LOCKED";
+      return "AVAILABLE";
+    }
+
+    function getRiderStatusClass(status){
+      if(status === "AVAILABLE") return "available";
+      if(status === "TOP 10 PROTECTED") return "protected";
+      if(status === "PICKED ONCE") return "picked-once";
+      if(status === "LOCKED") return "locked";
+      return "";
+    }
+
+    function formatDate(iso){
+      const d = new Date(iso + "T12:00:00");
+      return d.toLocaleDateString(undefined, { month:"short", day:"numeric", year:"numeric" });
+    }
+
+    function pointsForFinish(pos){
+      pos = Number(pos);
+      if(pos === 1) return 15;
+      if(pos === 2) return 14;
+      if(pos === 3) return 13;
+      if(pos === 4) return 12;
+      if(pos === 5) return 11;
+      if(pos === 6) return 10;
+      if(pos === 7) return 9;
+      if(pos === 8) return 8;
+      if(pos === 9) return 7;
+      if(pos === 10) return 6;
+      if(pos === 11) return 5;
+      if(pos === 12) return 4;
+      if(pos === 13) return 3;
+      if(pos === 14) return 2;
+      if(pos >= 15 && pos <= 22) return 1;
+      return 0;
+    }
+
+    function getTeamCurrentRiders(teamId){
+      const replacements = state.replacements.filter(r => r.teamId === teamId && r.active);
+      const basePicks = state.draftPicks
+        .filter(p => p.teamId === teamId)
+        .sort((a,b) => a.round - b.round);
+
+      const riders = [];
+
+      for(const pick of basePicks){
+        const replacement = replacements.find(rep => rep.originalRiderId === pick.riderId);
+        if(replacement){
+          riders.push({
+            riderId: replacement.replacementRiderId,
+            displayName: riderById(replacement.replacementRiderId)?.name || "Unknown",
+            originalRiderId: pick.riderId,
+            isReplacement: true
+          });
+        }else{
+          riders.push({
+            riderId: pick.riderId,
+            displayName: riderById(pick.riderId)?.name || "Unknown",
+            originalRiderId: pick.riderId,
+            isReplacement: false
+          });
+        }
+      }
+
+      return riders.slice(0,2);
+    }
+
+    function getTeamOriginalRiders(teamId){
+      return state.draftPicks
+        .filter(p => p.teamId === teamId)
+        .sort((a,b) => a.round - b.round)
+        .map(p => riderById(p.riderId))
+        .filter(Boolean);
+    }
+
+    function getUndraftedAvailableRiders(){
+      const draftedRiderIds = new Set(state.draftPicks.map(p => p.riderId));
+      const activeReplacementIds = new Set(state.replacements.filter(r => r.active).map(r => r.replacementRiderId));
+      return state.riders.filter(r => !draftedRiderIds.has(r.id) && !activeReplacementIds.has(r.id));
+    }
+
+    function getRoundOrder(round){
+      if(round === 1){
+        return [...state.draftOrder];
+      }
+      return [...state.draftOrder].reverse();
+    }
+
+    function computeStandings(){
+      const result = state.teams.map(team => {
+        let total = 0;
+        let latestRound = 0;
+        let roundTotals = {};
+
+        Object.keys(state.roundResults).forEach(rnd => {
+          const roundNum = Number(rnd);
+          const rr = state.roundResults[rnd];
+          const teamPoints = rr.teamPoints?.[team.id] || 0;
+          roundTotals[roundNum] = teamPoints;
+          total += teamPoints;
+          if(teamPoints > 0 || rr.submitted) latestRound = Math.max(latestRound, roundNum);
+        });
+
+        return {
+          teamId: team.id,
+          teamName: team.name,
+          riders: getTeamCurrentRiders(team.id),
+          total,
+          latestRound,
+          roundTotals
+        };
+      });
+
+      result.sort((a,b) => b.total - a.total || a.teamName.localeCompare(b.teamName));
+      return result;
+    }
+
+    function recalcAllRoundPoints(){
+      Object.keys(state.roundResults).forEach(roundKey => {
+        const rr = state.roundResults[roundKey];
+        if(!rr || !rr.positions) return;
+
+        const teamPoints = {};
+        state.teams.forEach(team => {
+          const riders = getTeamCurrentRiders(team.id);
+          let total = 0;
+
+          riders.forEach(slot => {
+            const finish = rr.positions[slot.riderId];
+            if(finish){
+              total += pointsForFinish(finish);
+              if(rr.holeshotRiderId === slot.riderId) total += 5;
+              if(Number(rr.wildcardPosition) === Number(finish)) total += 15;
+            }
+          });
+
+          teamPoints[team.id] = total;
+        });
+
+        rr.teamPoints = teamPoints;
+      });
+      saveState();
+    }
+
+    function renderAll(){
+      renderNav();
+      renderSchedule();
+      renderStandings();
+      renderRoundTotals();
+      renderDraftControls();
+      renderRiderGrid();
+      renderResultsPage();
+      renderSettingsPage();
+      renderStats();
+      syncRoundBadge();
+    }
+
+    function syncRoundBadge(){
+      document.getElementById("currentRoundBadge").textContent = state.meta.currentRound;
+      document.getElementById("statRound").textContent = state.meta.currentRound;
+    }
+
+    function renderNav(){
+      document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.onclick = () => {
+          document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+          document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+          btn.classList.add("active");
+          document.getElementById(btn.dataset.page).classList.add("active");
+        };
+      });
+    }
+
+    function renderSchedule(){
+      const html = ROUND_SCHEDULE.map(r => {
+        const current = r.round === state.meta.currentRound ? ' <span class="chip">CURRENT</span>' : "";
+        return `<div class="round-row">
+          <div><strong>Rnd ${r.round}</strong></div>
+          <div>${formatDate(r.date)}</div>
+          <div>${r.city}</div>
+          <div>${r.venue}${current}</div>
+        </div>`;
+      }).join("");
+
+      document.getElementById("scheduleList").innerHTML = html;
+      document.getElementById("scheduleAdminList").innerHTML = html;
+    }
+
+    function renderStats(){
+      document.getElementById("statTeams").textContent = state.teams.length;
+      document.getElementById("statDrafted").textContent = state.draftPicks.length;
+      document.getElementById("statResults").textContent = Object.keys(state.roundResults).length;
+    }
+
+    function renderStandings(){
+      const tbody = document.querySelector("#standingsTable tbody");
+      const standings = computeStandings();
+      tbody.innerHTML = standings.map((s, idx) => {
+        const rider1 = s.riders[0]?.displayName || "—";
+        const rider2 = s.riders[1]?.displayName || "—";
+        const latest = s.latestRound ? `Rnd ${s.latestRound}` : "—";
+        return `<tr>
+          <td><strong>${idx + 1}</strong></td>
+          <td><strong>${s.teamName}</strong></td>
+          <td>${rider1}</td>
+          <td>${rider2}</td>
+          <td><strong>${s.total}</strong></td>
+          <td>${latest}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    function renderRoundTotals(){
+      const tableHead = document.querySelector("#roundTotalsTable thead");
+      const tableBody = document.querySelector("#roundTotalsTable tbody");
+      const standings = computeStandings();
+
+      const rounds = ROUND_SCHEDULE.map(r => r.round);
+
+      tableHead.innerHTML = `
+        <tr>
+          <th>Team</th>
+          ${rounds.map(r => `<th>R${r}</th>`).join("")}
+          <th>Total</th>
+        </tr>
+      `;
+
+      tableBody.innerHTML = standings.map(s => `
+        <tr>
+          <td><strong>${s.teamName}</strong></td>
+          ${rounds.map(r => `<td>${s.roundTotals[r] ?? 0}</td>`).join("")}
+          <td><strong>${s.total}</strong></td>
+        </tr>
+      `).join("");
+    }
+
+    function renderDraftControls(){
+      const teamOptions = state.teams.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+      document.getElementById("draftTeamSelect").innerHTML = `<option value="">Select Team</option>${teamOptions}`;
+      document.getElementById("injuryTeamSelect").innerHTML = `<option value="">Select Team</option>${teamOptions}`;
+      document.getElementById("returnTeamSelect").innerHTML = `<option value="">Select Team</option>${teamOptions}`;
+
+      const riderOptions = state.riders
+        .sort((a,b) => a.name.localeCompare(b.name))
+        .map(r => `<option value="${r.id}">${r.name}</option>`).join("");
+      document.getElementById("draftRiderSelect").innerHTML = `<option value="">Select Rider</option>${riderOptions}`;
+
+      const holeshotOptions = state.riders
+        .sort((a,b) => a.name.localeCompare(b.name))
+        .map(r => `<option value="${r.id}">${r.name}</option>`).join("");
+      document.getElementById("holeshotSelect").innerHTML = `<option value="">Select Holeshot Winner</option>${holeshotOptions}`;
+
+      renderInjurySelectors();
+    }
+
+    function renderInjurySelectors(){
+      const injuryTeamId = Number(document.getElementById("injuryTeamSelect").value || 0);
+      const returnTeamId = Number(document.getElementById("returnTeamSelect").value || 0);
+
+      const injuryOriginal = document.getElementById("injuryOriginalRiderSelect");
+      const injuryReplacement = document.getElementById("injuryReplacementSelect");
+      const returnOriginal = document.getElementById("returnOriginalRiderSelect");
+
+      const availableReplacementOptions = getUndraftedAvailableRiders()
+        .sort((a,b) => a.name.localeCompare(b.name))
+        .map(r => `<option value="${r.id}">${r.name}</option>`).join("");
+
+      injuryReplacement.innerHTML = `<option value="">Select Replacement Rider</option>${availableReplacementOptions}`;
+
+      if(injuryTeamId){
+        const originals = getTeamOriginalRiders(injuryTeamId)
+          .map(r => `<option value="${r.id}">${r.name}</option>`).join("");
+        injuryOriginal.innerHTML = `<option value="">Select Original Rider</option>${originals}`;
+      }else{
+        injuryOriginal.innerHTML = `<option value="">Select Original Rider</option>`;
+      }
+
+      if(returnTeamId){
+        const activeReps = state.replacements
+          .filter(r => r.teamId === returnTeamId && r.active)
+          .map(r => {
+            const original = riderById(r.originalRiderId);
+            const replacement = riderById(r.replacementRiderId);
+            return `<option value="${r.originalRiderId}">${original?.name || "Unknown"} → ${replacement?.name || "Unknown"}</option>`;
+          }).join("");
+        returnOriginal.innerHTML = `<option value="">Select Active Replacement</option>${activeReps}`;
+      }else{
+        returnOriginal.innerHTML = `<option value="">Select Active Replacement</option>`;
+      }
+    }
+
+    function renderRiderGrid(){
+      const search = (document.getElementById("riderSearch")?.value || "").trim().toLowerCase();
+      const filter = document.getElementById("statusFilter")?.value || "ALL";
+      const riderGrid = document.getElementById("riderGrid");
+
+      const filtered = [...state.riders]
+        .sort((a,b) => a.name.localeCompare(b.name))
+        .filter(r => {
+          const status = getRiderStatus(r.id);
+          const matchesSearch = !search || r.name.toLowerCase().includes(search) || r.realTeam.toLowerCase().includes(search);
+          const matchesStatus = filter === "ALL" || status === filter;
+          return matchesSearch && matchesStatus;
+        });
+
+      riderGrid.innerHTML = filtered.map(r => {
+        const status = getRiderStatus(r.id);
+        return `
+          <div class="rider-card" data-rider-id="${r.id}">
+            <div class="rider-name">${r.name}</div>
+            <div class="rider-team">${r.realTeam}</div>
+            <span class="status ${getRiderStatusClass(status)}">${status}</span>
+          </div>
+        `;
+      }).join("");
+
+      document.querySelectorAll(".rider-card").forEach(card => {
+        card.onclick = () => openRiderPopup(Number(card.dataset.riderId));
+      });
+    }
+
+    function openRiderPopup(riderId){
+      const rider = riderById(riderId);
+      const assignments = getRiderAssignments(riderId);
+      const status = getRiderStatus(riderId);
+
+      document.getElementById("popupRiderName").textContent = rider.name;
+      document.getElementById("popupRiderTeam").textContent = rider.realTeam;
+      document.getElementById("popupContent").innerHTML = `
+        <div style="margin-bottom:10px;">
+          <span class="status ${getRiderStatusClass(status)}">${status}</span>
+        </div>
+        <div class="small" style="margin-bottom:8px;"><strong>Fantasy Teams:</strong></div>
+        <div>
+          ${assignments.length ? assignments.map(a => `<span class="chip">${a.teamName} • Round ${a.round}</span>`).join("") : '<span class="muted">Not drafted</span>'}
+        </div>
+      `;
+      document.getElementById("riderPopup").classList.add("show");
+    }
+
+    function closePopup(){
+      document.getElementById("riderPopup").classList.remove("show");
+    }
+
+    function validateDraftAssignment(teamId, round, riderId){
+      if(!teamId || !round || !riderId) return "Select team, round, and rider.";
+
+      const teamPicksThisRound = state.draftPicks.filter(p => p.teamId === teamId && p.round === round).length;
+      if(teamPicksThisRound >= 1) return `This team already has a Round ${round} pick.`;
+
+      if(round === 1){
+        const alreadyPicked = state.draftPicks.some(p => p.riderId === riderId);
+        if(alreadyPicked) return "Round 1 riders must be unique.";
+      }
+
+      if(round === 2){
+        const protectedIds = getTop10ProtectedRiderIds();
+        if(protectedIds.includes(riderId)) return "Round 1 protected riders cannot be picked in Round 2.";
+        const alreadyByTeam = state.draftPicks.some(p => p.teamId === teamId && p.riderId === riderId);
+        if(alreadyByTeam) return "A team cannot draft the same rider twice.";
+        const count = getRound2PickCount(riderId);
+        if(count >= 2) return "This Round 2 rider is already locked after being picked twice.";
+      }
+
+      return "";
+    }
+
+    function assignRider(){
+      const teamId = Number(document.getElementById("draftTeamSelect").value);
+      const round = Number(document.getElementById("draftRoundSelect").value);
+      const riderId = Number(document.getElementById("draftRiderSelect").value);
+
+      const error = validateDraftAssignment(teamId, round, riderId);
+      if(error){
+        alert(error);
+        return;
+      }
+
+      state.draftPicks.push({ teamId, round, riderId });
+      saveState();
+      recalcAllRoundPoints();
+      renderAll();
+    }
+
+    function clearDraftOnly(){
+      if(!confirm("Clear all draft picks and replacements?")) return;
+      state.draftPicks = [];
+      state.replacements = [];
+      saveState();
+      recalcAllRoundPoints();
+      renderAll();
+    }
+
+    function addReplacement(){
+      const teamId = Number(document.getElementById("injuryTeamSelect").value);
+      const originalRiderId = Number(document.getElementById("injuryOriginalRiderSelect").value);
+      const replacementRiderId = Number(document.getElementById("injuryReplacementSelect").value);
+
+      if(!teamId || !originalRiderId || !replacementRiderId){
+        alert("Select team, original rider, and replacement rider.");
+        return;
+      }
+
+      const existing = state.replacements.find(r => r.teamId === teamId && r.originalRiderId === originalRiderId && r.active);
+      if(existing){
+        alert("This rider already has an active replacement.");
+        return;
+      }
+
+      const available = getUndraftedAvailableRiders().some(r => r.id === replacementRiderId);
+      if(!available){
+        alert("Replacement rider must be from currently undrafted available riders.");
+        return;
+      }
+
+      state.replacements.push({
+        teamId,
+        originalRiderId,
+        replacementRiderId,
+        active: true
+      });
+
+      saveState();
+      recalcAllRoundPoints();
+      renderAll();
+    }
+
+    function restoreOriginalRider(){
+      const teamId = Number(document.getElementById("returnTeamSelect").value);
+      const originalRiderId = Number(document.getElementById("returnOriginalRiderSelect").value);
+
+      const rep = state.replacements.find(r => r.teamId === teamId && r.originalRiderId === originalRiderId && r.active);
+      if(!rep){
+        alert("No active replacement found.");
+        return;
+      }
+
+      rep.active = false;
+      saveState();
+      recalcAllRoundPoints();
+      renderAll();
+    }
+
+    function renderResultsPage(){
+      const roundOptions = ROUND_SCHEDULE.map(r => {
+        const rr = state.roundResults[r.round];
+        const flag = rr ? " • Saved" : "";
+        return `<option value="${r.round}">Round ${r.round} — ${r.city}${flag}</option>`;
+      }).join("");
+      document.getElementById("resultsRoundSelect").innerHTML = roundOptions;
+      document.getElementById("resultsRoundSelect").value = String(state.meta.currentRound);
+      updateResultsPreview();
+    }
+
+    function normalizeRiderName(name){
+      return name
+        .toLowerCase()
+        .replace(/\(hs\)/gi, "")
+        .replace(/[^\w\s]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function parseManualResultsText(text){
+      const positions = {};
+      const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+
+      let pos = 0;
+      for(const line of lines){
+        const cleaned = line.replace(/^\d+\s*[\.\-\)]\s*/, "").trim();
+        pos += 1;
+        const found = state.riders.find(r => normalizeRiderName(r.name) === normalizeRiderName(cleaned));
+        if(found && pos <= 22){
+          positions[found.id] = pos;
+        }
+      }
+      return positions;
+    }
+
+    async function autoParsePdfUrl(){
+      const url = document.getElementById("pdfUrlInput").value.trim();
+      if(!url){
+        alert("Paste a PDF URL first.");
+        return;
+      }
+
+      try{
+        const res = await fetch(url);
+        const blob = await res.blob();
+
+        if(blob.type && !blob.type.includes("pdf")){
+          alert("The URL did not return a PDF file.");
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(){
+          const text = reader.result || "";
+          const foundNames = [];
+          state.riders.forEach(r => {
+            if(String(text).toLowerCase().includes(r.name.toLowerCase())){
+              foundNames.push(r.name);
+            }
+          });
+
+          if(foundNames.length){
+            document.getElementById("manualResultsInput").value = foundNames.slice(0,22).map((n,i)=>`${i+1}. ${n}`).join("\n");
+            alert("Best-effort PDF parse loaded matching rider names into manual results. Review before submitting.");
+          }else{
+            alert("Could not parse rider names from this PDF in the browser. Use manual results entry.");
+          }
+          updateResultsPreview();
+        };
+        reader.readAsText(blob);
+      }catch(err){
+        alert("Auto-parse failed. The PDF source may block browser access. Use manual results entry.");
+      }
+    }
+
+    function loadManualTemplate(){
+      document.getElementById("manualResultsInput").value =
+`1. 
+2. 
+3. 
+4. 
+5. 
+6. 
+7. 
+8. 
+9. 
+10. 
+11. 
+12. 
+13. 
+14. 
+15. 
+16. 
+17. 
+18. 
+19. 
+20. 
+21. 
+22. `;
+      updateResultsPreview();
+    }
+
+    function randomizeWildcard(){
+      const value = Math.floor(Math.random() * (22 - 10 + 1)) + 10;
+      document.getElementById("wildcardInput").value = value;
+      updateResultsPreview();
+    }
+
+    function updateResultsPreview(){
+      const text = document.getElementById("manualResultsInput")?.value || "";
+      const positions = parseManualResultsText(text);
+      const holeshotRiderId = Number(document.getElementById("holeshotSelect")?.value || 0);
+      const wildcard = Number(document.getElementById("wildcardInput")?.value || 0);
+      const round = Number(document.getElementById("resultsRoundSelect")?.value || state.meta.currentRound);
+      const schedule = ROUND_SCHEDULE.find(r => r.round === round);
+
+      const rows = Object.entries(positions)
+        .sort((a,b) => a[1] - b[1])
+        .map(([riderId, pos]) => {
+          const rider = riderById(Number(riderId));
+          const hs = Number(riderId) === holeshotRiderId ? " (HS)" : "";
+          const wc = Number(pos) === wildcard ? " (Wildcard)" : "";
+          return `<div class="chip">${pos}. ${rider?.name || "Unknown"}${hs}${wc}</div>`;
+        }).join("");
+
+      document.getElementById("resultsPreview").innerHTML = `
+        <div><strong>Round ${round}</strong> — ${schedule?.city || ""} — ${schedule?.venue || ""}</div>
+        <div class="muted" style="margin:8px 0 10px;">${schedule?.date ? formatDate(schedule.date) : ""}</div>
+        <div style="margin-bottom:10px;"><strong>Wildcard:</strong> ${wildcard || "—"}</div>
+        <div style="margin-bottom:10px;"><strong>Holeshot:</strong> ${holeshotRiderId ? (riderById(holeshotRiderId)?.name || "—") : "—"}</div>
+        <div>${rows || '<span class="muted">No parsed riders yet.</span>'}</div>
+      `;
+    }
+
+    function submitResults(){
+      const round = Number(document.getElementById("resultsRoundSelect").value);
+      const wildcard = Number(document.getElementById("wildcardInput").value);
+      const holeshotRiderId = Number(document.getElementById("holeshotSelect").value || 0);
+      const manualText = document.getElementById("manualResultsInput").value.trim();
+
+      if(!round) return alert("Select a round.");
+      if(!wildcard || wildcard < 10 || wildcard > 22) return alert("Wildcard must be between 10 and 22.");
+      if(!manualText) return alert("Enter results first.");
+
+      const positions = parseManualResultsText(manualText);
+      if(Object.keys(positions).length === 0) return alert("No valid rider names were found in the results.");
+
+      const schedule = ROUND_SCHEDULE.find(r => r.round === round);
+
+      const teamPoints = {};
+      state.teams.forEach(team => {
+        const riders = getTeamCurrentRiders(team.id);
+        let total = 0;
+        riders.forEach(slot => {
+          const finish = positions[slot.riderId];
+          if(finish){
+            total += pointsForFinish(finish);
+            if(holeshotRiderId === slot.riderId) total += 5;
+            if(finish === wildcard) total += 15;
+          }
+        });
+        teamPoints[team.id] = total;
+      });
+
+      state.roundResults[round] = {
+        submitted: true,
+        round,
+        city: schedule?.city || "",
+        venue: schedule?.venue || "",
+        date: schedule?.date || "",
+        pdfUrl: document.getElementById("pdfUrlInput").value.trim(),
+        positions,
+        holeshotRiderId,
+        wildcardPosition: wildcard,
+        teamPoints
+      };
+
+      if(round >= state.meta.currentRound && round < state.meta.totalRounds){
+        state.meta.currentRound = round + 1;
+      }
+
+      saveState();
+      renderAll();
+      alert("Results submitted.");
+    }
+
+    function deleteRoundResults(){
+      const round = Number(document.getElementById("resultsRoundSelect").value);
+      if(!round) return;
+      if(!state.roundResults[round]) return alert("No saved results for this round.");
+      if(!confirm(`Delete saved results for Round ${round}?`)) return;
+      delete state.roundResults[round];
+      saveState();
+      renderAll();
+    }
+
+    function renderSettingsPage(){
+      const teamWrap = document.getElementById("teamNameInputs");
+      teamWrap.innerHTML = state.teams.map(team => `
+        <div>
+          <label class="small">Team ${team.id}</label>
+          <input class="team-name-input" data-team-id="${team.id}" value="${escapeHtml(team.name)}" />
+        </div>
+      `).join("");
+
+      const draftWrap = document.getElementById("draftOrderInputs");
+      draftWrap.innerHTML = getRoundOrder(1).map((teamId, index) => {
+        const team = teamById(teamId);
+        return `
+          <div style="display:grid; grid-template-columns:80px 1fr; gap:10px; align-items:center; margin-bottom:10px;">
+            <div><strong>Pick ${index + 1}</strong></div>
+            <select class="draft-order-select" data-slot="${index}">
+              ${state.teams.map(t => `<option value="${t.id}" ${t.id===teamId ? "selected" : ""}>${t.name}</option>`).join("")}
+            </select>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function saveTeamNames(){
+      document.querySelectorAll(".team-name-input").forEach(inp => {
+        const team = teamById(Number(inp.dataset.teamId));
+        if(team) team.name = inp.value.trim() || team.name;
+      });
+      saveState();
+      renderAll();
+    }
+
+    function saveDraftOrder(){
+      const order = [];
+      document.querySelectorAll(".draft-order-select").forEach(sel => {
+        order.push(Number(sel.value));
+      });
+
+      const unique = new Set(order);
+      if(unique.size !== state.teams.length){
+        alert("Draft order must contain each team exactly once.");
+        return;
+      }
+
+      state.draftOrder = order;
+      saveState();
+      renderAll();
+    }
+
+    function clearAllData(){
+      if(!confirm("This will wipe ALL league data. Continue?")) return;
+      if(!confirm("Final confirmation: clear all data?")) return;
+      state = deepClone(DEFAULT_STATE);
+      saveState();
+      renderAll();
+    }
+
+    function escapeHtml(str){
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function wireEvents(){
+      document.getElementById("closePopupBtn").onclick = closePopup;
+      document.getElementById("riderPopup").addEventListener("click", (e) => {
+        if(e.target.id === "riderPopup") closePopup();
+      });
+
+      document.getElementById("assignRiderBtn").onclick = assignRider;
+      document.getElementById("resetDraftBtn").onclick = clearDraftOnly;
+      document.getElementById("addReplacementBtn").onclick = addReplacement;
+      document.getElementById("restoreRiderBtn").onclick = restoreOriginalRider;
+
+      document.getElementById("injuryTeamSelect").onchange = renderInjurySelectors;
+      document.getElementById("returnTeamSelect").onchange = renderInjurySelectors;
+
+      document.getElementById("riderSearch").oninput = renderRiderGrid;
+      document.getElementById("statusFilter").onchange = renderRiderGrid;
+
+      document.getElementById("openResultsSiteBtn").onclick = () => {
+        window.open(state.settings.resultsSourceUrl, "_blank");
+      };
+
+      document.getElementById("parsePdfBtn").onclick = autoParsePdfUrl;
+      document.getElementById("loadSampleBtn").onclick = loadManualTemplate;
+      document.getElementById("randomizeWildcardBtn").onclick = randomizeWildcard;
+      document.getElementById("submitResultsBtn").onclick = submitResults;
+      document.getElementById("deleteRoundResultsBtn").onclick = deleteRoundResults;
+
+      document.getElementById("manualResultsInput").oninput = updateResultsPreview;
+      document.getElementById("holeshotSelect").onchange = updateResultsPreview;
+      document.getElementById("wildcardInput").oninput = updateResultsPreview;
+      document.getElementById("resultsRoundSelect").onchange = updateResultsPreview;
+
+      document.getElementById("saveTeamsBtn").onclick = saveTeamNames;
+      document.getElementById("saveDraftOrderBtn").onclick = saveDraftOrder;
+      document.getElementById("clearAllBtn").onclick = clearAllData;
+    }
+
+    recalcAllRoundPoints();
+    renderAll();
+    wireEvents();
+  </script>
 </body>
 </html>
