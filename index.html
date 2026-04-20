@@ -826,7 +826,7 @@
   </div>
 </details>
 
-<details class="settings-panel">
+<details class="settings-panel" id="draftOrderPanel">
   <summary>
     <span>Draft Order</span>
     <span class="chev">▼</span>
@@ -1124,48 +1124,42 @@ function startFirestoreListener(){
   setConnStatus("connecting");
 
   LEAGUE_DOC.onSnapshot(
-    { includeMetadataChanges: true },
     // Success — new data from Firestore
     (doc) => {
-      // fromCache=true means Firestore is serving from offline cache, not server.
-      // Don't treat a cached "doc doesn't exist" as authoritative — server might have it.
-      const fromCache = doc.metadata.fromCache;
-      setConnStatus(fromCache ? "syncing" : "live");
-
-      if(localWritePending) return; // our own write in flight — skip to avoid flicker
+      setConnStatus("live");
+      if(localWritePending) return; // our own write is in flight — skip to avoid flicker
 
       if(doc.exists){
-        // Remote has data — adopt it as truth.
         state = mergeRemoteState(doc.data());
-        writeLocalCache();
-      } else if(!fromCache) {
-        // SERVER confirmed doc doesn't exist (first-ever load on this project).
-        // Only seed if the local cache has meaningful data.
-        // This prevents a fresh browser from wiping out existing Firestore data.
+      } else {
+        // No document yet. Only seed Firestore if the local cache actually has
+        // meaningful data — prevents a fresh browser from wiping existing data
+        // in Firestore by pushing up an empty DEFAULT_STATE.
+        state = loadLocalCache();
         const localHasData = state.draftPicks.length > 0
                           || Object.keys(state.roundResults).length > 0
                           || state.replacements.length > 0;
         if(localHasData){
-          saveState(); // push local data up as initial seed
+          saveState();
         }
-        // else: leave Firestore empty, keep local DEFAULT_STATE. Nothing to render differently.
       }
-      // If doc doesn't exist but fromCache=true: do NOTHING. Wait for server confirmation.
+      writeLocalCache();
 
-      // Debounced re-render
+      // Debounced re-render so a burst of changes (e.g. draft night) doesn't flicker
       clearTimeout(renderDebounce);
       renderDebounce = setTimeout(() => {
         recalcAllRoundPoints();
         renderAll();
       }, 120);
     },
-    // Error — Firestore unavailable
+    // Error — Firestore unavailable (offline / auth)
     (err) => {
       console.error("Firestore listener error:", err);
       setConnStatus("offline");
     }
   );
 
+  // Also track the .info/connected equivalent for Firestore via network status
   window.addEventListener("online",  () => setConnStatus("live"));
   window.addEventListener("offline", () => setConnStatus("offline"));
 }
@@ -2368,7 +2362,15 @@ function renderSettingsPage(){
     </div>
   `).join("");
 
-  document.getElementById("draftOrderInputs").innerHTML = getRoundOrder(1).map((tid,idx)=>`
+  renderDraftOrderInputs();
+  renderRiderPool();
+  renderAliases();
+}
+
+function renderDraftOrderInputs(){
+  const host = document.getElementById("draftOrderInputs");
+  if(!host) return;
+  host.innerHTML = getRoundOrder(1).map((tid,idx)=>`
     <div style="display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center;margin-bottom:10px;">
       <div><strong>Pick ${idx+1}</strong></div>
       <select class="draft-order-select" data-slot="${idx}">
@@ -2376,9 +2378,6 @@ function renderSettingsPage(){
       </select>
     </div>
   `).join("");
-
-  renderRiderPool();
-  renderAliases();
 }
 
 function saveTeamNames(){
@@ -2548,7 +2547,6 @@ function exportBackup(){
     navigator.clipboard.writeText(snapshot).then(
       () => logMessage(`Backup copied to clipboard (${snapshot.length} chars).`, "success"),
       () => {
-        // Fallback — show in textarea
         document.getElementById("backupTextarea").value = snapshot;
         logMessage("Clipboard blocked — backup shown in text box below.", "warn");
       }
@@ -2665,6 +2663,19 @@ function wireEvents(){
   document.getElementById("exportBackupBtn").onclick = exportBackup;
   document.getElementById("showBackupBtn").onclick = showBackup;
   document.getElementById("restoreBackupBtn").onclick = restoreBackup;
+
+  // iOS Safari fix: re-render the Draft Order dropdowns when the panel opens.
+  // When <select> elements are rendered inside a closed <details>, iOS Safari
+  // sometimes fails to wire up their native picker. Regenerating them after
+  // open ensures the native picker works.
+  const draftOrderPanel = document.getElementById("draftOrderPanel");
+  if(draftOrderPanel){
+    draftOrderPanel.addEventListener("toggle", () => {
+      if(draftOrderPanel.open){
+        renderDraftOrderInputs();
+      }
+    });
+  }
 }
 
 // ═══════════════════════════════════════════════════
