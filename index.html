@@ -914,6 +914,13 @@
     <div style="margin-top:10px;">
       <button class="btn red" id="restoreBackupBtn">Restore from Pasted Text</button>
     </div>
+    <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-2);">
+      <div class="small" style="margin-bottom:8px;">
+        <strong>Auto-Backups</strong> — the app keeps the 5 most recent states on this device.
+        If something goes wrong, restore one from here.
+      </div>
+      <div id="autoBackupList" class="small"></div>
+    </div>
   </div>
 </details>
 
@@ -1086,10 +1093,49 @@ function loadLocalCache(){
 }
 function writeLocalCache(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
+// Auto-backup: on every save that contains meaningful data, also write to a
+// backup slot in localStorage. 5 rolling slots so we can recover from recent states.
+function writeAutoBackup(){
+  try {
+    const hasData = state.draftPicks.length > 0
+                 || Object.keys(state.roundResults).length > 0
+                 || state.replacements.length > 0;
+    if(!hasData) return; // never back up an empty state
+
+    const stamp = Date.now();
+    const entry = { stamp, state: state };
+    // Read existing backups
+    let backups = [];
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY + "_autobackups");
+      if(raw) backups = JSON.parse(raw) || [];
+    } catch(e) { backups = []; }
+
+    // Only write a new backup if meaningful changes exist since the last one
+    const lastSnapshot = backups[0]?.state ? JSON.stringify(backups[0].state) : "";
+    const nowSnapshot = JSON.stringify(state);
+    if(nowSnapshot === lastSnapshot) return;
+
+    backups.unshift(entry);
+    if(backups.length > 5) backups.length = 5;
+    localStorage.setItem(STORAGE_KEY + "_autobackups", JSON.stringify(backups));
+  } catch(e){
+    console.error("Auto-backup failed:", e);
+  }
+}
+
+function loadAutoBackups(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY + "_autobackups");
+    return raw ? (JSON.parse(raw) || []) : [];
+  } catch(e) { return []; }
+}
+
 // ─── Firebase persistence ────────────────────────────────────────────────────
-// saveState: writes to Firestore + local cache
+// saveState: writes to Firestore + local cache + rolling auto-backup
 function saveState(){
   writeLocalCache();
+  writeAutoBackup();
   localWritePending = true;
   LEAGUE_DOC.set(state)
     .then(() => { localWritePending = false; })
@@ -1119,47 +1165,72 @@ function mergeRemoteState(data){
   return merged;
 }
 
-// startFirestoreListener: called once on init — drives all live updates
+// Tracks whether we've already attempted the one-shot seed this session.
+// Set to true after first successful snapshot (whether it had data or not).
+let initialSeedChecked = false;
+
+// startFirestoreListener: called once on init. Reads only — never writes from the listener.
+// Seeding logic is separate and guarded.
 function startFirestoreListener(){
   setConnStatus("connecting");
 
   LEAGUE_DOC.onSnapshot(
-    // Success — new data from Firestore
+    { includeMetadataChanges: true },
     (doc) => {
-      setConnStatus("live");
-      if(localWritePending) return; // our own write is in flight — skip to avoid flicker
+      const fromCache = doc.metadata.fromCache;
+      const hasPendingWrites = doc.metadata.hasPendingWrites;
+
+      setConnStatus(fromCache ? "syncing" : "live");
+
+      // Ignore snapshots that reflect our own in-flight writes
+      if(hasPendingWrites) return;
 
       if(doc.exists){
+        // Adopt remote as truth. Do not write anything back.
         state = mergeRemoteState(doc.data());
-      } else {
-        // No document yet. Only seed Firestore if the local cache actually has
-        // meaningful data — prevents a fresh browser from wiping existing data
-        // in Firestore by pushing up an empty DEFAULT_STATE.
-        state = loadLocalCache();
-        const localHasData = state.draftPicks.length > 0
-                          || Object.keys(state.roundResults).length > 0
-                          || state.replacements.length > 0;
-        if(localHasData){
-          saveState();
-        }
-      }
-      writeLocalCache();
+        writeLocalCache();
+        initialSeedChecked = true;
 
-      // Debounced re-render so a burst of changes (e.g. draft night) doesn't flicker
+        clearTimeout(renderDebounce);
+        renderDebounce = setTimeout(() => {
+          recalcAllRoundPoints();
+          renderAll();
+        }, 120);
+        return;
+      }
+
+      // doc doesn't exist — need to decide if this is authoritative.
+      if(fromCache){
+        // Cached non-existence is NOT authoritative. Wait for server.
+        return;
+      }
+
+      // Server confirmed doc doesn't exist. This happens exactly once per fresh project.
+      // Guard: only seed if we haven't already checked this session AND local has data.
+      if(initialSeedChecked) return;
+      initialSeedChecked = true;
+
+      const localHasData = state.draftPicks.length > 0
+                        || Object.keys(state.roundResults).length > 0
+                        || state.replacements.length > 0;
+      if(localHasData){
+        // Safe to seed — server is empty, we have meaningful data.
+        saveState();
+      }
+      // else: leave both empty. New users will see DEFAULT_STATE locally.
+
       clearTimeout(renderDebounce);
       renderDebounce = setTimeout(() => {
         recalcAllRoundPoints();
         renderAll();
       }, 120);
     },
-    // Error — Firestore unavailable (offline / auth)
     (err) => {
       console.error("Firestore listener error:", err);
       setConnStatus("offline");
     }
   );
 
-  // Also track the .info/connected equivalent for Firestore via network status
   window.addEventListener("online",  () => setConnStatus("live"));
   window.addEventListener("offline", () => setConnStatus("offline"));
 }
@@ -1286,7 +1357,8 @@ function recalcAllRoundPoints(){
     });
     rr.teamPoints = tp;
   });
-  saveState();
+  // No saveState here — scoring is derived data, not source state.
+  // Callers that changed source state (submitResults, etc) will save separately.
 }
 function computeStandings(){
   return state.teams.map(team => {
@@ -2365,6 +2437,7 @@ function renderSettingsPage(){
   renderDraftOrderInputs();
   renderRiderPool();
   renderAliases();
+  renderAutoBackups();
 }
 
 function renderDraftOrderInputs(){
@@ -2586,6 +2659,52 @@ function restoreBackup(){
       logMessage(`Backup restored — ${state.draftPicks.length} picks, ${Object.keys(state.roundResults).length} rounds.`, "success");
     },
     { title: "Restore Backup", okText: "Restore" }
+  );
+}
+
+function renderAutoBackups(){
+  const host = document.getElementById("autoBackupList");
+  if(!host) return;
+  const backups = loadAutoBackups();
+  if(backups.length === 0){
+    host.innerHTML = '<span class="muted">No auto-backups yet.</span>';
+    return;
+  }
+  host.innerHTML = backups.map((b, idx) => {
+    const d = new Date(b.stamp);
+    const when = `${d.toLocaleDateString([],{month:"numeric",day:"numeric"})} ${d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})}`;
+    const picks = b.state?.draftPicks?.length || 0;
+    const rounds = b.state?.roundResults ? Object.keys(b.state.roundResults).length : 0;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border-2);gap:10px;">
+      <span>
+        <strong>${escHtml(when)}</strong>
+        <span class="muted" style="font-size:11px;"> · ${picks} picks, ${rounds} rounds</span>
+      </span>
+      <button class="btn secondary btn-mini auto-backup-restore" data-idx="${idx}">Restore</button>
+    </div>`;
+  }).join("");
+  host.querySelectorAll(".auto-backup-restore").forEach(btn => {
+    btn.onclick = () => restoreAutoBackup(Number(btn.dataset.idx));
+  });
+}
+
+function restoreAutoBackup(idx){
+  const backups = loadAutoBackups();
+  const entry = backups[idx];
+  if(!entry){ logMessage("Backup not found.", "error"); return; }
+  const d = new Date(entry.stamp);
+  const when = `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
+  const picks = entry.state?.draftPicks?.length || 0;
+  customConfirm(
+    `Restore auto-backup from ${when} (${picks} picks)? This will replace current state and push to Firestore.`,
+    () => {
+      state = mergeRemoteState(entry.state);
+      saveState();
+      recalcAllRoundPoints();
+      renderAll();
+      logMessage(`Auto-backup from ${when} restored.`, "success");
+    },
+    { title: "Restore Auto-Backup", okText: "Restore" }
   );
 }
 
