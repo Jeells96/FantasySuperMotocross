@@ -746,11 +746,7 @@
   <div class="small" style="margin-bottom:8px;">
     Assign a backup rider. The standby scores <strong>only for rounds where the original rider didn't race.</strong>
     <br><br>
-    <strong>Replacement pool (based on injured rider's overall pick #):</strong><br>
-    • Pick #1–5 → any rider, no restrictions<br>
-    • Pick #6–10 → any rider except top 5 picks<br>
-    • Pick #11–15 → any rider except top 10 picks<br>
-    • Pick #16–20 → any rider except top 15 picks
+    <strong>Replacement rule:</strong> The standby must have been drafted <em>after</em> the injured rider, or be undrafted. Example: if your injured rider was Pick #7, the earliest pick you can choose as standby is #8.
   </div>
   <div class="toolbar">
     <select id="injuryTeamSelect"></select>
@@ -1789,29 +1785,16 @@ function getStandbyPool(teamId, originalRiderId){
     return state.riders.filter(r => r.id !== originalRiderId && !activeStandbys.has(r.id));
   }
 
-  // Determine the top-tier cutoff that's off-limits
-  let excludedMax = 0;
-  if(overallPick <= 5)       excludedMax = 0;
-  else if(overallPick <= 10) excludedMax = 5;
-  else if(overallPick <= 15) excludedMax = 10;
-  else                       excludedMax = 15;
-
+  // RULE: replacement must be undrafted OR drafted strictly AFTER the injured rider's pick.
+  // If a rider was drafted at multiple picks, ALL of their picks must be after the injured pick.
   const pickMap = getAllPickNumbersByRider();
-  const excludedRiderIds = new Set();
-  if(excludedMax > 0){
-    Object.entries(pickMap).forEach(([rid, picks]) => {
-      // If ANY of the rider's picks falls inside the excluded range, they're out
-      if(picks.some(n => n >= 1 && n <= excludedMax)){
-        excludedRiderIds.add(Number(rid));
-      }
-    });
-  }
-
   return state.riders.filter(r => {
     if(r.id === originalRiderId) return false;
     if(activeStandbys.has(r.id)) return false;
-    if(excludedRiderIds.has(r.id)) return false;
-    return true;
+    const picks = pickMap[r.id];
+    if(!picks || picks.length === 0) return true; // undrafted → eligible
+    // All of this rider's picks must be later than the injured rider's pick
+    return picks.every(p => p > overallPick);
   });
 }
 
@@ -1836,25 +1819,21 @@ function renderInjurySelectors(){
     injOrig.innerHTML = `<option value="">Select Original Rider</option>`;
   }
 
-  // Standby pool — depends on pick tier of the injured rider
+  // Standby pool — must be undrafted or picked later than the injured rider
   if(injTeamId && injOrigId){
     const pool = getStandbyPool(injTeamId, injOrigId).sort((a,b)=>a.name.localeCompare(b.name));
     const overallPick = getOverallPickNumber(injTeamId, injOrigId);
-    let tierLabel = "Any rider (no restrictions)";
-    if(overallPick){
-      if(overallPick <= 5)       tierLabel = `Pick #${overallPick} — any rider (no restrictions)`;
-      else if(overallPick <= 10) tierLabel = `Pick #${overallPick} — anyone except top 5 picks`;
-      else if(overallPick <= 15) tierLabel = `Pick #${overallPick} — anyone except top 10 picks`;
-      else                       tierLabel = `Pick #${overallPick} — anyone except top 15 picks`;
-    }
+    const label = overallPick
+      ? `Injured at Pick #${overallPick} — eligible: pick #${overallPick + 1} or later, or undrafted`
+      : "Any rider";
 
     const pickMap = getAllPickNumbersByRider();
-    injRep.innerHTML = `<option value="">${escHtml(tierLabel)}</option>` +
+    injRep.innerHTML = `<option value="">${escHtml(label)}</option>` +
       pool.map(r => {
         const picks = pickMap[r.id];
         const tag = picks && picks.length
           ? ` [#${picks.join(", #")}]`
-          : "";
+          : " [undrafted]";
         return `<option value="${r.id}">${escHtml(r.name)}${tag}</option>`;
       }).join("");
   } else {
