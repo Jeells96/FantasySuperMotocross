@@ -526,6 +526,22 @@
     .log-entry.log-warn    .log-text { color: #ffd66a; }
     .log-entry.log-info    .log-text { color: var(--text); }
 
+    /* ─── UNDO/REDO BAR ─── */
+    .undo-bar {
+      display: flex; gap: 8px; justify-content: flex-end;
+      margin-bottom: 10px;
+      padding: 8px 12px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .undo-bar button {
+      padding: 8px 12px; font-size: 12px;
+    }
+    .undo-bar button:disabled {
+      opacity: .35; cursor: not-allowed;
+    }
+
     /* ─── CONNECTION STATUS ─── */
     .conn-dot {
       display: inline-block;
@@ -634,7 +650,7 @@
       <div class="hero-top">
         <div>
           <h1 class="title">Fantasy <span>SuperMotocross</span> League</h1>
-          <p class="subtitle">AMA Monster Energy Championship • 10 teams • 2 riders per team </p>
+          <p class="subtitle">2026 AMA Monster Energy Championship • 450SX only • 10 teams • 2 riders per team • 17 rounds • Snake draft • Holeshot +5 • Wildcard +15</p>
           <div style="margin-top:8px;display:flex;align-items:center;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
@@ -643,6 +659,15 @@
       </div>
     </div>
   </section>
+
+  <!-- UNDO / REDO BAR -->
+
+  <div class="undo-bar">
+    <button class="btn secondary btn-mini" id="undoBtn" disabled>
+      <span id="undoLabel">↶ Undo</span>
+    </button>
+    <button class="btn secondary btn-mini" id="redoBtn" disabled>↷ Redo</button>
+  </div>
 
   <!-- NAV -->
 
@@ -813,6 +838,22 @@
   <section id="settingsPage" class="page">
 
 ```
+<details class="settings-panel" open>
+  <summary>
+    <span>Your Name (for audit log)</span>
+    <span class="chev">▼</span>
+  </summary>
+  <div class="settings-body">
+    <div class="small" style="margin-bottom:8px;">
+      Name that appears in the Message Log when you make changes. Per-device (not shared).
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input id="userNameInput" placeholder="Your name (e.g. Jaren)" />
+      <button class="btn green btn-mini" id="saveUserNameBtn">Save</button>
+    </div>
+  </div>
+</details>
+
 <details class="settings-panel">
   <summary>
     <span>Team Names</span>
@@ -1132,18 +1173,195 @@ function loadAutoBackups(){
 }
 
 // ─── Firebase persistence ────────────────────────────────────────────────────
+
+// Track the last state we know is "committed" (either loaded from Firestore or just saved).
+// Used for undo — we push this snapshot to undoStack right BEFORE applying a new save.
+let lastCommittedSnapshot = null;
+
+function captureSnapshot(){
+  return deepClone(state);
+}
+
+function pushUndo(reason){
+  if(!lastCommittedSnapshot) return;
+  undoStack.push({
+    state: lastCommittedSnapshot,
+    reason: reason || "",
+    stamp: Date.now(),
+    by: getUserName()
+  });
+  if(undoStack.length > UNDO_LIMIT) undoStack.shift();
+  redoStack = []; // a fresh action invalidates the redo history
+  renderUndoRedoBar();
+}
+
+function doUndo(){
+  if(undoStack.length === 0){ logMessage("Nothing to undo.", "info"); return; }
+
+  customConfirm(
+    "Undo the last change? This affects everyone — all connected devices will see the previous state.",
+    () => {
+      // Push current state onto redo stack
+      redoStack.push({
+        state: captureSnapshot(),
+        stamp: Date.now(),
+        by: getUserName()
+      });
+      if(redoStack.length > UNDO_LIMIT) redoStack.shift();
+
+      // Pop undo target
+      const target = undoStack.pop();
+      state = mergeRemoteState(target.state);
+      // Save to Firestore with skipUndo so we don't re-push to undo stack
+      saveState("undo", { skipUndo: true });
+      recalcAllRoundPoints();
+      renderAll();
+      logMessage(`↶ Undid: ${target.reason || "last change"}`, "success");
+    },
+    { title: "Undo Last Change", okText: "Undo", okClass: "secondary" }
+  );
+}
+
+function doRedo(){
+  if(redoStack.length === 0){ logMessage("Nothing to redo.", "info"); return; }
+
+  customConfirm(
+    "Redo the undone change? This affects everyone.",
+    () => {
+      // Push current to undo stack
+      undoStack.push({
+        state: captureSnapshot(),
+        reason: "pre-redo",
+        stamp: Date.now(),
+        by: getUserName()
+      });
+      if(undoStack.length > UNDO_LIMIT) undoStack.shift();
+
+      const target = redoStack.pop();
+      state = mergeRemoteState(target.state);
+      saveState("redo", { skipUndo: true });
+      recalcAllRoundPoints();
+      renderAll();
+      logMessage(`↷ Redid change`, "success");
+    },
+    { title: "Redo Change", okText: "Redo", okClass: "secondary" }
+  );
+}
+
+function renderUndoRedoBar(){
+  const undoBtn = document.getElementById("undoBtn");
+  const redoBtn = document.getElementById("redoBtn");
+  const undoLabel = document.getElementById("undoLabel");
+  if(!undoBtn) return;
+
+  undoBtn.disabled = undoStack.length === 0;
+  redoBtn.disabled = redoStack.length === 0;
+
+  if(undoStack.length > 0){
+    const top = undoStack[undoStack.length - 1];
+    if(undoLabel) undoLabel.textContent = `↶ Undo ${top.reason ? '('+top.reason+')' : ''}`;
+  } else {
+    if(undoLabel) undoLabel.textContent = "↶ Undo";
+  }
+}
+
+// ONCE a session has ever observed Firestore containing real data, we refuse to
+// save an empty state. This is the last line of defense against bugs that try
+// to wipe the database — no matter what elsewhere in the app goes wrong, an
+// empty state can never overwrite a populated one after the first successful
+// read confirms data exists.
+let sessionHasSeenData = false;
+
+// Undo/Redo history - cap at ~30 entries each. Each entry: { state, reason, stamp, by }
+const UNDO_LIMIT = 30;
+let undoStack = [];
+let redoStack = [];
+
+// User identity for audit log. Not login — just a stable per-device name that
+// the user can set in Settings. Defaults to browser fingerprint.
+function getUserName(){
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY + "_username");
+    if(saved) return saved;
+  } catch(e){}
+  // Fallback: generate a random device tag and persist it
+  let tag = "";
+  try { tag = localStorage.getItem(STORAGE_KEY + "_devicetag") || ""; } catch(e){}
+  if(!tag){
+    tag = "Device-" + Math.random().toString(36).slice(2, 6).toUpperCase();
+    try { localStorage.setItem(STORAGE_KEY + "_devicetag", tag); } catch(e){}
+  }
+  return tag;
+}
+function setUserName(name){
+  try { localStorage.setItem(STORAGE_KEY + "_username", name); } catch(e){}
+}
+
+// State fingerprint: a short summary of what's in state right now. Used in logs.
+function stateFingerprint(s){
+  s = s || state;
+  return {
+    picks: s.draftPicks?.length || 0,
+    rounds: Object.keys(s.roundResults || {}).length,
+    reps: s.replacements?.length || 0
+  };
+}
+
 // saveState: writes to Firestore + local cache + rolling auto-backup
-function saveState(){
+// Now with defensive guards, audit logging, and undo support
+function saveState(reason, options){
+  reason = reason || "(unspecified)";
+  options = options || {};
+  const fp = stateFingerprint();
+  const isEmpty = (fp.picks === 0 && fp.rounds === 0 && fp.reps === 0);
+
+  // Defense 1: never save an empty state AFTER we've observed real data this session.
+  if(isEmpty && sessionHasSeenData){
+    logMessage(`⚠️ BLOCKED empty save attempt by ${getUserName()} [${reason}]`, "error");
+    console.error("BLOCKED empty save:", reason, new Error().stack);
+    return;
+  }
+
+  // Push the current (pre-change) snapshot to undo stack unless caller opts out
+  // (undo/redo operations themselves shouldn't add to the undo stack)
+  if(!options.skipUndo){
+    pushUndo(reason);
+  }
+
   writeLocalCache();
   writeAutoBackup();
   localWritePending = true;
-  LEAGUE_DOC.set(state)
-    .then(() => { localWritePending = false; })
+
+  // Attach audit metadata to each write so we can see who/what/when
+  const stamped = Object.assign({}, state, {
+    __lastSavedBy: getUserName(),
+    __lastSavedAt: Date.now(),
+    __lastSavedReason: reason
+  });
+
+  LEAGUE_DOC.set(stamped)
+    .then(() => {
+      localWritePending = false;
+      // Now that the save is committed, update the snapshot
+      lastCommittedSnapshot = captureSnapshot();
+      // Local-only log (don't persist to state since that would re-trigger saves)
+      addEphemeralLog(`💾 Saved by ${getUserName()} [${reason}] — ${fp.picks}p ${fp.rounds}r`, "info");
+    })
     .catch(err => {
       localWritePending = false;
       setConnStatus("offline");
       console.error("Firestore write failed:", err);
+      addEphemeralLog(`❌ Save failed: ${err.message || err}`, "error");
     });
+}
+
+// Ephemeral log ring — lives in memory, rendered in the Message Log panel
+// Separate from state.messageLog to avoid save loops
+let ephemeralLog = [];
+function addEphemeralLog(text, type){
+  ephemeralLog.unshift({ ts: Date.now(), text, type: type || "info" });
+  if(ephemeralLog.length > 80) ephemeralLog.length = 80;
+  renderMessageLog();
 }
 
 // setConnStatus: updates the dot + label in the hero
@@ -1156,10 +1374,15 @@ function setConnStatus(status){
   label.textContent = labels[status] || status;
 }
 
-// mergeRemoteState: apply remote snapshot onto local state with migrations
+// mergeRemoteState: apply remote snapshot onto local state with migrations.
+// Strips audit metadata (__lastSavedBy etc) so it doesn't pollute local state.
 function mergeRemoteState(data){
   const base = deepClone(DEFAULT_STATE);
-  const merged = Object.assign(base, data);
+  const clean = Object.assign({}, data);
+  delete clean.__lastSavedBy;
+  delete clean.__lastSavedAt;
+  delete clean.__lastSavedReason;
+  const merged = Object.assign(base, clean);
   if(!Array.isArray(merged.riderAliases)) merged.riderAliases = deepClone(DEFAULT_STATE.riderAliases);
   if(!Array.isArray(merged.messageLog))   merged.messageLog = [];
   return merged;
@@ -1186,10 +1409,34 @@ function startFirestoreListener(){
       if(hasPendingWrites) return;
 
       if(doc.exists){
+        const data = doc.data();
+        const fp = stateFingerprint(data);
+        const hasRealData = fp.picks > 0 || fp.rounds > 0 || fp.reps > 0;
+
+        // Latch: once we've seen real data, no empty save can ever overwrite.
+        if(hasRealData) sessionHasSeenData = true;
+
+        // Show who made this change (if not us) in the log
+        const savedBy = data.__lastSavedBy;
+        const reason = data.__lastSavedReason;
+        const savedAt = data.__lastSavedAt;
+        if(savedBy && savedBy !== getUserName()){
+          addEphemeralLog(`📥 Remote change by ${savedBy} [${reason || "unknown"}] — ${fp.picks}p ${fp.rounds}r`, "info");
+        }
+
+        // Detect a wipe attempt we need to warn about
+        if(!hasRealData && sessionHasSeenData){
+          addEphemeralLog(`⚠️ WIPE DETECTED from ${savedBy || "unknown"} [${reason || "unknown"}] — refusing to adopt`, "error");
+          // Don't adopt the wipe locally; save our current good data BACK to Firestore.
+          saveState("wipe-recovery");
+          return;
+        }
+
         // Adopt remote as truth. Do not write anything back.
-        state = mergeRemoteState(doc.data());
+        state = mergeRemoteState(data);
         writeLocalCache();
         initialSeedChecked = true;
+        lastCommittedSnapshot = captureSnapshot();
 
         clearTimeout(renderDebounce);
         renderDebounce = setTimeout(() => {
@@ -1215,7 +1462,8 @@ function startFirestoreListener(){
                         || state.replacements.length > 0;
       if(localHasData){
         // Safe to seed — server is empty, we have meaningful data.
-        saveState();
+        saveState("initial-seed");
+        sessionHasSeenData = true;
       }
       // else: leave both empty. New users will see DEFAULT_STATE locally.
 
@@ -1423,6 +1671,7 @@ function renderAll(){
   renderResultsPage();
   renderSettingsPage();
   renderMessageLog();
+  renderUndoRedoBar();
 }
 
 function renderNav(){
@@ -1796,7 +2045,7 @@ function pickRiderForTeam(riderId, teamId){
   if(err){ logMessage(err, "error"); return; }
 
   state.draftPicks.push({ teamId, round: nextRound, riderId });
-  saveState();
+  saveState("pick");
   recalcAllRoundPoints();
   logMessage(`${rider.name} → ${team.name} (Round ${nextRound})`, "success");
   // Refresh the popup to reflect new state + rerender the grid
@@ -1822,7 +2071,7 @@ function unassignPick(riderId, teamId, round){
   state.replacements = state.replacements.filter(r => !(r.teamId === teamId && r.originalRiderId === riderId));
 
   state.draftPicks = state.draftPicks.filter(p => !(p.teamId === teamId && p.riderId === riderId && p.round === round));
-  saveState();
+  saveState("unassign");
   recalcAllRoundPoints();
   logMessage(`Removed ${rider.name} from ${team.name} (R${round})`, "warn");
   closePopup();
@@ -1922,7 +2171,7 @@ function clearDraftOnly(){
     "Clear all draft picks and injury replacements? Race results and team names will be kept.",
     () => {
       state.draftPicks = []; state.replacements = [];
-      saveState(); recalcAllRoundPoints(); renderAll();
+      saveState("clear-draft"); recalcAllRoundPoints(); renderAll();
       logMessage("Draft cleared.", "warn");
     },
     { title: "Clear Draft Only", okText: "Clear Draft" }
@@ -1941,7 +2190,7 @@ function addReplacement(){
     logMessage("That rider isn't eligible as a standby for this slot.", "error"); return;
   }
   state.replacements.push({ teamId, originalRiderId:origId, replacementRiderId:repId, active:true });
-  saveState(); recalcAllRoundPoints(); renderAll();
+  saveState("add-standby"); recalcAllRoundPoints(); renderAll();
   const team = teamById(teamId)?.name;
   const orig = riderById(origId)?.name;
   const rep  = riderById(repId)?.name;
@@ -1953,7 +2202,7 @@ function restoreOriginalRider(){
   const rep = state.replacements.find(r=>r.teamId===teamId&&r.originalRiderId===origId&&r.active);
   if(!rep){ logMessage("No active standby found.", "error"); return; }
   rep.active = false;
-  saveState(); recalcAllRoundPoints(); renderAll();
+  saveState("remove-standby"); recalcAllRoundPoints(); renderAll();
   logMessage(`${teamById(teamId)?.name}: standby removed from ${riderById(origId)?.name}`, "success");
 }
 
@@ -2274,7 +2523,7 @@ function submitResults(){
   if(round>=state.meta.currentRound && round<state.meta.totalRounds){
     state.meta.currentRound = round+1;
   }
-  saveState(); renderAll();
+  saveState("submit-results"); renderAll();
   logMessage(`Round ${round} results submitted.`, "success");
 }
 
@@ -2286,7 +2535,7 @@ function deleteRoundResults(){
     `Delete saved results for Round ${round}? This will update all team standings.`,
     () => {
       delete state.roundResults[round];
-      saveState(); renderAll();
+      saveState("delete-round"); renderAll();
       logMessage(`Round ${round} results deleted.`, "warn");
     },
     { title: `Delete Round ${round}`, okText: "Delete" }
@@ -2327,7 +2576,7 @@ function addNewRider(){
   }
   const maxId = state.riders.reduce((m,r)=>Math.max(m,r.id), 0);
   state.riders.push({ id: maxId+1, name, realTeam: "—" });
-  saveState();
+  saveState("add-rider");
   nameEl.value = "";
   renderAll();
   logMessage(`${name} added to rider pool.`, "success");
@@ -2350,7 +2599,7 @@ function removeRider(riderId){
       state.riders = state.riders.filter(r => r.id !== riderId);
       // Clean up any aliases pointing to this rider
       state.riderAliases = state.riderAliases.filter(a => a.riderId !== riderId);
-      saveState(); renderAll();
+      saveState("remove-rider"); renderAll();
       logMessage(`${rider.name} removed from rider pool.`, "warn");
     },
     { title: "Remove Rider", okText: "Remove" }
@@ -2366,7 +2615,7 @@ function savePoolNames(){
       if(newName && newName !== rider.name){ rider.name = newName; changed++; }
     }
   });
-  saveState();
+  saveState("save-pool-names");
   renderAll();
   logMessage(changed > 0 ? `Saved ${changed} rider name change(s).` : "No changes to save.", changed > 0 ? "success" : "info");
 }
@@ -2410,7 +2659,7 @@ function addAlias(){
   const riderId = Number(selEl.value);
   if(!pdfName || !riderId){ logMessage("Enter the PDF name and select a roster rider.", "error"); return; }
   state.riderAliases.push({ pdfName, riderId });
-  saveState();
+  saveState("add-alias");
   pdfEl.value = "";
   selEl.value = "";
   renderAll();
@@ -2419,7 +2668,7 @@ function addAlias(){
 
 function removeAlias(idx){
   state.riderAliases.splice(idx, 1);
-  saveState();
+  saveState("remove-alias");
   renderAll();
 }
 
@@ -2458,7 +2707,7 @@ function saveTeamNames(){
     const team = teamById(Number(inp.dataset.teamId));
     if(team) team.name = inp.value.trim()||team.name;
   });
-  saveState(); renderAll();
+  saveState("save-team-names"); renderAll();
   logMessage("Team names saved.", "success");
 }
 
@@ -2467,7 +2716,7 @@ function saveDraftOrder(){
   document.querySelectorAll(".draft-order-select").forEach(sel=>order.push(Number(sel.value)));
   if(new Set(order).size !== state.teams.length){ logMessage("Draft order must contain each team exactly once.", "error"); return; }
   state.draftOrder = order;
-  saveState(); renderAll();
+  saveState("save-draft-order"); renderAll();
   logMessage("Draft order saved.", "success");
 }
 
@@ -2479,7 +2728,7 @@ function randomizeDraftOrder(){
     [order[i], order[j]] = [order[j], order[i]];
   }
   state.draftOrder = order;
-  saveState(); renderAll();
+  saveState("randomize-draft-order"); renderAll();
   const names = order.map(id => teamById(id)?.name || id).join(" → ");
   logMessage(`Draft order randomized: ${names}`, "success");
 }
@@ -2493,7 +2742,7 @@ function clearAllData(){
         "Are you absolutely sure? Last chance to cancel.",
         () => {
           state = deepClone(DEFAULT_STATE);
-          saveState(); renderAll();
+          saveState("clear-all-data"); renderAll();
           logMessage("All league data has been reset.", "warn");
         },
         { title: "Final Confirmation", okText: "Yes, Wipe Everything" }
@@ -2552,14 +2801,12 @@ function customConfirm(message, onConfirm, options){
 // ═══════════════════════════════════════════════════
 //  TOAST NOTIFICATIONS + MESSAGE LOG
 // ═══════════════════════════════════════════════════
+// Message log is now PER-DEVICE and never saved to Firestore.
+// This prevents every toast from triggering a Firestore write.
 function logMessage(text, type){
   type = type || "info";
-  const entry = { ts: Date.now(), text: String(text), type };
-  state.messageLog.unshift(entry);
-  if(state.messageLog.length > 100) state.messageLog.length = 100;
-  saveState();
-  showToast(entry.text, type);
-  renderMessageLog();
+  addEphemeralLog(text, type);
+  showToast(text, type);
 }
 
 function showToast(text, type){
@@ -2589,13 +2836,13 @@ function showToast(text, type){
 function renderMessageLog(){
   const list = document.getElementById("messageLogList");
   const count = document.getElementById("messageLogCount");
-  if(count) count.textContent = state.messageLog.length;
+  if(count) count.textContent = ephemeralLog.length;
   if(!list) return;
-  if(state.messageLog.length === 0){
+  if(ephemeralLog.length === 0){
     list.innerHTML = '<div class="small muted" style="padding:8px 0;">No messages yet.</div>';
     return;
   }
-  list.innerHTML = state.messageLog.map(entry => {
+  list.innerHTML = ephemeralLog.map(entry => {
     const d = new Date(entry.ts);
     const ts = `${d.toLocaleDateString([], {month:"numeric",day:"numeric"})} ${d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}`;
     return `<div class="log-entry log-${entry.type}">
@@ -2606,9 +2853,9 @@ function renderMessageLog(){
 }
 
 function clearMessageLog(){
-  state.messageLog = [];
-  saveState();
+  ephemeralLog = [];
   renderMessageLog();
+  // no saveState — log is per-device
 }
 
 // ═══════════════════════════════════════════════════
@@ -2652,7 +2899,7 @@ function restoreBackup(){
     "Replace current league data with the pasted backup? This will push to Firestore and everyone connected will see the restored data.",
     () => {
       state = mergeRemoteState(parsed);
-      saveState();
+      saveState("restore-backup");
       recalcAllRoundPoints();
       renderAll();
       document.getElementById("backupTextarea").value = "";
@@ -2699,7 +2946,7 @@ function restoreAutoBackup(idx){
     `Restore auto-backup from ${when} (${picks} picks)? This will replace current state and push to Firestore.`,
     () => {
       state = mergeRemoteState(entry.state);
-      saveState();
+      saveState("restore-auto-backup");
       recalcAllRoundPoints();
       renderAll();
       logMessage(`Auto-backup from ${when} restored.`, "success");
@@ -2714,6 +2961,10 @@ function restoreAutoBackup(idx){
 function wireEvents(){
   document.getElementById("closePopupBtn").onclick = closePopup;
   document.getElementById("riderPopup").addEventListener("click", e=>{ if(e.target.id==="riderPopup") closePopup(); });
+
+  // Undo/Redo
+  document.getElementById("undoBtn").onclick = doUndo;
+  document.getElementById("redoBtn").onclick = doRedo;
 
   document.getElementById("addReplacementBtn").onclick = addReplacement;
   document.getElementById("restoreRiderBtn").onclick = restoreOriginalRider;
@@ -2783,6 +3034,15 @@ function wireEvents(){
   document.getElementById("showBackupBtn").onclick = showBackup;
   document.getElementById("restoreBackupBtn").onclick = restoreBackup;
 
+  // NEW: user name for audit log
+  document.getElementById("userNameInput").value = getUserName();
+  document.getElementById("saveUserNameBtn").onclick = () => {
+    const newName = document.getElementById("userNameInput").value.trim();
+    if(!newName){ logMessage("Name can't be empty.", "error"); return; }
+    setUserName(newName);
+    logMessage(`Name set to ${newName}.`, "success");
+  };
+
   // iOS Safari fix: re-render the Draft Order dropdowns when the panel opens.
   // When <select> elements are rendered inside a closed <details>, iOS Safari
   // sometimes fails to wire up their native picker. Regenerating them after
@@ -2802,6 +3062,7 @@ function wireEvents(){
 // ═══════════════════════════════════════════════════
 // 1. Load local cache immediately so the UI isn't blank while Firestore connects
 state = loadLocalCache();
+lastCommittedSnapshot = captureSnapshot();
 recalcAllRoundPoints();
 renderAll();
 wireEvents();
