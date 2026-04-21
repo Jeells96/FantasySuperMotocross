@@ -744,7 +744,7 @@
 <div class="panel">
   <h2>Injury Standby</h2>
   <div class="small" style="margin-bottom:8px;">
-    Assign a backup rider. The standby scores <strong>only for rounds where the original rider didn't race.</strong>
+    Assign a backup rider. The standby scores <strong>only for rounds where the original rider didn't race</strong>, and earns <strong>75% of normal points</strong> (rounded).
     <br><br>
     <strong>Replacement rule:</strong> The standby must have been drafted <em>after</em> the injured rider, or be undrafted. Example: if your injured rider was Pick #7, the earliest pick you can choose as standby is #8.
   </div>
@@ -929,6 +929,8 @@
       <br><br>
       <strong>Bonuses:</strong><br>
       Holeshot = +5 • Wildcard Finish = +15
+      <br><br>
+      <strong>Injury Standby:</strong> 75% of points (rounded), only for rounds where the original rider didn't race.
     </div>
   </div>
 </details>
@@ -1592,9 +1594,14 @@ function recalcAllRoundPoints(){
       getTeamEffectiveRidersForRound(team.id, rr).forEach(slot => {
         const finish = rr.positions[slot.riderId];
         if(finish){
-          total += pointsForFinish(finish);
-          if(rr.holeshotRiderId===slot.riderId) total += 5;
-          if(Number(rr.wildcardPosition)===Number(finish)) total += 15;
+          let slotPoints = pointsForFinish(finish);
+          if(rr.holeshotRiderId===slot.riderId) slotPoints += 5;
+          if(Number(rr.wildcardPosition)===Number(finish)) slotPoints += 15;
+          // Standby scores 75% (rounded to nearest whole number)
+          if(slot.usedStandby){
+            slotPoints = Math.round(slotPoints * 0.75);
+          }
+          total += slotPoints;
         }
       });
       tp[team.id] = total;
@@ -1641,10 +1648,14 @@ function computeTeamBreakdown(teamId){
       const base = pointsForFinish(finish);
       const hs = rr.holeshotRiderId === slot.riderId ? 5 : 0;
       const wc = Number(rr.wildcardPosition) === Number(finish) ? 15 : 0;
+      const rawTotal = base + hs + wc;
+      // Standby scores 75% rounded
+      const finalTotal = slot.usedStandby ? Math.round(rawTotal * 0.75) : rawTotal;
       return {
         name: slot.displayName,
         finish, base, hs, wc,
-        total: base + hs + wc,
+        rawTotal,
+        total: finalTotal,
         usedStandby: slot.usedStandby,
         originalName: slot.originalName
       };
@@ -1807,19 +1818,22 @@ function renderInjurySelectors(){
   const retOrig    = document.getElementById("returnOriginalRiderSelect");
 
   // Original rider selector — show their overall pick number
+  // Preserve current selection so iOS doesn't show the placeholder after rebuild
   if(injTeamId){
     const teamRiders = getTeamOriginalRiders(injTeamId);
     const opts = teamRiders.map(r => {
       const pickNum = getOverallPickNumber(injTeamId, r.id);
       const tag = pickNum ? ` (Pick #${pickNum})` : "";
-      return `<option value="${r.id}">${escHtml(r.name)}${tag}</option>`;
+      const sel = (r.id === injOrigId) ? " selected" : "";
+      return `<option value="${r.id}"${sel}>${escHtml(r.name)}${tag}</option>`;
     }).join("");
     injOrig.innerHTML = `<option value="">Select Original Rider</option>${opts}`;
   } else {
     injOrig.innerHTML = `<option value="">Select Original Rider</option>`;
   }
 
-  // Standby pool — must be undrafted or picked later than the injured rider
+  // Standby pool — preserve the current selection too
+  const currentRepId = Number(document.getElementById("injuryReplacementSelect").value || 0);
   if(injTeamId && injOrigId){
     const pool = getStandbyPool(injTeamId, injOrigId).sort((a,b)=>a.name.localeCompare(b.name));
     const overallPick = getOverallPickNumber(injTeamId, injOrigId);
@@ -1834,7 +1848,8 @@ function renderInjurySelectors(){
         const tag = picks && picks.length
           ? ` [#${picks.join(", #")}]`
           : " [undrafted]";
-        return `<option value="${r.id}">${escHtml(r.name)}${tag}</option>`;
+        const sel = (r.id === currentRepId) ? " selected" : "";
+        return `<option value="${r.id}"${sel}>${escHtml(r.name)}${tag}</option>`;
       }).join("");
   } else {
     injRep.innerHTML = `<option value="">Select original rider first</option>`;
@@ -2101,6 +2116,9 @@ function openTeamBreakdownPopup(teamId){
         const bits = [`P${r.finish}`, `${r.base} base`];
         if(r.hs) bits.push(`<span class="bonus-hs">+5 HS</span>`);
         if(r.wc) bits.push(`<span class="bonus-wc">+15 WC</span>`);
+        if(r.usedStandby && r.rawTotal !== r.total){
+          bits.push(`<span class="muted">${r.rawTotal} × 75% = ${r.total}</span>`);
+        }
         return `<div class="rider-line">
           <div class="rider-bits">
             <div class="rider-main">${escHtml(r.name)}${subTag}</div>
