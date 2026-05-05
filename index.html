@@ -561,6 +561,89 @@
       vertical-align: middle; margin-left: 5px;
     }
 
+    /* ─── ROUND TOTALS CELL HIGHLIGHTS ─── */
+    .round-cell {
+      display: inline-block;
+      min-width: 22px;
+      padding: 2px 6px;
+      border-radius: 5px;
+      text-align: center;
+      font-weight: 600;
+    }
+    .round-cell.cell-hs {
+      background: rgba(61,184,245,.18);
+      border: 1px solid rgba(61,184,245,.5);
+      color: #b5e2fa;
+    }
+    .round-cell.cell-wc {
+      background: rgba(232,183,48,.20);
+      border: 1px solid rgba(232,183,48,.55);
+      color: #ffe28a;
+    }
+    .round-cell.cell-missing {
+      background: rgba(240,69,69,.16);
+      border: 1px solid rgba(240,69,69,.5);
+      color: #ff9898;
+    }
+
+    /* ─── LEGEND ─── */
+    .scoring-legend {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-bottom: 10px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .legend-item {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 8px; border-radius: 6px;
+      background: var(--panel-2); border: 1px solid var(--border-2);
+    }
+    .legend-swatch {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border-radius: 4px;
+    }
+    .legend-swatch.sw-hs { background: rgba(61,184,245,.3); border: 1px solid rgba(61,184,245,.6); }
+    .legend-swatch.sw-wc { background: rgba(232,183,48,.3); border: 1px solid rgba(232,183,48,.6); }
+    .legend-swatch.sw-missing { background: rgba(240,69,69,.3); border: 1px solid rgba(240,69,69,.6); }
+
+    /* ─── WILDCARD INFO PANEL ─── */
+    .wildcard-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .wildcard-card {
+      padding: 12px 14px;
+      background: var(--panel-2);
+      border: 1px solid var(--border-2);
+      border-radius: 10px;
+    }
+    .wildcard-card .label {
+      font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .5px;
+      margin-bottom: 4px;
+    }
+    .wildcard-card .value {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 26px; font-weight: 900;
+      color: var(--gold);
+    }
+    .wildcard-card .value.unset { color: var(--muted); }
+    .wildcard-card .sub {
+      font-size: 11px; color: var(--muted); margin-top: 2px;
+    }
+    .wildcard-card .next-controls {
+      display: flex; gap: 6px; margin-top: 6px;
+    }
+    .wildcard-card .next-controls input {
+      flex: 1; padding: 6px 8px; font-size: 13px;
+    }
+    .wildcard-card .next-controls button {
+      padding: 6px 10px; font-size: 11px;
+    }
+
     /* ─── FOOTER ─── */
     .footer-note { text-align: center; color: #3a4a5a; font-size: 11px; margin-top: 24px; }
 
@@ -682,28 +765,53 @@
 
   <section id="standingsPage" class="page active">
     <div class="panel">
-      <h2>Season Standings</h2>
-      <div class="small muted" style="margin-bottom:8px;">Tap a team to see weekly breakdown</div>
-      <div class="scroll-x">
-        <table id="standingsTable">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Team</th>
-              <th>Rider 1</th>
-              <th>Rider 2</th>
-              <th>Total</th>
-              <th>Last Rnd</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <h2>Wildcard Position</h2>
+      <div class="wildcard-info">
+        <div class="wildcard-card" id="wildcardCurrentCard">
+          <div class="label">Current Round</div>
+          <div class="value unset" id="wildcardCurrentValue">—</div>
+          <div class="sub" id="wildcardCurrentSub"></div>
+        </div>
+        <div class="wildcard-card" id="wildcardNextCard">
+          <div class="label">Next Round</div>
+          <div class="value unset" id="wildcardNextValue">—</div>
+          <div class="next-controls">
+            <input type="number" id="wildcardNextInput" placeholder="Set ahead" />
+            <button class="btn secondary" id="wildcardNextRandBtn">🎲</button>
+            <button class="btn green" id="wildcardNextSaveBtn">Set</button>
+          </div>
+        </div>
       </div>
     </div>
 
 ```
 <div class="panel">
+  <h2>Season Standings</h2>
+  <div class="small muted" style="margin-bottom:8px;">Tap a team to see weekly breakdown</div>
+  <div class="scroll-x">
+    <table id="standingsTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Team</th>
+          <th>Rider 1</th>
+          <th>Rider 2</th>
+          <th>Total</th>
+          <th>Last Rnd</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel">
   <h2>Round-by-Round Totals</h2>
+  <div class="scoring-legend">
+    <span class="legend-item"><span class="legend-swatch sw-hs"></span>Holeshot bonus</span>
+    <span class="legend-item"><span class="legend-swatch sw-wc"></span>Wildcard bonus</span>
+    <span class="legend-item"><span class="legend-swatch sw-missing"></span>Rider didn't race — needs standby</span>
+  </div>
   <div class="scroll-x">
     <table id="roundTotalsTable">
       <thead></thead>
@@ -1136,6 +1244,9 @@ const DEFAULT_STATE = {
   draftPicks: [],
   replacements: [],
   roundResults: {},
+  // Pre-set wildcards by round (for displaying "next week's wildcard" before results entered)
+  // { "1": 14, "2": 18, ... } — ignored if a round has already been submitted (use saved value instead)
+  preWildcards: {},
   riderAliases: [
     { pdfName: "R.J. Hampshire",   riderId: 19 },
     { pdfName: "RJ Hampshire",     riderId: 19 }
@@ -1173,6 +1284,7 @@ function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
 function migrateState(merged){
   if(!Array.isArray(merged.riderAliases)) merged.riderAliases = deepClone(DEFAULT_STATE.riderAliases);
   if(!Array.isArray(merged.messageLog))   merged.messageLog = [];
+  if(typeof merged.preWildcards !== "object" || merged.preWildcards === null) merged.preWildcards = {};
   // Settings migration — preserve old fields, add new defaults
   const defaultSettings = deepClone(DEFAULT_STATE.settings);
   merged.settings = Object.assign(defaultSettings, merged.settings || {});
@@ -1670,23 +1782,33 @@ function recalcAllRoundPoints(){
     const rr = state.roundResults[rk];
     if(!rr?.positions) return;
     const tp = {};
+    const flags = {}; // per-team flags: { hs, wc, missing }
     state.teams.forEach(team => {
       let total = 0;
+      let hadHoleshot = false;
+      let hadWildcard = false;
+      let missingRider = false;
       getTeamEffectiveRidersForRound(team.id, rr).forEach(slot => {
         const finish = rr.positions[slot.riderId];
         if(finish){
           let slotPoints = pointsForFinish(finish);
-          if(rr.holeshotRiderId===slot.riderId) slotPoints += HS;
-          if(Number(rr.wildcardPosition)===Number(finish)) slotPoints += WC;
+          if(rr.holeshotRiderId===slot.riderId){ slotPoints += HS; hadHoleshot = true; }
+          if(Number(rr.wildcardPosition)===Number(finish)){ slotPoints += WC; hadWildcard = true; }
           if(slot.usedStandby){
             slotPoints = Math.round(slotPoints * PCT);
           }
           total += slotPoints;
+        } else {
+          // Rider in the team's roster (or chain) wasn't in the race results.
+          // Only flag this if the team actually has riders drafted (otherwise it's a setup issue).
+          missingRider = true;
         }
       });
       tp[team.id] = total;
+      flags[team.id] = { hs: hadHoleshot, wc: hadWildcard, missing: missingRider };
     });
     rr.teamPoints = tp;
+    rr.teamFlags = flags;
   });
 }
 function computeStandings(){
@@ -1694,14 +1816,16 @@ function computeStandings(){
     let total = 0;
     let latestRound = 0;
     const roundTotals = {};
+    const roundFlags = {};
     Object.keys(state.roundResults).forEach(rk => {
       const rn = Number(rk);
       const pts = state.roundResults[rk].teamPoints?.[team.id] || 0;
       roundTotals[rn] = pts;
+      roundFlags[rn] = state.roundResults[rk].teamFlags?.[team.id] || {};
       total += pts;
       if(pts>0) latestRound = Math.max(latestRound, rn);
     });
-    return { teamId:team.id, teamName:team.name, riders:getTeamCurrentRiders(team.id), total, latestRound, roundTotals };
+    return { teamId:team.id, teamName:team.name, riders:getTeamCurrentRiders(team.id), total, latestRound, roundTotals, roundFlags };
   }).sort((a,b) => b.total-a.total || a.teamName.localeCompare(b.teamName));
 }
 
@@ -1750,6 +1874,7 @@ function computeTeamBreakdown(teamId){
 // ═══════════════════════════════════════════════════
 function renderAll(){
   renderNav();
+  renderWildcardPanel();
   renderStandings();
   renderRoundTotals();
   renderDraftControls();
@@ -1791,6 +1916,61 @@ function renderStandings(){
   });
 }
 
+function renderWildcardPanel(){
+  const curEl       = document.getElementById("wildcardCurrentValue");
+  const curSubEl    = document.getElementById("wildcardCurrentSub");
+  const nextEl      = document.getElementById("wildcardNextValue");
+  const nextInpEl   = document.getElementById("wildcardNextInput");
+  if(!curEl) return;
+
+  const curRound  = state.meta.currentRound;
+  const nextRound = curRound + 1;
+
+  // Current round: prefer saved result, fall back to preWildcards
+  const curSaved = state.roundResults[curRound]?.wildcardPosition;
+  const curPre   = state.preWildcards?.[curRound];
+  const curVal   = curSaved || curPre || null;
+
+  if(curVal){
+    curEl.textContent = curVal;
+    curEl.classList.remove("unset");
+    curSubEl.textContent = curSaved
+      ? `Round ${curRound} • from submitted results`
+      : `Round ${curRound} • pre-set`;
+  } else {
+    curEl.textContent = "—";
+    curEl.classList.add("unset");
+    curSubEl.textContent = `Round ${curRound} • not set yet`;
+  }
+
+  // Next round: only from preWildcards (results don't exist yet)
+  if(nextRound > state.meta.totalRounds){
+    nextEl.textContent = "—";
+    nextEl.classList.add("unset");
+    nextInpEl.disabled = true;
+    nextInpEl.placeholder = "Season over";
+    document.getElementById("wildcardNextRandBtn").disabled = true;
+    document.getElementById("wildcardNextSaveBtn").disabled = true;
+  } else {
+    const nextPre = state.preWildcards?.[nextRound];
+    if(nextPre){
+      nextEl.textContent = nextPre;
+      nextEl.classList.remove("unset");
+    } else {
+      nextEl.textContent = "—";
+      nextEl.classList.add("unset");
+    }
+    nextInpEl.disabled = false;
+    document.getElementById("wildcardNextRandBtn").disabled = false;
+    document.getElementById("wildcardNextSaveBtn").disabled = false;
+    nextInpEl.placeholder = `Round ${nextRound}`;
+    // Set min/max from settings
+    const s = state.settings || DEFAULT_STATE.settings;
+    nextInpEl.min = s.wildcardMin;
+    nextInpEl.max = s.wildcardMax;
+  }
+}
+
 function renderRoundTotals(){
   const thead = document.querySelector("#roundTotalsTable thead");
   const tbody = document.querySelector("#roundTotalsTable tbody");
@@ -1800,7 +1980,16 @@ function renderRoundTotals(){
   tbody.innerHTML = standings.map(s=>`
     <tr>
       <td><strong>${escHtml(s.teamName)}</strong></td>
-      ${rounds.map(r=>`<td>${s.roundTotals[r]??0}</td>`).join("")}
+      ${rounds.map(r=>{
+        const pts = s.roundTotals[r] ?? 0;
+        const f = s.roundFlags[r] || {};
+        // Wildcard wins over Holeshot visually, since WC bonus is bigger
+        let cls = "";
+        if(f.wc) cls = "cell-wc";
+        else if(f.hs) cls = "cell-hs";
+        else if(f.missing) cls = "cell-missing";
+        return `<td><span class="round-cell ${cls}">${pts}</span></td>`;
+      }).join("")}
       <td><strong>${s.total}</strong></td>
     </tr>
   `).join("");
@@ -2470,7 +2659,14 @@ function loadResultsForCurrentRound(){
   document.getElementById("holeshotNote").className = "hs-note unknown";
   document.getElementById("holeshotNote").textContent = "Holeshot: Unknown — select manually if needed";
 
-  if(!rr || !rr.positions) return;
+  if(!rr || !rr.positions){
+    // No submitted results — but pre-set wildcard might exist
+    const pre = state.preWildcards?.[round];
+    if(pre){
+      document.getElementById("wildcardInput").value = pre;
+    }
+    return;
+  }
 
   // Reverse map: finishPos → riderId
   const inverted = {};
@@ -2691,6 +2887,9 @@ function submitResults(){
     submitted:true, round,
     positions, holeshotRiderId, wildcardPosition:wildcard, teamPoints: {}
   };
+
+  // Pre-wildcard is now superseded by saved result
+  if(state.preWildcards && state.preWildcards[round]) delete state.preWildcards[round];
 
   // Let recalcAllRoundPoints compute teamPoints using the effective-rider logic
   recalcAllRoundPoints();
@@ -3264,6 +3463,29 @@ function wireEvents(){
   // Undo/Redo
   document.getElementById("undoBtn").onclick = doUndo;
   document.getElementById("redoBtn").onclick = doRedo;
+
+  // Wildcard preset for next round
+  document.getElementById("wildcardNextRandBtn").onclick = () => {
+    const s = state.settings || DEFAULT_STATE.settings;
+    const lo = s.wildcardMin || 10;
+    const hi = s.wildcardMax || 22;
+    document.getElementById("wildcardNextInput").value = Math.floor(Math.random()*(hi-lo+1))+lo;
+  };
+  document.getElementById("wildcardNextSaveBtn").onclick = () => {
+    const val = Number(document.getElementById("wildcardNextInput").value);
+    const s = state.settings || DEFAULT_STATE.settings;
+    if(!val || val < s.wildcardMin || val > s.wildcardMax){
+      logMessage(`Wildcard must be between ${s.wildcardMin} and ${s.wildcardMax}.`, "error");
+      return;
+    }
+    const nextRound = state.meta.currentRound + 1;
+    if(nextRound > state.meta.totalRounds){ logMessage("Season is over.", "error"); return; }
+    if(!state.preWildcards) state.preWildcards = {};
+    state.preWildcards[nextRound] = val;
+    saveState("set-wildcard");
+    renderAll();
+    logMessage(`Round ${nextRound} wildcard set to ${val}.`, "success");
+  };
 
   document.getElementById("addReplacementBtn").onclick = addReplacement;
   document.getElementById("restoreRiderBtn").onclick = restoreOriginalRider;
