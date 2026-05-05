@@ -744,9 +744,9 @@
 <div class="panel">
   <h2>Injury Standby</h2>
   <div class="small" style="margin-bottom:8px;">
-    Assign a backup rider. The standby scores <strong>only for rounds where the original rider didn't race</strong>, and earns <strong>75% of normal points</strong> (rounded).
+    Assign a backup rider. The standby scores <strong>only for rounds where the rider above it didn't race</strong>, and earns <strong>75% of normal points</strong> (rounded). You can chain standbys: if your standby gets injured, add a backup-to-the-backup.
     <br><br>
-    <strong>Replacement rule:</strong> The standby must have been drafted <em>after</em> the injured rider, or be undrafted. Example: if your injured rider was Pick #7, the earliest pick you can choose as standby is #8.
+    <strong>Replacement rule:</strong> The standby must have been drafted <em>after</em> the original drafted rider, or be undrafted. Example: if the rider you're subbing for traces back to Pick #7, the earliest pick you can choose as the new standby is #8.
   </div>
   <div class="toolbar">
     <select id="injuryTeamSelect"></select>
@@ -806,9 +806,9 @@
         <div class="hs-note unknown" id="holeshotNote">Holeshot: Unknown — select manually if needed</div>
       </div>
       <div>
-        <label class="small">Wildcard Position (10–22)</label>
+        <label class="small" id="wildcardLabel">Wildcard Position</label>
         <div style="display:flex;gap:8px;margin-top:4px;">
-          <input type="number" id="wildcardInput" min="10" max="22" value="10" />
+          <input type="number" id="wildcardInput" placeholder="—" />
           <button class="btn secondary" id="randomizeWildcardBtn" type="button">Rand</button>
         </div>
       </div>
@@ -852,12 +852,19 @@
 
 <details class="settings-panel">
   <summary>
-    <span>Team Names</span>
+    <span>Teams</span>
     <span class="chev">▼</span>
   </summary>
   <div class="settings-body">
-    <div id="teamNameInputs" class="grid-3"></div>
-    <div style="margin-top:14px;">
+    <div class="small" style="margin-bottom:10px;">
+      Edit team names. Add new teams, or remove teams that have no draft picks. Changes save automatically.
+    </div>
+    <div id="teamNameInputs"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+      <input id="newTeamNameInput" placeholder="New team name" style="flex:1 1 160px;" />
+      <button class="btn green btn-mini" id="addTeamBtn">+ Add Team</button>
+    </div>
+    <div style="margin-top:10px;">
       <button class="btn green" id="saveTeamsBtn">Save Team Names</button>
     </div>
   </div>
@@ -923,14 +930,47 @@
     <span class="chev">▼</span>
   </summary>
   <div class="settings-body">
-    <div class="small">
-      <strong>Finish positions:</strong><br>
-      1st = 15 • 2nd = 14 • 3rd = 13 • 4th = 12 • 5th = 11 • 6th = 10 • 7th = 9 • 8th = 8 • 9th = 7 • 10th = 6 • 11th = 5 • 12th = 4 • 13th = 3 • 14th = 2 • 15th–22nd = 1
-      <br><br>
-      <strong>Bonuses:</strong><br>
-      Holeshot = +5 • Wildcard Finish = +15
-      <br><br>
-      <strong>Injury Standby:</strong> 75% of points (rounded), only for rounds where the original rider didn't race.
+    <div class="small" style="margin-bottom:10px;">
+      Configure how points are awarded. Changes apply to all past and future races and recompute standings instantly.
+    </div>
+
+    <h3 style="font-size:13px;margin-bottom:8px;">Points by Finish Position</h3>
+    <div id="pointsTableInputs" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px;"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div>
+        <label class="small">Pos. 15+ (lower tier)</label>
+        <input type="number" id="pointsLowerTierInput" min="0" />
+      </div>
+      <div>
+        <label class="small">Holeshot Bonus</label>
+        <input type="number" id="holeshotBonusInput" min="0" />
+      </div>
+      <div>
+        <label class="small">Wildcard Bonus</label>
+        <input type="number" id="wildcardBonusInput" min="0" />
+      </div>
+      <div>
+        <label class="small">Standby %</label>
+        <input type="number" id="standbyPercentInput" min="0" max="100" />
+      </div>
+    </div>
+
+    <h3 style="font-size:13px;margin-bottom:8px;">Wildcard Range</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div>
+        <label class="small">Min position</label>
+        <input type="number" id="wildcardMinInput" min="1" max="22" />
+      </div>
+      <div>
+        <label class="small">Max position</label>
+        <input type="number" id="wildcardMaxInput" min="1" max="22" />
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn green" id="saveScoringBtn">Save Scoring Rules</button>
+      <button class="btn secondary" id="resetScoringBtn">Reset to Defaults</button>
     </div>
   </div>
 </details>
@@ -1101,7 +1141,18 @@ const DEFAULT_STATE = {
     { pdfName: "RJ Hampshire",     riderId: 19 }
   ],
   messageLog: [],
-  settings: { resultsSourceUrl: "https://www.supercrosslive.com/results/" }
+  settings: {
+    resultsSourceUrl: "https://www.supercrosslive.com/results/",
+    // Default scoring table — index 0 unused, indexes 1..14 are explicit
+    pointsTable: [0, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2],
+    // Points for positions 15 through wildcardMax (default 22)
+    pointsLowerTier: 1,
+    holeshotBonus: 5,
+    wildcardBonus: 15,
+    wildcardMin: 10,
+    wildcardMax: 22,
+    standbyPercent: 75
+  }
 };
 
 const ROUND_SCHEDULE = Array.from({length:17}, (_,i) => ({ round: i+1 }));
@@ -1118,6 +1169,19 @@ let localWritePending = false;
 function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
 
 // ─── Local cache (instant load on cold start) ───────────────────────────────
+// Apply migrations to ensure all required fields exist on loaded state.
+function migrateState(merged){
+  if(!Array.isArray(merged.riderAliases)) merged.riderAliases = deepClone(DEFAULT_STATE.riderAliases);
+  if(!Array.isArray(merged.messageLog))   merged.messageLog = [];
+  // Settings migration — preserve old fields, add new defaults
+  const defaultSettings = deepClone(DEFAULT_STATE.settings);
+  merged.settings = Object.assign(defaultSettings, merged.settings || {});
+  if(!Array.isArray(merged.settings.pointsTable) || merged.settings.pointsTable.length < 15){
+    merged.settings.pointsTable = deepClone(DEFAULT_STATE.settings.pointsTable);
+  }
+  return merged;
+}
+
 function loadLocalCache(){
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -1125,9 +1189,7 @@ function loadLocalCache(){
     const parsed = JSON.parse(raw);
     const base = deepClone(DEFAULT_STATE);
     const merged = Object.assign(base, parsed);
-    if(!Array.isArray(merged.riderAliases)) merged.riderAliases = deepClone(DEFAULT_STATE.riderAliases);
-    if(!Array.isArray(merged.messageLog))   merged.messageLog = [];
-    return merged;
+    return migrateState(merged);
   } catch(e){ return deepClone(DEFAULT_STATE); }
 }
 function writeLocalCache(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
@@ -1381,9 +1443,7 @@ function mergeRemoteState(data){
   delete clean.__lastSavedAt;
   delete clean.__lastSavedReason;
   const merged = Object.assign(base, clean);
-  if(!Array.isArray(merged.riderAliases)) merged.riderAliases = deepClone(DEFAULT_STATE.riderAliases);
-  if(!Array.isArray(merged.messageLog))   merged.messageLog = [];
-  return merged;
+  return migrateState(merged);
 }
 
 // Tracks whether we've already attempted the one-shot seed this session.
@@ -1514,57 +1574,73 @@ function getUndraftedAvailableRiders(){
   const activeRep = new Set(state.replacements.filter(r => r.active).map(r => r.replacementRiderId));
   return state.riders.filter(r => !drafted.has(r.id) && !activeRep.has(r.id));
 }
+// Given a team and a drafted rider, walk the replacement chain to build the
+// ordered list of fallback riders. First entry = drafted rider, then each
+// active replacement that links to it, recursively.
+function buildStandbyChain(teamId, draftedRiderId){
+  const chain = [draftedRiderId];
+  const reps = state.replacements.filter(r => r.teamId === teamId && r.active);
+  let current = draftedRiderId;
+  // Prevent infinite loops with a visited set
+  const visited = new Set([current]);
+  while(true){
+    const next = reps.find(r => r.originalRiderId === current);
+    if(!next) break;
+    if(visited.has(next.replacementRiderId)) break;
+    chain.push(next.replacementRiderId);
+    visited.add(next.replacementRiderId);
+    current = next.replacementRiderId;
+  }
+  return chain;
+}
+
 function getTeamCurrentRiders(teamId){
-  // Returns the 2 drafted (original) riders. If an active injury replacement exists,
-  // it's attached as a "standby" — used only for rounds where the original didn't race.
-  const reps = state.replacements.filter(r => r.teamId===teamId && r.active);
+  // Returns the 2 drafted (original) riders along with their full standby chain.
   const picks = state.draftPicks.filter(p => p.teamId===teamId).sort((a,b)=>a.round-b.round);
   return picks.slice(0,2).map(pick => {
-    const rep = reps.find(r => r.originalRiderId===pick.riderId);
+    const chain = buildStandbyChain(teamId, pick.riderId);
+    const lastInChain = chain[chain.length - 1];
     return {
       riderId: pick.riderId,
       displayName: riderById(pick.riderId)?.name || "Unknown",
       originalRiderId: pick.riderId,
-      // NEW: standby backup (only scores when original doesn't race)
-      standbyRiderId: rep ? rep.replacementRiderId : null,
-      standbyName: rep ? (riderById(rep.replacementRiderId)?.name || "Unknown") : null,
-      hasStandby: !!rep,
-      // Kept for compatibility in other call sites — now always false
+      // chain[0] is drafted rider; chain[1..] are nested standbys
+      chain: chain,
+      // Convenience: the deepest active standby (or null if no standbys at all)
+      standbyRiderId: chain.length > 1 ? lastInChain : null,
+      standbyName: chain.length > 1 ? (riderById(lastInChain)?.name || "Unknown") : null,
+      hasStandby: chain.length > 1,
       isReplacement: false
     };
   });
 }
 
-// Given a team and a round's result data, return the EFFECTIVE rider for each slot
-// (original if they raced, otherwise the standby if one's assigned and they raced, else original with 0 pts)
+// Given a team and a round's result, walk each slot's chain top-down and pick
+// the FIRST rider in the chain (preferring the original) who actually raced.
+// If none in the chain raced, return the original with didNotRace=true.
 function getTeamEffectiveRidersForRound(teamId, roundResult){
   const slots = getTeamCurrentRiders(teamId);
   const positions = roundResult?.positions || {};
   return slots.map(slot => {
-    if(positions[slot.originalRiderId]){
-      // Original raced — use original
-      return {
-        riderId: slot.originalRiderId,
-        displayName: slot.displayName,
-        usedStandby: false,
-        originalName: slot.displayName
-      };
+    for(let i = 0; i < slot.chain.length; i++){
+      const rid = slot.chain[i];
+      if(positions[rid]){
+        return {
+          riderId: rid,
+          displayName: riderById(rid)?.name || "Unknown",
+          usedStandby: i > 0, // any non-first chain entry is a standby
+          chainDepth: i,
+          originalName: slot.displayName
+        };
+      }
     }
-    if(slot.standbyRiderId && positions[slot.standbyRiderId]){
-      // Original didn't race, standby did — use standby
-      return {
-        riderId: slot.standbyRiderId,
-        displayName: slot.standbyName,
-        usedStandby: true,
-        originalName: slot.displayName
-      };
-    }
-    // Neither raced — default to original with 0 pts
+    // No one in the chain raced
     return {
       riderId: slot.originalRiderId,
       displayName: slot.displayName,
       usedStandby: false,
       didNotRace: true,
+      chainDepth: 0,
       originalName: slot.displayName
     };
   });
@@ -1579,12 +1655,17 @@ function getRoundOrder(round){ return round===1 ? [...state.draftOrder] : [...st
 // ═══════════════════════════════════════════════════
 function pointsForFinish(pos){
   pos = Number(pos);
-  const table = [0,15,14,13,12,11,10,9,8,7,6,5,4,3,2];
-  if(pos>=1 && pos<=14) return table[pos];
-  if(pos>=15 && pos<=22) return 1;
+  const s = state.settings || DEFAULT_STATE.settings;
+  const table = s.pointsTable || DEFAULT_STATE.settings.pointsTable;
+  if(pos>=1 && pos<=14) return table[pos] || 0;
+  if(pos>=15 && pos<=22) return s.pointsLowerTier || 1;
   return 0;
 }
 function recalcAllRoundPoints(){
+  const s = state.settings || DEFAULT_STATE.settings;
+  const HS = s.holeshotBonus || 0;
+  const WC = s.wildcardBonus || 0;
+  const PCT = (s.standbyPercent || 75) / 100;
   Object.keys(state.roundResults).forEach(rk => {
     const rr = state.roundResults[rk];
     if(!rr?.positions) return;
@@ -1595,11 +1676,10 @@ function recalcAllRoundPoints(){
         const finish = rr.positions[slot.riderId];
         if(finish){
           let slotPoints = pointsForFinish(finish);
-          if(rr.holeshotRiderId===slot.riderId) slotPoints += 5;
-          if(Number(rr.wildcardPosition)===Number(finish)) slotPoints += 15;
-          // Standby scores 75% (rounded to nearest whole number)
+          if(rr.holeshotRiderId===slot.riderId) slotPoints += HS;
+          if(Number(rr.wildcardPosition)===Number(finish)) slotPoints += WC;
           if(slot.usedStandby){
-            slotPoints = Math.round(slotPoints * 0.75);
+            slotPoints = Math.round(slotPoints * PCT);
           }
           total += slotPoints;
         }
@@ -1608,8 +1688,6 @@ function recalcAllRoundPoints(){
     });
     rr.teamPoints = tp;
   });
-  // No saveState here — scoring is derived data, not source state.
-  // Callers that changed source state (submitResults, etc) will save separately.
 }
 function computeStandings(){
   return state.teams.map(team => {
@@ -1646,11 +1724,12 @@ function computeTeamBreakdown(teamId){
         };
       }
       const base = pointsForFinish(finish);
-      const hs = rr.holeshotRiderId === slot.riderId ? 5 : 0;
-      const wc = Number(rr.wildcardPosition) === Number(finish) ? 15 : 0;
+      const s = state.settings || DEFAULT_STATE.settings;
+      const hs = rr.holeshotRiderId === slot.riderId ? (s.holeshotBonus || 0) : 0;
+      const wc = Number(rr.wildcardPosition) === Number(finish) ? (s.wildcardBonus || 0) : 0;
       const rawTotal = base + hs + wc;
-      // Standby scores 75% rounded
-      const finalTotal = slot.usedStandby ? Math.round(rawTotal * 0.75) : rawTotal;
+      const pct = (s.standbyPercent || 75) / 100;
+      const finalTotal = slot.usedStandby ? Math.round(rawTotal * pct) : rawTotal;
       return {
         name: slot.displayName,
         finish, base, hs, wc,
@@ -1786,26 +1865,49 @@ function getAllPickNumbersByRider(){
 //   Pick 11–15 → anyone EXCEPT riders drafted at picks 1–10
 //   Pick 16–20 → anyone EXCEPT riders drafted at picks 1–15
 // A rider drafted at multiple picks is only excluded if ANY of their picks falls in the excluded range.
-function getStandbyPool(teamId, originalRiderId){
+function getStandbyPool(teamId, injuredRiderId){
   const activeStandbys = new Set(
     state.replacements.filter(r => r.active).map(r => r.replacementRiderId)
   );
-  const overallPick = getOverallPickNumber(teamId, originalRiderId);
-  if(overallPick === null){
-    // Rider isn't drafted for this team — fall back to unrestricted
-    return state.riders.filter(r => r.id !== originalRiderId && !activeStandbys.has(r.id));
+
+  // Determine which pick number governs eligibility.
+  // If injured rider is a drafted pick → use their pick number.
+  // If injured rider is a chained standby → use the root drafted rider's pick number.
+  let governingPick = getOverallPickNumber(teamId, injuredRiderId);
+  if(governingPick === null){
+    // Walk team chains to find which drafted rider this injured rider belongs under
+    const slots = getTeamCurrentRiders(teamId);
+    for(const slot of slots){
+      if(slot.chain.includes(injuredRiderId)){
+        governingPick = getOverallPickNumber(teamId, slot.originalRiderId);
+        break;
+      }
+    }
   }
 
-  // RULE: replacement must be undrafted OR drafted strictly AFTER the injured rider's pick.
-  // If a rider was drafted at multiple picks, ALL of their picks must be after the injured pick.
+  if(governingPick === null){
+    // Couldn't anchor — fall back to unrestricted (still excluding active standbys)
+    return state.riders.filter(r => r.id !== injuredRiderId && !activeStandbys.has(r.id));
+  }
+
+  // Also exclude any rider already in this team's chains (same slot)
+  const slots = getTeamCurrentRiders(teamId);
+  const inSameSlot = new Set();
+  slots.forEach(slot => {
+    if(slot.chain.includes(injuredRiderId)){
+      slot.chain.forEach(rid => inSameSlot.add(rid));
+    }
+  });
+
+  // Rule: standby must be undrafted OR all picks > governingPick
   const pickMap = getAllPickNumbersByRider();
   return state.riders.filter(r => {
-    if(r.id === originalRiderId) return false;
+    if(r.id === injuredRiderId) return false;
     if(activeStandbys.has(r.id)) return false;
+    if(inSameSlot.has(r.id)) return false; // can't reuse a rider already in the chain
     const picks = pickMap[r.id];
-    if(!picks || picks.length === 0) return true; // undrafted → eligible
-    // All of this rider's picks must be later than the injured rider's pick
-    return picks.every(p => p > overallPick);
+    if(!picks || picks.length === 0) return true;
+    return picks.every(p => p > governingPick);
   });
 }
 
@@ -1817,29 +1919,46 @@ function renderInjurySelectors(){
   const injRep     = document.getElementById("injuryReplacementSelect");
   const retOrig    = document.getElementById("returnOriginalRiderSelect");
 
-  // Original rider selector — show their overall pick number
-  // Preserve current selection so iOS doesn't show the placeholder after rebuild
+  // Original rider selector — show every rider currently in any of the team's chains.
+  // For nested standbys, the "injured" rider can be a previous standby.
   if(injTeamId){
-    const teamRiders = getTeamOriginalRiders(injTeamId);
-    const opts = teamRiders.map(r => {
-      const pickNum = getOverallPickNumber(injTeamId, r.id);
-      const tag = pickNum ? ` (Pick #${pickNum})` : "";
-      const sel = (r.id === injOrigId) ? " selected" : "";
-      return `<option value="${r.id}"${sel}>${escHtml(r.name)}${tag}</option>`;
+    // Walk each drafted slot's chain and collect every rider with their position
+    const slots = getTeamCurrentRiders(injTeamId);
+    const items = []; // { riderId, label }
+    slots.forEach((slot, slotIdx) => {
+      slot.chain.forEach((rid, i) => {
+        const r = riderById(rid);
+        if(!r) return;
+        let label;
+        if(i === 0){
+          const pickNum = getOverallPickNumber(injTeamId, rid);
+          label = `${r.name} (Pick #${pickNum || "?"})`;
+        } else {
+          label = `${r.name} (sub L${i})`;
+        }
+        items.push({ riderId: rid, label });
+      });
+    });
+    const opts = items.map(it => {
+      const sel = (it.riderId === injOrigId) ? " selected" : "";
+      return `<option value="${it.riderId}"${sel}>${escHtml(it.label)}</option>`;
     }).join("");
-    injOrig.innerHTML = `<option value="">Select Original Rider</option>${opts}`;
+    injOrig.innerHTML = `<option value="">Select Injured Rider</option>${opts}`;
   } else {
-    injOrig.innerHTML = `<option value="">Select Original Rider</option>`;
+    injOrig.innerHTML = `<option value="">Select Injured Rider</option>`;
   }
 
   // Standby pool — preserve the current selection too
   const currentRepId = Number(document.getElementById("injuryReplacementSelect").value || 0);
   if(injTeamId && injOrigId){
     const pool = getStandbyPool(injTeamId, injOrigId).sort((a,b)=>a.name.localeCompare(b.name));
-    const overallPick = getOverallPickNumber(injTeamId, injOrigId);
+    // Determine what to show in the placeholder. If the injured rider is a drafted
+    // pick, show its pick number. If it's an existing standby, mention that.
+    const isDrafted = state.draftPicks.some(p => p.teamId===injTeamId && p.riderId===injOrigId);
+    const overallPick = isDrafted ? getOverallPickNumber(injTeamId, injOrigId) : null;
     const label = overallPick
       ? `Injured at Pick #${overallPick} — eligible: pick #${overallPick + 1} or later, or undrafted`
-      : "Any rider";
+      : (isDrafted ? "Any rider" : "Adding a sub for a standby — any eligible rider");
 
     const pickMap = getAllPickNumbersByRider();
     injRep.innerHTML = `<option value="">${escHtml(label)}</option>` +
@@ -1852,10 +1971,10 @@ function renderInjurySelectors(){
         return `<option value="${r.id}"${sel}>${escHtml(r.name)}${tag}</option>`;
       }).join("");
   } else {
-    injRep.innerHTML = `<option value="">Select original rider first</option>`;
+    injRep.innerHTML = `<option value="">Select injured rider first</option>`;
   }
 
-  // Remove standby selectors
+  // Remove standby selectors — show every active replacement with depth
   if(retTeamId){
     const opts = state.replacements.filter(r=>r.teamId===retTeamId&&r.active).map(r=>{
       const orig = riderById(r.originalRiderId);
@@ -2087,8 +2206,12 @@ function openTeamBreakdownPopup(teamId){
   `;
 
   const rostersLine = currentRiders.map(r => {
-    const standby = r.hasStandby ? ` <span class="muted" style="font-size:11px;">(↔ ${escHtml(r.standbyName)} standby)</span>` : '';
-    return `<span class="chip">${escHtml(r.displayName)}${standby}</span>`;
+    let chainTail = '';
+    if(r.chain && r.chain.length > 1){
+      const subs = r.chain.slice(1).map(rid => riderById(rid)?.name || "?").join(" → ");
+      chainTail = ` <span class="muted" style="font-size:11px;">(→ ${escHtml(subs)})</span>`;
+    }
+    return `<span class="chip">${escHtml(r.displayName)}${chainTail}</span>`;
   }).join("");
 
   let bodyHtml = `
@@ -2310,10 +2433,63 @@ function renderResultsPage(){
     const saved = state.roundResults[r.round] ? " ✓" : "";
     return `<option value="${r.round}">Round ${r.round}${saved}</option>`;
   }).join("");
-  document.getElementById("resultsRoundSelect").innerHTML = opts;
-  document.getElementById("resultsRoundSelect").value = String(state.meta.currentRound);
+  const sel = document.getElementById("resultsRoundSelect");
+  // Preserve current selection if user is in middle of editing a round
+  const currentSelection = sel.value;
+  sel.innerHTML = opts;
+  sel.value = currentSelection || String(state.meta.currentRound);
+
   buildPositionDropdowns();
+  loadResultsForCurrentRound();
+
+  // Update wildcard label from settings
+  const s = state.settings || DEFAULT_STATE.settings;
+  const lbl = document.getElementById("wildcardLabel");
+  if(lbl) lbl.textContent = `Wildcard Position (${s.wildcardMin}–${s.wildcardMax})`;
+  const wcInput = document.getElementById("wildcardInput");
+  if(wcInput){
+    wcInput.min = s.wildcardMin;
+    wcInput.max = s.wildcardMax;
+  }
+
   updateResultsPreview();
+}
+
+// Load any saved race results for the currently-selected round into the dropdowns + wildcard + holeshot.
+// If no saved results exist, leave everything blank.
+function loadResultsForCurrentRound(){
+  const round = Number(document.getElementById("resultsRoundSelect")?.value || state.meta.currentRound);
+  const rr = state.roundResults[round];
+  // Always start by clearing
+  for(let pos=1; pos<=22; pos++){
+    const s = document.getElementById(`pos_${pos}`);
+    if(s) s.value = "";
+  }
+  document.getElementById("wildcardInput").value = "";
+  document.getElementById("holeshotSelect").value = "";
+  document.getElementById("holeshotNote").className = "hs-note unknown";
+  document.getElementById("holeshotNote").textContent = "Holeshot: Unknown — select manually if needed";
+
+  if(!rr || !rr.positions) return;
+
+  // Reverse map: finishPos → riderId
+  const inverted = {};
+  Object.entries(rr.positions).forEach(([rid, pos]) => { inverted[pos] = rid; });
+  for(let pos=1; pos<=22; pos++){
+    const s = document.getElementById(`pos_${pos}`);
+    if(s && inverted[pos]) s.value = inverted[pos];
+  }
+
+  if(rr.wildcardPosition){
+    document.getElementById("wildcardInput").value = rr.wildcardPosition;
+  }
+  if(rr.holeshotRiderId){
+    const hs = document.getElementById("holeshotSelect");
+    hs.value = rr.holeshotRiderId;
+    document.getElementById("holeshotNote").className = "hs-note detected";
+    document.getElementById("holeshotNote").textContent = `Holeshot: ${riderById(rr.holeshotRiderId)?.name || "?"}`;
+  }
+  validateDropdownDuplicates();
 }
 
 // ═══════════════════════════════════════════════════
@@ -2495,7 +2671,9 @@ function submitResults(){
   const holeshotRiderId = Number(document.getElementById("holeshotSelect").value||0);
 
   if(!round) { logMessage("Select a round.", "error"); return; }
-  if(!wildcard||wildcard<10||wildcard>22) { logMessage("Wildcard must be between 10 and 22.", "error"); return; }
+  const wcMin = state.settings?.wildcardMin || 10;
+  const wcMax = state.settings?.wildcardMax || 22;
+  if(!wildcard||wildcard<wcMin||wildcard>wcMax) { logMessage(`Wildcard must be between ${wcMin} and ${wcMax}.`, "error"); return; }
 
   const positions = getPositionsFromDropdowns();
   if(Object.keys(positions).length===0) { logMessage("Enter at least one result.", "error"); return; }
@@ -2673,17 +2851,29 @@ function removeAlias(idx){
 //  SETTINGS — TEAMS + DRAFT ORDER
 // ═══════════════════════════════════════════════════
 function renderSettingsPage(){
-  document.getElementById("teamNameInputs").innerHTML = state.teams.map(t=>`
-    <div>
-      <label class="small">Team ${t.id}</label>
-      <input class="team-name-input" data-team-id="${t.id}" value="${escHtml(t.name)}" style="margin-top:4px;" />
-    </div>
-  `).join("");
+  document.getElementById("teamNameInputs").innerHTML = state.teams.map((t,idx)=>{
+    const drafted = state.draftPicks.some(p => p.teamId === t.id);
+    const replacementUser = state.replacements.some(r => r.teamId === t.id);
+    const canRemove = !drafted && !replacementUser && state.teams.length > 2;
+    const reason = drafted ? "has draft picks" :
+                   replacementUser ? "has injury standbys" :
+                   state.teams.length <= 2 ? "minimum 2 teams required" : "";
+    return `<div style="display:grid;grid-template-columns:60px 1fr auto;gap:8px;align-items:center;margin-bottom:8px;">
+      <div class="small muted">#${idx+1}</div>
+      <input class="team-name-input" data-team-id="${t.id}" value="${escHtml(t.name)}" />
+      <button class="btn ${canRemove?'red':'secondary'} btn-mini team-remove" data-team-id="${t.id}" ${canRemove?'':`disabled title="Cannot remove: ${reason}"`}>✕</button>
+    </div>`;
+  }).join("");
+
+  document.querySelectorAll(".team-remove").forEach(btn => {
+    btn.onclick = () => removeTeam(Number(btn.dataset.teamId));
+  });
 
   renderDraftOrderInputs();
   renderRiderPool();
   renderAliases();
   renderAutoBackups();
+  renderScoringInputs();
 }
 
 function renderDraftOrderInputs(){
@@ -2697,6 +2887,118 @@ function renderDraftOrderInputs(){
       </select>
     </div>
   `).join("");
+}
+
+function renderScoringInputs(){
+  const s = state.settings || DEFAULT_STATE.settings;
+  const host = document.getElementById("pointsTableInputs");
+  if(!host) return;
+  // Build 14 inputs for positions 1-14
+  let html = "";
+  for(let i = 1; i <= 14; i++){
+    html += `<div style="display:grid;grid-template-columns:50px 1fr;gap:6px;align-items:center;">
+      <span class="small muted">P${i}</span>
+      <input type="number" class="points-table-input" data-pos="${i}" value="${s.pointsTable[i] ?? 0}" min="0" />
+    </div>`;
+  }
+  host.innerHTML = html;
+
+  // Single-value inputs
+  document.getElementById("pointsLowerTierInput").value = s.pointsLowerTier ?? 1;
+  document.getElementById("holeshotBonusInput").value = s.holeshotBonus ?? 5;
+  document.getElementById("wildcardBonusInput").value = s.wildcardBonus ?? 15;
+  document.getElementById("standbyPercentInput").value = s.standbyPercent ?? 75;
+  document.getElementById("wildcardMinInput").value = s.wildcardMin ?? 10;
+  document.getElementById("wildcardMaxInput").value = s.wildcardMax ?? 22;
+}
+
+function saveScoringRules(){
+  // Build new pointsTable
+  const newTable = [0]; // index 0 unused
+  for(let i = 1; i <= 14; i++){
+    const inp = document.querySelector(`.points-table-input[data-pos="${i}"]`);
+    newTable.push(Number(inp?.value) || 0);
+  }
+  const lowerTier = Number(document.getElementById("pointsLowerTierInput").value) || 0;
+  const hs = Number(document.getElementById("holeshotBonusInput").value) || 0;
+  const wc = Number(document.getElementById("wildcardBonusInput").value) || 0;
+  const pct = Number(document.getElementById("standbyPercentInput").value) || 0;
+  const wMin = Number(document.getElementById("wildcardMinInput").value) || 1;
+  const wMax = Number(document.getElementById("wildcardMaxInput").value) || 22;
+
+  if(wMin >= wMax){ logMessage("Wildcard min must be less than max.", "error"); return; }
+  if(pct < 0 || pct > 200){ logMessage("Standby % must be between 0 and 200.", "error"); return; }
+
+  state.settings = Object.assign({}, state.settings, {
+    pointsTable: newTable,
+    pointsLowerTier: lowerTier,
+    holeshotBonus: hs,
+    wildcardBonus: wc,
+    standbyPercent: pct,
+    wildcardMin: wMin,
+    wildcardMax: wMax
+  });
+  saveState("save-scoring");
+  recalcAllRoundPoints();
+  renderAll();
+  logMessage("Scoring rules saved — standings updated.", "success");
+}
+
+function resetScoringRules(){
+  customConfirm(
+    "Reset scoring rules to defaults? Standings will be recalculated.",
+    () => {
+      state.settings = Object.assign({}, state.settings, deepClone(DEFAULT_STATE.settings));
+      saveState("reset-scoring");
+      recalcAllRoundPoints();
+      renderAll();
+      logMessage("Scoring rules reset to defaults.", "success");
+    },
+    { title: "Reset Scoring", okText: "Reset", okClass: "secondary" }
+  );
+}
+
+function addTeam(){
+  const inp = document.getElementById("newTeamNameInput");
+  const name = inp.value.trim();
+  if(!name){ logMessage("Team name is required.", "error"); return; }
+  if(state.teams.some(t => t.name.toLowerCase() === name.toLowerCase())){
+    logMessage("A team with that name already exists.", "error"); return;
+  }
+  const maxId = state.teams.reduce((m,t) => Math.max(m, t.id), 0);
+  const newId = maxId + 1;
+  state.teams.push({ id: newId, name });
+  // Add to draft order at the end
+  if(!state.draftOrder.includes(newId)) state.draftOrder.push(newId);
+  saveState("add-team");
+  inp.value = "";
+  renderAll();
+  logMessage(`Team "${name}" added.`, "success");
+}
+
+function removeTeam(teamId){
+  const team = teamById(teamId);
+  if(!team) return;
+  if(state.draftPicks.some(p => p.teamId === teamId)){
+    logMessage(`${team.name} has draft picks. Clear their picks first.`, "error"); return;
+  }
+  if(state.replacements.some(r => r.teamId === teamId)){
+    logMessage(`${team.name} has injury standbys. Clear them first.`, "error"); return;
+  }
+  if(state.teams.length <= 2){
+    logMessage("League must have at least 2 teams.", "error"); return;
+  }
+  customConfirm(
+    `Remove team "${team.name}"?`,
+    () => {
+      state.teams = state.teams.filter(t => t.id !== teamId);
+      state.draftOrder = state.draftOrder.filter(id => id !== teamId);
+      saveState("remove-team");
+      renderAll();
+      logMessage(`Team "${team.name}" removed.`, "warn");
+    },
+    { title: "Remove Team", okText: "Remove" }
+  );
 }
 
 function saveTeamNames(){
@@ -2989,7 +3291,10 @@ function wireEvents(){
   });
   document.getElementById("clearPositionsBtn").onclick = clearPositionDropdowns;
   document.getElementById("randomizeWildcardBtn").onclick = ()=>{
-    document.getElementById("wildcardInput").value = Math.floor(Math.random()*13)+10;
+    const s = state.settings || DEFAULT_STATE.settings;
+    const lo = s.wildcardMin || 10;
+    const hi = s.wildcardMax || 22;
+    document.getElementById("wildcardInput").value = Math.floor(Math.random()*(hi-lo+1))+lo;
     updateResultsPreview();
   };
   document.getElementById("submitResultsBtn").onclick = submitResults;
@@ -3007,8 +3312,14 @@ function wireEvents(){
     updateResultsPreview();
   };
   document.getElementById("wildcardInput").oninput = updateResultsPreview;
-  document.getElementById("resultsRoundSelect").onchange = updateResultsPreview;
+  document.getElementById("resultsRoundSelect").onchange = () => {
+    loadResultsForCurrentRound();
+    updateResultsPreview();
+  };
   document.getElementById("saveTeamsBtn").onclick = saveTeamNames;
+  document.getElementById("addTeamBtn").onclick = addTeam;
+  document.getElementById("saveScoringBtn").onclick = saveScoringRules;
+  document.getElementById("resetScoringBtn").onclick = resetScoringRules;
   document.getElementById("saveDraftOrderBtn").onclick = saveDraftOrder;
   document.getElementById("randomizeDraftOrderBtn").onclick = randomizeDraftOrder;
   document.getElementById("clearAllBtn").onclick = clearAllData;
