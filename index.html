@@ -768,7 +768,7 @@
       <h2>Wildcard Position</h2>
       <div class="wildcard-info">
         <div class="wildcard-card" id="wildcardCurrentCard">
-          <div class="label">Current Round</div>
+          <div class="label">Last Round</div>
           <div class="value unset" id="wildcardCurrentValue">—</div>
           <div class="sub" id="wildcardCurrentSub"></div>
         </div>
@@ -807,6 +807,7 @@
 
 <div class="panel">
   <h2>Round-by-Round Totals</h2>
+  <div class="small muted" style="margin-bottom:8px;">Tap a team row to see weekly breakdown</div>
   <div class="scoring-legend">
     <span class="legend-item"><span class="legend-swatch sw-hs"></span>Holeshot bonus</span>
     <span class="legend-item"><span class="legend-swatch sw-wc"></span>Wildcard bonus</span>
@@ -1919,31 +1920,34 @@ function renderStandings(){
 function renderWildcardPanel(){
   const curEl       = document.getElementById("wildcardCurrentValue");
   const curSubEl    = document.getElementById("wildcardCurrentSub");
+  const curLabelEl  = document.querySelector("#wildcardCurrentCard .label");
   const nextEl      = document.getElementById("wildcardNextValue");
   const nextInpEl   = document.getElementById("wildcardNextInput");
   if(!curEl) return;
 
-  const curRound  = state.meta.currentRound;
-  const nextRound = curRound + 1;
+  // "Last Round" = the highest round number with submitted results
+  const submittedRounds = Object.keys(state.roundResults)
+    .map(Number)
+    .filter(rn => state.roundResults[rn]?.wildcardPosition);
+  const lastRound = submittedRounds.length ? Math.max(...submittedRounds) : null;
 
-  // Current round: prefer saved result, fall back to preWildcards
-  const curSaved = state.roundResults[curRound]?.wildcardPosition;
-  const curPre   = state.preWildcards?.[curRound];
-  const curVal   = curSaved || curPre || null;
+  // "Next Round" = current round (the one you're about to submit results for)
+  const nextRound = state.meta.currentRound;
 
-  if(curVal){
-    curEl.textContent = curVal;
+  // ─── Last Round display ───
+  if(curLabelEl) curLabelEl.textContent = "Last Round";
+  if(lastRound){
+    const wc = state.roundResults[lastRound].wildcardPosition;
+    curEl.textContent = wc;
     curEl.classList.remove("unset");
-    curSubEl.textContent = curSaved
-      ? `Round ${curRound} • from submitted results`
-      : `Round ${curRound} • pre-set`;
+    curSubEl.textContent = `Round ${lastRound}`;
   } else {
     curEl.textContent = "—";
     curEl.classList.add("unset");
-    curSubEl.textContent = `Round ${curRound} • not set yet`;
+    curSubEl.textContent = "No rounds submitted yet";
   }
 
-  // Next round: only from preWildcards (results don't exist yet)
+  // ─── Next Round display ───
   if(nextRound > state.meta.totalRounds){
     nextEl.textContent = "—";
     nextEl.classList.add("unset");
@@ -1964,10 +1968,12 @@ function renderWildcardPanel(){
     document.getElementById("wildcardNextRandBtn").disabled = false;
     document.getElementById("wildcardNextSaveBtn").disabled = false;
     nextInpEl.placeholder = `Round ${nextRound}`;
-    // Set min/max from settings
     const s = state.settings || DEFAULT_STATE.settings;
     nextInpEl.min = s.wildcardMin;
     nextInpEl.max = s.wildcardMax;
+    // Show round number under the value
+    const nextSub = document.querySelector("#wildcardNextCard .sub");
+    if(nextSub) nextSub.textContent = `Round ${nextRound}`;
   }
 }
 
@@ -1978,12 +1984,11 @@ function renderRoundTotals(){
   const rounds = ROUND_SCHEDULE.map(r=>r.round);
   thead.innerHTML = `<tr><th>Team</th>${rounds.map(r=>`<th>R${r}</th>`).join("")}<th>Total</th></tr>`;
   tbody.innerHTML = standings.map(s=>`
-    <tr>
+    <tr class="standings-row" data-team-id="${s.teamId}">
       <td><strong>${escHtml(s.teamName)}</strong></td>
       ${rounds.map(r=>{
         const pts = s.roundTotals[r] ?? 0;
         const f = s.roundFlags[r] || {};
-        // Wildcard wins over Holeshot visually, since WC bonus is bigger
         let cls = "";
         if(f.wc) cls = "cell-wc";
         else if(f.hs) cls = "cell-hs";
@@ -1993,6 +1998,10 @@ function renderRoundTotals(){
       <td><strong>${s.total}</strong></td>
     </tr>
   `).join("");
+  // Wire row clicks → team breakdown popup
+  tbody.querySelectorAll(".standings-row").forEach(row => {
+    row.onclick = () => openTeamBreakdownPopup(Number(row.dataset.teamId));
+  });
 }
 
 function renderDraftControls(){
