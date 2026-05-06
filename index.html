@@ -787,6 +787,22 @@
 ```
 <div class="panel">
   <h2>Season Standings</h2>
+  <div class="small muted" style="margin-bottom:8px;">Tap a team row to see weekly breakdown</div>
+  <div class="scoring-legend">
+    <span class="legend-item"><span class="legend-swatch sw-hs"></span>Holeshot bonus</span>
+    <span class="legend-item"><span class="legend-swatch sw-wc"></span>Wildcard bonus</span>
+    <span class="legend-item"><span class="legend-swatch sw-missing"></span>Rider didn't race — needs standby</span>
+  </div>
+  <div class="scroll-x">
+    <table id="roundTotalsTable">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Team Rosters</h2>
   <div class="small muted" style="margin-bottom:8px;">Tap a team to see weekly breakdown</div>
   <div class="scroll-x">
     <table id="standingsTable">
@@ -800,22 +816,6 @@
           <th>Last Rnd</th>
         </tr>
       </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</div>
-
-<div class="panel">
-  <h2>Round-by-Round Totals</h2>
-  <div class="small muted" style="margin-bottom:8px;">Tap a team row to see weekly breakdown</div>
-  <div class="scoring-legend">
-    <span class="legend-item"><span class="legend-swatch sw-hs"></span>Holeshot bonus</span>
-    <span class="legend-item"><span class="legend-swatch sw-wc"></span>Wildcard bonus</span>
-    <span class="legend-item"><span class="legend-swatch sw-missing"></span>Rider didn't race — needs standby</span>
-  </div>
-  <div class="scroll-x">
-    <table id="roundTotalsTable">
-      <thead></thead>
       <tbody></tbody>
     </table>
   </div>
@@ -1248,6 +1248,9 @@ const DEFAULT_STATE = {
   // Pre-set wildcards by round (for displaying "next week's wildcard" before results entered)
   // { "1": 14, "2": 18, ... } — ignored if a round has already been submitted (use saved value instead)
   preWildcards: {},
+  // Tracks which rounds have already had their wildcard randomized — locks future randomization
+  // { "1": true, "2": true, ... }
+  randomizedWildcards: {},
   riderAliases: [
     { pdfName: "R.J. Hampshire",   riderId: 19 },
     { pdfName: "RJ Hampshire",     riderId: 19 }
@@ -1286,6 +1289,7 @@ function migrateState(merged){
   if(!Array.isArray(merged.riderAliases)) merged.riderAliases = deepClone(DEFAULT_STATE.riderAliases);
   if(!Array.isArray(merged.messageLog))   merged.messageLog = [];
   if(typeof merged.preWildcards !== "object" || merged.preWildcards === null) merged.preWildcards = {};
+  if(typeof merged.randomizedWildcards !== "object" || merged.randomizedWildcards === null) merged.randomizedWildcards = {};
   // Settings migration — preserve old fields, add new defaults
   const defaultSettings = deepClone(DEFAULT_STATE.settings);
   merged.settings = Object.assign(defaultSettings, merged.settings || {});
@@ -1965,7 +1969,6 @@ function renderWildcardPanel(){
       nextEl.classList.add("unset");
     }
     nextInpEl.disabled = false;
-    document.getElementById("wildcardNextRandBtn").disabled = false;
     document.getElementById("wildcardNextSaveBtn").disabled = false;
     nextInpEl.placeholder = `Round ${nextRound}`;
     const s = state.settings || DEFAULT_STATE.settings;
@@ -1974,6 +1977,17 @@ function renderWildcardPanel(){
     // Show round number under the value
     const nextSub = document.querySelector("#wildcardNextCard .sub");
     if(nextSub) nextSub.textContent = `Round ${nextRound}`;
+    // Lock randomize button if this round already had a randomize
+    const randBtn = document.getElementById("wildcardNextRandBtn");
+    if(state.randomizedWildcards?.[nextRound]){
+      randBtn.disabled = true;
+      randBtn.title = "Already randomized this round";
+      randBtn.textContent = "🔒";
+    } else {
+      randBtn.disabled = false;
+      randBtn.title = "Randomize wildcard";
+      randBtn.textContent = "🎲";
+    }
   }
 }
 
@@ -1981,12 +1995,26 @@ function renderRoundTotals(){
   const thead = document.querySelector("#roundTotalsTable thead");
   const tbody = document.querySelector("#roundTotalsTable tbody");
   const standings = computeStandings();
-  const rounds = ROUND_SCHEDULE.map(r=>r.round);
-  thead.innerHTML = `<tr><th>Team</th>${rounds.map(r=>`<th>R${r}</th>`).join("")}<th>Total</th></tr>`;
+
+  // Only show columns for rounds with submitted results, ordered most-recent first
+  const submittedRounds = Object.keys(state.roundResults)
+    .map(Number)
+    .filter(rn => state.roundResults[rn]?.positions)
+    .sort((a,b) => b - a); // descending: newest leftmost, oldest rightmost
+
+  // Header: Team | Total | R<latest> | ... | R<earliest>
+  thead.innerHTML = `<tr><th>Team</th><th>Total</th>${submittedRounds.map(r=>`<th>R${r}</th>`).join("")}</tr>`;
+
+  if(submittedRounds.length === 0){
+    tbody.innerHTML = `<tr><td colspan="2" class="muted" style="text-align:center;padding:14px;">No race results yet</td></tr>`;
+    return;
+  }
+
   tbody.innerHTML = standings.map(s=>`
     <tr class="standings-row" data-team-id="${s.teamId}">
       <td><strong>${escHtml(s.teamName)}</strong></td>
-      ${rounds.map(r=>{
+      <td><strong>${s.total}</strong></td>
+      ${submittedRounds.map(r=>{
         const pts = s.roundTotals[r] ?? 0;
         const f = s.roundFlags[r] || {};
         let cls = "";
@@ -1995,7 +2023,6 @@ function renderRoundTotals(){
         else if(f.missing) cls = "cell-missing";
         return `<td><span class="round-cell ${cls}">${pts}</span></td>`;
       }).join("")}
-      <td><strong>${s.total}</strong></td>
     </tr>
   `).join("");
   // Wire row clicks → team breakdown popup
@@ -3475,10 +3502,24 @@ function wireEvents(){
 
   // Wildcard preset for next round
   document.getElementById("wildcardNextRandBtn").onclick = () => {
+    const nextRound = state.meta.currentRound;
+    if(state.randomizedWildcards?.[nextRound]){
+      logMessage(`Round ${nextRound} wildcard has already been randomized. Use Set to override manually.`, "error");
+      return;
+    }
     const s = state.settings || DEFAULT_STATE.settings;
     const lo = s.wildcardMin || 10;
     const hi = s.wildcardMax || 22;
-    document.getElementById("wildcardNextInput").value = Math.floor(Math.random()*(hi-lo+1))+lo;
+    const val = Math.floor(Math.random()*(hi-lo+1))+lo;
+    document.getElementById("wildcardNextInput").value = val;
+    // Save the randomized value AND mark this round as already-randomized
+    if(!state.preWildcards) state.preWildcards = {};
+    if(!state.randomizedWildcards) state.randomizedWildcards = {};
+    state.preWildcards[nextRound] = val;
+    state.randomizedWildcards[nextRound] = true;
+    saveState("randomize-wildcard");
+    renderAll();
+    logMessage(`Round ${nextRound} wildcard randomized to ${val}.`, "success");
   };
   document.getElementById("wildcardNextSaveBtn").onclick = () => {
     const val = Number(document.getElementById("wildcardNextInput").value);
@@ -3487,7 +3528,7 @@ function wireEvents(){
       logMessage(`Wildcard must be between ${s.wildcardMin} and ${s.wildcardMax}.`, "error");
       return;
     }
-    const nextRound = state.meta.currentRound + 1;
+    const nextRound = state.meta.currentRound;
     if(nextRound > state.meta.totalRounds){ logMessage("Season is over.", "error"); return; }
     if(!state.preWildcards) state.preWildcards = {};
     state.preWildcards[nextRound] = val;
@@ -3522,11 +3563,21 @@ function wireEvents(){
   });
   document.getElementById("clearPositionsBtn").onclick = clearPositionDropdowns;
   document.getElementById("randomizeWildcardBtn").onclick = ()=>{
+    const round = Number(document.getElementById("resultsRoundSelect").value);
+    if(state.randomizedWildcards?.[round]){
+      logMessage(`Round ${round} wildcard has already been randomized. Set manually instead.`, "error");
+      return;
+    }
     const s = state.settings || DEFAULT_STATE.settings;
     const lo = s.wildcardMin || 10;
     const hi = s.wildcardMax || 22;
-    document.getElementById("wildcardInput").value = Math.floor(Math.random()*(hi-lo+1))+lo;
+    const val = Math.floor(Math.random()*(hi-lo+1))+lo;
+    document.getElementById("wildcardInput").value = val;
+    if(!state.randomizedWildcards) state.randomizedWildcards = {};
+    state.randomizedWildcards[round] = true;
+    saveState("randomize-wildcard");
     updateResultsPreview();
+    logMessage(`Round ${round} wildcard randomized to ${val}.`, "success");
   };
   document.getElementById("submitResultsBtn").onclick = submitResults;
   document.getElementById("deleteRoundResultsBtn").onclick = deleteRoundResults;
