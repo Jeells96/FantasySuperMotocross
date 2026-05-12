@@ -1244,7 +1244,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v9.0</span>
+            <span class="version-badge" id="versionBadge">v9.1</span>
           </div>
         </div>
       </div>
@@ -1278,9 +1278,13 @@
   <section id="standingsPage" class="page active">
     <div class="panel">
       <h2>Wildcard Position</h2>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-        <div id="wildcardViewerValue" style="font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:900;color:var(--gold);line-height:1;">—</div>
-        <div class="small muted" id="wildcardViewerNote">Not set yet.</div>
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+        <div id="wildcardViewerValue" style="font-family:'Barlow Condensed',sans-serif;font-size:48px;font-weight:900;color:var(--gold);line-height:1;">—</div>
+        <div id="wildcardViewerNote" style="font-size:16px;font-weight:600;color:var(--text);">Not set yet.</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:10px;">
+        <div class="small muted" id="wildcardViewerStamp"></div>
+        <button class="btn secondary btn-mini" id="forceSyncBtn">🔄 Sync Now</button>
       </div>
     </div>
 
@@ -1686,7 +1690,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.0</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.1</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -2216,6 +2220,11 @@ function startFirestoreListener(){
         writeLocalCache();
         initialSeedChecked = true;
         lastCommittedSnapshot = captureSnapshot();
+        window.__lastRemoteSyncTime = Date.now();
+
+        // Diagnostic: log every remote adoption so we can see live syncs happening
+        const wc = state.meta?.viewerWildcardRound;
+        addEphemeralLog(`✓ Synced [${reason || "?"}] · WC view: R${wc || "—"} · ${fp.picks}p ${fp.rounds}r`, "info");
 
         clearTimeout(renderDebounce);
         renderDebounce = setTimeout(() => {
@@ -2261,6 +2270,27 @@ function startFirestoreListener(){
 
   window.addEventListener("online",  () => setConnStatus("live"));
   window.addEventListener("offline", () => setConnStatus("offline"));
+
+  // iOS Safari suspends Firestore listeners when the tab is backgrounded.
+  // When the tab becomes visible again, force a fresh fetch to re-sync.
+  document.addEventListener("visibilitychange", () => {
+    if(!document.hidden && bootChoiceMade){
+      LEAGUE_DOC.get({ source: "server" })
+        .then(doc => {
+          if(!doc.exists) return;
+          const data = doc.data();
+          state = mergeRemoteState(data);
+          cleanupOrphanReplacements();
+          writeLocalCache();
+          lastCommittedSnapshot = captureSnapshot();
+          window.__lastRemoteSyncTime = Date.now();
+          recalcAllRoundPoints();
+          renderAll();
+          addEphemeralLog("Tab reopened — synced from cloud.", "info");
+        })
+        .catch(err => console.warn("Visibility sync failed:", err));
+    }
+  });
 }
 
 function riderById(id){ return state.riders.find(r => r.id === Number(id)); }
@@ -2534,6 +2564,7 @@ function renderStandings(){
 function renderWildcardPanel(){
   const valEl = document.getElementById("wildcardViewerValue");
   const noteEl = document.getElementById("wildcardViewerNote");
+  const stampEl = document.getElementById("wildcardViewerStamp");
   if(!valEl || !noteEl) return;
 
   const round = Number(state.meta?.viewerWildcardRound) || 0;
@@ -2541,6 +2572,8 @@ function renderWildcardPanel(){
     valEl.textContent = "—";
     valEl.style.color = "var(--muted)";
     noteEl.textContent = "Not set yet — pin a round from the Race Results page.";
+    noteEl.style.color = "var(--muted)";
+    if(stampEl) stampEl.textContent = "";
     return;
   }
   const rr = state.roundResults[round];
@@ -2548,11 +2581,24 @@ function renderWildcardPanel(){
   if(saved){
     valEl.textContent = String(saved);
     valEl.style.color = "var(--gold)";
-    noteEl.textContent = `Round ${round} wildcard finish position`;
+    noteEl.textContent = `Round ${round} Wildcard`;
+    noteEl.style.color = "var(--text)";
   } else {
     valEl.textContent = "—";
     valEl.style.color = "var(--muted)";
-    noteEl.textContent = `Round ${round} doesn't have a wildcard saved yet.`;
+    noteEl.textContent = `Round ${round} — no wildcard saved yet.`;
+    noteEl.style.color = "var(--muted)";
+  }
+
+  // Show last-sync timestamp so users can verify the page is live
+  if(stampEl){
+    if(window.__lastRemoteSyncTime){
+      const t = new Date(window.__lastRemoteSyncTime);
+      const hhmm = t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      stampEl.textContent = `Last synced ${hhmm}`;
+    } else {
+      stampEl.textContent = "";
+    }
   }
 }
 
@@ -4396,6 +4442,27 @@ function wireEvents(){
 
   // Wildcard viewer dropdown
   // Wildcard viewer is now read-only — pinned via the Display Wildcard button on Race Results.
+  document.getElementById("forceSyncBtn").onclick = () => {
+    addEphemeralLog("Manual sync requested…", "info");
+    LEAGUE_DOC.get({ source: "server" })
+      .then(doc => {
+        if(!doc.exists){ logMessage("Cloud has no data yet.", "warn"); return; }
+        const data = doc.data();
+        const fp = stateFingerprint(data);
+        state = mergeRemoteState(data);
+        cleanupOrphanReplacements();
+        writeLocalCache();
+        lastCommittedSnapshot = captureSnapshot();
+        window.__lastRemoteSyncTime = Date.now();
+        recalcAllRoundPoints();
+        renderAll();
+        const wc = state.meta?.viewerWildcardRound;
+        logMessage(`Synced from cloud · WC: R${wc || "—"} · ${fp.picks}p ${fp.rounds}r`, "success");
+      })
+      .catch(err => {
+        logMessage(`Sync failed: ${err.message || err}`, "error");
+      });
+  };
 
   // Sub picker modal
   document.getElementById("subPickerCancelBtn").onclick = closeSubPicker;
