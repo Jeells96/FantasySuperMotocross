@@ -793,6 +793,23 @@
       font-weight: 600;
     }
     .active-sub-arrow { color: var(--muted); margin: 0 6px; }
+    .active-sub-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .add-sub-btn-mini {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .add-sub-btn-mini:hover { background: var(--accent-hover); }
     .remove-sub-btn {
       background: transparent;
       color: var(--red);
@@ -2418,6 +2435,9 @@ function renderTeamSwapList(){
               ${activeSubs.map(r => {
                 const orig = riderById(r.originalRiderId)?.name || "?";
                 const rep  = riderById(r.replacementRiderId)?.name || "?";
+                // Only the deepest sub in the chain gets the "+ Add Sub" button
+                // (extending the chain only makes sense from its current end)
+                const isDeepest = !activeSubs.some(other => other.originalRiderId === r.replacementRiderId);
                 return `
                   <div class="active-sub-row">
                     <div class="active-sub-info">
@@ -2425,7 +2445,10 @@ function renderTeamSwapList(){
                       <span class="active-sub-arrow">→</span>
                       <span class="active-sub-flow">${escHtml(rep)}</span>
                     </div>
-                    <button class="remove-sub-btn" data-team-id="${team.id}" data-orig-id="${r.originalRiderId}">Remove</button>
+                    <div class="active-sub-actions">
+                      ${isDeepest ? `<button class="add-sub-btn-mini" data-team-id="${team.id}" data-rider-id="${r.replacementRiderId}">+ Add Sub</button>` : ''}
+                      <button class="remove-sub-btn" data-team-id="${team.id}" data-orig-id="${r.originalRiderId}">Remove</button>
+                    </div>
                   </div>
                 `;
               }).join("")}
@@ -2444,8 +2467,8 @@ function renderTeamSwapList(){
     };
   });
 
-  // Wire Add Sub buttons → open modal
-  host.querySelectorAll(".add-sub-btn").forEach(btn => {
+  // Wire Add Sub buttons (both main rider rows and active-sub rows) → open modal
+  host.querySelectorAll(".add-sub-btn, .add-sub-btn-mini").forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
       openSubPicker(Number(btn.dataset.teamId), Number(btn.dataset.riderId));
