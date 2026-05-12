@@ -1861,6 +1861,7 @@ function startFirestoreListener(){
 
         // Adopt remote as truth. Do not write anything back.
         state = mergeRemoteState(data);
+        cleanupOrphanReplacements();
         writeLocalCache();
         initialSeedChecked = true;
         lastCommittedSnapshot = captureSnapshot();
@@ -2899,9 +2900,24 @@ function clearDraftOnly(){
 }
 function addReplacement(teamId, origId, repId){
   if(!teamId||!origId||!repId){ logMessage("Select team, injured rider, and sub.", "error"); return false; }
-  if(state.replacements.find(r=>r.teamId===teamId&&r.originalRiderId===origId&&r.active)){
-    logMessage("That rider already has an active sub.", "error"); return false;
+
+  // Check: does this rider already have an active sub?
+  const existing = state.replacements.find(r=>r.teamId===teamId&&r.originalRiderId===origId&&r.active);
+  if(existing){
+    // Possibly an orphan from a previous edit. Check whether the rider is actually
+    // in any team's current chain. If not, the record is stale — quietly deactivate it.
+    const slots = getTeamCurrentRiders(teamId);
+    const inActiveChain = slots.some(slot => slot.chain.includes(origId));
+    if(!inActiveChain){
+      // Orphan — clean it up and continue
+      console.warn("Found orphan active replacement, deactivating:", existing);
+      existing.active = false;
+      logMessage(`Cleaned up stale sub record for ${riderById(origId)?.name}.`, "info");
+    } else {
+      logMessage("That rider already has an active sub.", "error"); return false;
+    }
   }
+
   const pool = getStandbyPool(teamId, origId);
   if(!pool.some(r=>r.id===repId)){
     logMessage("That rider isn't eligible as a sub for this slot.", "error"); return false;
@@ -4029,11 +4045,43 @@ function wireEvents(){
   }
 }
 
+// Detect orphan active replacement records — entries where originalRiderId isn't
+// in any team's current chain. Returns the number of records cleaned.
+function cleanupOrphanReplacements(){
+  if(!Array.isArray(state.replacements)) return 0;
+  let cleaned = 0;
+  // For each team, get the set of riders in any chain
+  const ridersInChainByTeam = {};
+  state.teams.forEach(team => {
+    const slots = getTeamCurrentRiders(team.id);
+    const all = new Set();
+    slots.forEach(slot => slot.chain.forEach(rid => all.add(rid)));
+    ridersInChainByTeam[team.id] = all;
+  });
+
+  state.replacements.forEach(rep => {
+    if(!rep.active) return;
+    const teamChain = ridersInChainByTeam[rep.teamId];
+    // Orphan if the originalRiderId isn't in any drafted slot for this team
+    // (the chain-walk would have reached it if it were)
+    if(teamChain && !teamChain.has(rep.originalRiderId)){
+      rep.active = false;
+      cleaned++;
+      console.warn("Cleaned orphan replacement:", rep);
+    }
+  });
+  return cleaned;
+}
+
 // ═══════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════
 // 1. Load local cache immediately so the UI isn't blank while Firestore connects
 state = loadLocalCache();
+const orphaned = cleanupOrphanReplacements();
+if(orphaned > 0){
+  console.log(`Cleaned ${orphaned} orphan replacement(s) at startup.`);
+}
 lastCommittedSnapshot = captureSnapshot();
 recalcAllRoundPoints();
 renderAll();
