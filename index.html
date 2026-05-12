@@ -644,6 +644,20 @@
       padding: 6px 10px; font-size: 11px;
     }
 
+    /* ─── VERSION BADGE ─── */
+    .version-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .5px;
+      background: rgba(255,77,26,.15);
+      color: var(--accent);
+      border: 1px solid rgba(255,77,26,.35);
+      border-radius: 10px;
+      text-transform: uppercase;
+    }
+
     /* ─── SETTINGS GEAR (top-right) ─── */
     .settings-gear {
       position: fixed;
@@ -984,9 +998,10 @@
         <div>
           <h1 class="title">Fantasy <span>SuperMotocross</span> League</h1>
           <p class="subtitle">2026 AMA Monster Energy Championship • 450SX only • 10 teams • 2 riders per team • 17 rounds • Snake draft • Holeshot +5 • Wildcard +15</p>
-          <div style="margin-top:8px;display:flex;align-items:center;">
+          <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
+            <span class="version-badge" id="versionBadge">v8.3</span>
           </div>
         </div>
       </div>
@@ -1109,6 +1124,10 @@
   <section id="swapPage" class="page">
     <div class="swap-intro">
       Add an <strong>injury sub</strong> for any rider on any team. Subs only score for rounds where the rider above them didn't race, and earn <strong>75%</strong> of the points (rounded). You can chain subs — even subs for subs.
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button class="btn secondary btn-mini" id="diagnoseSubsBtn">🔍 Diagnose Subs</button>
+      <button class="btn red btn-mini" id="resetAllSubsBtn">🗑 Clear All Subs</button>
     </div>
     <div id="teamSwapList"></div>
   </section>
@@ -1400,7 +1419,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League v4 • Single-file local storage build</div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v8.3</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -2588,6 +2607,73 @@ function confirmSubPicker(){
   if(ok) closeSubPicker();
 }
 
+// Emergency: nuke all replacements
+function resetAllSubs(){
+  const count = state.replacements.filter(r => r.active !== false).length;
+  if(count === 0){
+    logMessage("No subs to clear.", "info");
+    return;
+  }
+  customConfirm(
+    `Clear ALL ${count} active sub${count>1?'s':''} across every team? This cannot be undone (except via Undo).`,
+    () => {
+      state.replacements = [];
+      saveState("clear-all-subs");
+      recalcAllRoundPoints();
+      renderAll();
+      logMessage(`Cleared all ${count} active sub${count>1?'s':''}.`, "warn");
+    },
+    { title: "Clear All Subs", okText: "Clear All" }
+  );
+}
+
+// Diagnostic: show what's in state.replacements vs what's visible
+function diagnoseSubs(){
+  const lines = [];
+  lines.push(`Total replacement records: ${state.replacements.length}`);
+  const active = state.replacements.filter(r => r.active !== false);
+  lines.push(`Active records: ${active.length}`);
+  lines.push("");
+  active.forEach((r, i) => {
+    const team = teamById(r.teamId)?.name || `Team ${r.teamId}`;
+    const orig = riderById(r.originalRiderId)?.name || `Rider ${r.originalRiderId}`;
+    const rep  = riderById(r.replacementRiderId)?.name || `Rider ${r.replacementRiderId}`;
+    lines.push(`${i+1}. [${team}] ${orig} → ${rep}`);
+  });
+
+  if(active.length === 0) lines.push("(no active records)");
+
+  // Check for orphans
+  lines.push("");
+  let orphanFound = false;
+  active.forEach((r) => {
+    const picks = state.draftPicks.filter(p => p.teamId === r.teamId).map(p => p.riderId);
+    const teamReps = state.replacements.filter(x => x.teamId === r.teamId && x.active);
+    const reachable = new Set(picks);
+    let grew = true;
+    while(grew){
+      grew = false;
+      teamReps.forEach(x => {
+        if(reachable.has(x.originalRiderId) && !reachable.has(x.replacementRiderId)){
+          reachable.add(x.replacementRiderId);
+          grew = true;
+        }
+      });
+    }
+    if(!reachable.has(r.originalRiderId)){
+      lines.push(`⚠️ ORPHAN: ${riderById(r.originalRiderId)?.name} → ${riderById(r.replacementRiderId)?.name}`);
+      orphanFound = true;
+    }
+  });
+  if(!orphanFound && active.length > 0) lines.push("✓ No orphans detected");
+
+  customConfirm(
+    lines.join("\n"),
+    () => { cleanupOrphanReplacements(); saveState("manual-cleanup"); recalcAllRoundPoints(); renderAll(); logMessage("Cleanup run.", "success"); },
+    { title: "Sub Diagnostic", okText: "Run Cleanup", okClass: "secondary", monospace: true }
+  );
+}
+
 function renderNowPicking(){
   const banner   = document.getElementById("nowPickingBanner");
   const pickEl   = document.getElementById("nowPickingPick");
@@ -3690,6 +3776,10 @@ function customConfirm(message, onConfirm, options){
 
   titleEl.textContent = options.title || "Confirm";
   msgEl.textContent = message;
+  msgEl.style.whiteSpace = "pre-wrap";
+  msgEl.style.fontFamily = options.monospace ? "monospace" : "";
+  msgEl.style.fontSize = options.monospace ? "12px" : "";
+  msgEl.style.textAlign = "left";
   okBtn.textContent = options.okText || "Confirm";
   cancelBtn.textContent = options.cancelText || "Cancel";
 
@@ -3931,6 +4021,10 @@ function wireEvents(){
     if(e.target.id === "subPickerModal") closeSubPicker();
   });
 
+  // Rider Swap utilities
+  document.getElementById("diagnoseSubsBtn").onclick = diagnoseSubs;
+  document.getElementById("resetAllSubsBtn").onclick = resetAllSubs;
+
   // Settings gear (top-right) → navigate to settings page
   document.getElementById("settingsGearBtn").onclick = () => {
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
@@ -4045,31 +4139,68 @@ function wireEvents(){
   }
 }
 
-// Detect orphan active replacement records — entries where originalRiderId isn't
-// in any team's current chain. Returns the number of records cleaned.
+// Aggressive cleanup of the replacements list. Removes:
+// - inactive records older than this session (no longer needed)
+// - active records whose originalRiderId isn't reachable in their team's chain
+// - duplicate records for the same (teamId, originalRiderId)
 function cleanupOrphanReplacements(){
   if(!Array.isArray(state.replacements)) return 0;
   let cleaned = 0;
-  // For each team, get the set of riders in any chain
-  const ridersInChainByTeam = {};
+  const before = state.replacements.length;
+
+  // Remove fully inactive records — they serve no purpose
+  state.replacements = state.replacements.filter(r => r.active !== false);
+
+  // For each team, get the set of riders in the chain BEFORE cleanup
+  // Walk by hand to avoid infinite loops with broken refs.
   state.teams.forEach(team => {
-    const slots = getTeamCurrentRiders(team.id);
-    const all = new Set();
-    slots.forEach(slot => slot.chain.forEach(rid => all.add(rid)));
-    ridersInChainByTeam[team.id] = all;
+    const picks = state.draftPicks.filter(p => p.teamId === team.id);
+    const draftedIds = new Set(picks.map(p => p.riderId));
+    if(draftedIds.size === 0) return;
+
+    // Build reachable set: start with drafted riders, then walk active reps
+    const reachable = new Set(draftedIds);
+    const teamReps = state.replacements.filter(r => r.teamId === team.id && r.active);
+    let grew = true;
+    while(grew){
+      grew = false;
+      teamReps.forEach(r => {
+        if(reachable.has(r.originalRiderId) && !reachable.has(r.replacementRiderId)){
+          reachable.add(r.replacementRiderId);
+          grew = true;
+        }
+      });
+    }
+
+    // Now deactivate any active rep whose originalRiderId isn't reachable
+    state.replacements.forEach(r => {
+      if(r.teamId === team.id && r.active && !reachable.has(r.originalRiderId)){
+        console.warn("Removing orphan replacement (originalRider unreachable):", r);
+        r.active = false;
+        cleaned++;
+      }
+    });
+
+    // Deduplicate: keep only the first active record per (teamId, originalRiderId)
+    const seen = new Set();
+    state.replacements.forEach(r => {
+      if(r.teamId !== team.id || !r.active) return;
+      const key = `${r.teamId}-${r.originalRiderId}`;
+      if(seen.has(key)){
+        console.warn("Removing duplicate replacement:", r);
+        r.active = false;
+        cleaned++;
+      } else {
+        seen.add(key);
+      }
+    });
   });
 
-  state.replacements.forEach(rep => {
-    if(!rep.active) return;
-    const teamChain = ridersInChainByTeam[rep.teamId];
-    // Orphan if the originalRiderId isn't in any drafted slot for this team
-    // (the chain-walk would have reached it if it were)
-    if(teamChain && !teamChain.has(rep.originalRiderId)){
-      rep.active = false;
-      cleaned++;
-      console.warn("Cleaned orphan replacement:", rep);
-    }
-  });
+  // Strip the inactive records again now that we deactivated more
+  state.replacements = state.replacements.filter(r => r.active !== false);
+  if(state.replacements.length !== before){
+    cleaned += (before - state.replacements.length);
+  }
   return cleaned;
 }
 
@@ -4080,12 +4211,21 @@ function cleanupOrphanReplacements(){
 state = loadLocalCache();
 const orphaned = cleanupOrphanReplacements();
 if(orphaned > 0){
-  console.log(`Cleaned ${orphaned} orphan replacement(s) at startup.`);
+  console.log(`Cleaned ${orphaned} orphan/inactive replacement record(s) at startup.`);
+  // Don't auto-save here — we don't know yet if local or remote is the source of truth.
+  // The Firestore listener will sync up shortly and trigger another cleanup.
 }
 lastCommittedSnapshot = captureSnapshot();
 recalcAllRoundPoints();
 renderAll();
 wireEvents();
+
+// Show the build timestamp (year-month-day) in the footer
+try {
+  const buildDate = new Date(document.lastModified);
+  const dEl = document.getElementById("versionBuildDate");
+  if(dEl) dEl.textContent = buildDate.toLocaleDateString();
+} catch(e){}
 
 // 2. Start Firestore live listener — will update state + re-render when data arrives
 startFirestoreListener();
