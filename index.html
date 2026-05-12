@@ -1244,7 +1244,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v8.9</span>
+            <span class="version-badge" id="versionBadge">v9.0</span>
           </div>
         </div>
       </div>
@@ -1278,12 +1278,10 @@
   <section id="standingsPage" class="page active">
     <div class="panel">
       <h2>Wildcard Position</h2>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <label class="small" for="wildcardViewerSelect">Round:</label>
-        <select id="wildcardViewerSelect" style="flex:1;min-width:120px;max-width:180px;"></select>
-        <div id="wildcardViewerValue" style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:var(--gold);">—</div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <div id="wildcardViewerValue" style="font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:900;color:var(--gold);line-height:1;">—</div>
+        <div class="small muted" id="wildcardViewerNote">Not set yet.</div>
       </div>
-      <div class="small muted" id="wildcardViewerNote" style="margin-top:6px;">Pick a round to see its wildcard position.</div>
     </div>
 
 ```
@@ -1431,6 +1429,7 @@
       <button class="btn green" id="submitResultsBtn">Submit Results</button>
       <button class="btn red" id="deleteRoundResultsBtn">Delete Round</button>
       <button class="btn secondary" id="saveWildcardOnlyBtn">📌 Save Wildcard Only</button>
+      <button class="btn" id="displayWildcardBtn">📣 Display on Standings</button>
     </div>
   </div>
 
@@ -1687,7 +1686,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v8.9</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.0</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -2533,30 +2532,17 @@ function renderStandings(){
 }
 
 function renderWildcardPanel(){
-  const sel = document.getElementById("wildcardViewerSelect");
-  if(!sel) return;
-
-  // Build round options for all rounds in the season
-  const total = state.meta.totalRounds || 17;
-  const opts = [];
-  for(let r = 1; r <= total; r++){
-    opts.push(`<option value="${r}">Round ${r}</option>`);
-  }
-  sel.innerHTML = opts.join("");
-
-  // Use the shared/persisted viewer round; fall back to 1
-  const savedView = Number(state.meta?.viewerWildcardRound) || 1;
-  sel.value = String(Math.min(Math.max(savedView, 1), total));
-
-  updateWildcardViewer();
-}
-
-function updateWildcardViewer(){
-  const sel = document.getElementById("wildcardViewerSelect");
   const valEl = document.getElementById("wildcardViewerValue");
   const noteEl = document.getElementById("wildcardViewerNote");
-  if(!sel) return;
-  const round = Number(sel.value);
+  if(!valEl || !noteEl) return;
+
+  const round = Number(state.meta?.viewerWildcardRound) || 0;
+  if(!round){
+    valEl.textContent = "—";
+    valEl.style.color = "var(--muted)";
+    noteEl.textContent = "Not set yet — pin a round from the Race Results page.";
+    return;
+  }
   const rr = state.roundResults[round];
   const saved = rr?.wildcardPosition;
   if(saved){
@@ -2564,27 +2550,14 @@ function updateWildcardViewer(){
     valEl.style.color = "var(--gold)";
     noteEl.textContent = `Round ${round} wildcard finish position`;
   } else {
-    valEl.textContent = "Not set";
+    valEl.textContent = "—";
     valEl.style.color = "var(--muted)";
-    noteEl.textContent = "This round hasn't been submitted yet — set it on the Race Results page.";
+    noteEl.textContent = `Round ${round} doesn't have a wildcard saved yet.`;
   }
 }
 
-// User changed the wildcard viewer dropdown - persist to Firestore so everyone
-// sees the same round when they load the standings page.
-function saveWildcardViewerRound(){
-  const sel = document.getElementById("wildcardViewerSelect");
-  if(!sel) return;
-  const round = Number(sel.value);
-  if(!round) return;
-  if(state.meta?.viewerWildcardRound === round) {
-    updateWildcardViewer(); // no save needed, just refresh display
-    return;
-  }
-  state.meta.viewerWildcardRound = round;
-  saveState("change-wildcard-view");
-  updateWildcardViewer();
-}
+// Removed: updateWildcardViewer and saveWildcardViewerRound — replaced by the
+// Display Wildcard button on the Race Results page which pins viewerWildcardRound.
 
 function renderRoundTotals(){
   const thead = document.querySelector("#roundTotalsTable thead");
@@ -3791,6 +3764,12 @@ function submitResults(){
   if(round>=state.meta.currentRound && round<state.meta.totalRounds){
     state.meta.currentRound = round+1;
   }
+  // Auto-pin this round as the displayed wildcard on Standings — it's now the most recent.
+  // Skip if user manually pinned a later round.
+  const currentDisplay = Number(state.meta.viewerWildcardRound) || 0;
+  if(round >= currentDisplay){
+    state.meta.viewerWildcardRound = round;
+  }
   saveState("submit-results"); renderAll();
   logMessage(`Round ${round} results submitted.`, "success");
 }
@@ -4416,7 +4395,7 @@ function wireEvents(){
   document.getElementById("redoBtn").onclick = doRedo;
 
   // Wildcard viewer dropdown
-  document.getElementById("wildcardViewerSelect").onchange = saveWildcardViewerRound;
+  // Wildcard viewer is now read-only — pinned via the Display Wildcard button on Race Results.
 
   // Sub picker modal
   document.getElementById("subPickerCancelBtn").onclick = closeSubPicker;
@@ -4498,6 +4477,19 @@ function wireEvents(){
       renderAll();
       logMessage(`Round ${round} wildcard saved as ${wildcard}. (No race results yet.)`, "success");
     }
+  };
+  document.getElementById("displayWildcardBtn").onclick = () => {
+    const round = Number(document.getElementById("resultsRoundSelect").value);
+    if(!round){ logMessage("Select a round first.", "error"); return; }
+    const rr = state.roundResults[round];
+    if(!rr?.wildcardPosition){
+      logMessage(`Round ${round} doesn't have a wildcard saved yet. Save it first.`, "error");
+      return;
+    }
+    state.meta.viewerWildcardRound = round;
+    saveState("display-wildcard");
+    renderAll();
+    logMessage(`Round ${round} wildcard (#${rr.wildcardPosition}) is now showing on Standings.`, "success");
   };
   document.getElementById("deleteRoundResultsBtn").onclick = deleteRoundResults;
   document.getElementById("holeshotSelect").onchange = ()=>{
