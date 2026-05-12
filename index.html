@@ -1244,7 +1244,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v9.1</span>
+            <span class="version-badge" id="versionBadge">v9.2</span>
           </div>
         </div>
       </div>
@@ -1282,10 +1282,7 @@
         <div id="wildcardViewerValue" style="font-family:'Barlow Condensed',sans-serif;font-size:48px;font-weight:900;color:var(--gold);line-height:1;">—</div>
         <div id="wildcardViewerNote" style="font-size:16px;font-weight:600;color:var(--text);">Not set yet.</div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:10px;">
-        <div class="small muted" id="wildcardViewerStamp"></div>
-        <button class="btn secondary btn-mini" id="forceSyncBtn">🔄 Sync Now</button>
-      </div>
+      <div class="small muted" id="wildcardViewerStamp" style="margin-top:8px;"></div>
     </div>
 
 ```
@@ -1684,13 +1681,17 @@
       <strong>Reset All Data</strong> wipes everything — draft picks, replacements, team names, results, standings, message log, and settings.
     </div>
     <button class="btn red" id="clearAllBtn">RESET ALL DATA</button>
+    <div class="small" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border-2);margin-bottom:8px;">
+      <strong>Clear Local Storage</strong> — emergency recovery if your device runs into storage issues. Wipes only this device's cache and reloads from the cloud. Doesn't affect anyone else.
+    </div>
+    <button class="btn secondary" id="clearLocalCacheBtn">🧹 Clear Local Cache &amp; Reload</button>
   </div>
 </details>
 ```
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.1</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.2</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -1859,10 +1860,26 @@ function loadLocalCache(){
     return migrateState(merged);
   } catch(e){ return deepClone(DEFAULT_STATE); }
 }
-function writeLocalCache(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function writeLocalCache(){
+  const payload = JSON.stringify(state);
+  try {
+    localStorage.setItem(STORAGE_KEY, payload);
+  } catch(e) {
+    // Quota exceeded? Try pruning auto-backups and retry once.
+    console.warn("localStorage write failed, attempting to free space:", e);
+    try {
+      localStorage.removeItem(STORAGE_KEY + "_autobackups");
+      localStorage.setItem(STORAGE_KEY, payload);
+      console.log("Recovered after pruning auto-backups.");
+    } catch(e2) {
+      console.error("localStorage write still failed after pruning:", e2);
+      // Last resort - don't crash the save flow. The Firestore write will still work.
+    }
+  }
+}
 
-// Auto-backup: on every save that contains meaningful data, also write to a
-// backup slot in localStorage. 5 rolling slots so we can recover from recent states.
+// Auto-backup: on every save with meaningful data, also write to a small rolling
+// backup. Capped at 3 entries and skipped if it would push localStorage over quota.
 function writeAutoBackup(){
   try {
     const hasData = state.draftPicks.length > 0
@@ -1872,21 +1889,28 @@ function writeAutoBackup(){
 
     const stamp = Date.now();
     const entry = { stamp, state: state };
-    // Read existing backups
+
     let backups = [];
     try {
       const raw = localStorage.getItem(STORAGE_KEY + "_autobackups");
       if(raw) backups = JSON.parse(raw) || [];
     } catch(e) { backups = []; }
 
-    // Only write a new backup if meaningful changes exist since the last one
+    // Skip if state hasn't meaningfully changed since the last backup
     const lastSnapshot = backups[0]?.state ? JSON.stringify(backups[0].state) : "";
     const nowSnapshot = JSON.stringify(state);
     if(nowSnapshot === lastSnapshot) return;
 
     backups.unshift(entry);
-    if(backups.length > 5) backups.length = 5;
-    localStorage.setItem(STORAGE_KEY + "_autobackups", JSON.stringify(backups));
+    if(backups.length > 3) backups.length = 3; // tighter cap to avoid quota
+
+    try {
+      localStorage.setItem(STORAGE_KEY + "_autobackups", JSON.stringify(backups));
+    } catch(e) {
+      // Quota — drop backups entirely, the main cache is what matters.
+      console.warn("Auto-backup write failed (quota), clearing backups:", e);
+      try { localStorage.removeItem(STORAGE_KEY + "_autobackups"); } catch(e2){}
+    }
   } catch(e){
     console.error("Auto-backup failed:", e);
   }
@@ -4442,27 +4466,6 @@ function wireEvents(){
 
   // Wildcard viewer dropdown
   // Wildcard viewer is now read-only — pinned via the Display Wildcard button on Race Results.
-  document.getElementById("forceSyncBtn").onclick = () => {
-    addEphemeralLog("Manual sync requested…", "info");
-    LEAGUE_DOC.get({ source: "server" })
-      .then(doc => {
-        if(!doc.exists){ logMessage("Cloud has no data yet.", "warn"); return; }
-        const data = doc.data();
-        const fp = stateFingerprint(data);
-        state = mergeRemoteState(data);
-        cleanupOrphanReplacements();
-        writeLocalCache();
-        lastCommittedSnapshot = captureSnapshot();
-        window.__lastRemoteSyncTime = Date.now();
-        recalcAllRoundPoints();
-        renderAll();
-        const wc = state.meta?.viewerWildcardRound;
-        logMessage(`Synced from cloud · WC: R${wc || "—"} · ${fp.picks}p ${fp.rounds}r`, "success");
-      })
-      .catch(err => {
-        logMessage(`Sync failed: ${err.message || err}`, "error");
-      });
-  };
 
   // Sub picker modal
   document.getElementById("subPickerCancelBtn").onclick = closeSubPicker;
@@ -4585,6 +4588,19 @@ function wireEvents(){
   document.getElementById("saveDraftOrderBtn").onclick = saveDraftOrder;
   document.getElementById("randomizeDraftOrderBtn").onclick = randomizeDraftOrder;
   document.getElementById("clearAllBtn").onclick = clearAllData;
+  document.getElementById("clearLocalCacheBtn").onclick = () => {
+    customConfirm(
+      "Clear this device's local cache and reload the page? Cloud data won't be affected.",
+      () => {
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem(STORAGE_KEY + "_autobackups");
+        } catch(e){}
+        location.reload();
+      },
+      { title: "Clear Local Cache", okText: "Clear & Reload" }
+    );
+  };
 
   // NEW: rider pool
   document.getElementById("addNewRiderBtn").onclick = addNewRider;
