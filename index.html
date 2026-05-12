@@ -1244,7 +1244,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v8.7</span>
+            <span class="version-badge" id="versionBadge">v8.8</span>
           </div>
         </div>
       </div>
@@ -1687,7 +1687,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v8.7</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v8.8</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -3507,7 +3507,6 @@ function renderResultsPage(){
     const rr = state.roundResults[r.round];
     let marker = "";
     if(rr?.positions) marker = " ✓";
-    else if(rr?.wildcardPosition) marker = " 🎯"; // wildcard set but no results yet
     return `<option value="${r.round}">Round ${r.round}${marker}</option>`;
   }).join("");
   const sel = document.getElementById("resultsRoundSelect");
@@ -3547,10 +3546,11 @@ function loadResultsForCurrentRound(){
   document.getElementById("holeshotNote").textContent = "Holeshot: Unknown — select manually if needed";
 
   if(!rr || !rr.positions){
-    // No submitted results — but pre-set wildcard might exist
-    const pre = state.preWildcards?.[round];
-    if(pre){
-      document.getElementById("wildcardInput").value = pre;
+    // No submitted results yet. Wildcard may still be set (Save Wildcard Only),
+    // or pre-set via the legacy preWildcards map.
+    const wc = rr?.wildcardPosition || state.preWildcards?.[round];
+    if(wc){
+      document.getElementById("wildcardInput").value = wc;
     }
     return;
   }
