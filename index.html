@@ -664,14 +664,22 @@
     }
     .boot-chooser-box h2 {
       font-family: 'Barlow Condensed', sans-serif;
-      font-size: 26px;
+      font-size: 28px;
       letter-spacing: .5px;
       margin-bottom: 4px;
+      text-align: center;
+    }
+    .boot-chooser-emblem {
+      text-align: center;
+      font-size: 56px;
+      line-height: 1;
+      margin-bottom: 8px;
     }
     .boot-chooser-sub {
       color: var(--muted);
       font-size: 13px;
       margin-bottom: 18px;
+      text-align: center;
     }
     .boot-chooser-options {
       display: grid;
@@ -682,25 +690,25 @@
       background: var(--panel-2);
       border: 1px solid var(--border-2);
       border-radius: 10px;
-      padding: 14px 16px;
-      text-align: left;
+      padding: 16px 18px;
+      text-align: center;
       cursor: pointer;
       color: var(--text);
-      transition: border .15s, background .15s;
+      transition: border .15s, background .15s, transform .1s;
     }
     .boot-chooser-option:hover {
       border-color: var(--accent);
       background: rgba(255,77,26,.06);
     }
+    .boot-chooser-option:active { transform: scale(0.98); }
     .boot-chooser-label {
       font-weight: 700;
-      font-size: 15px;
+      font-size: 17px;
       margin-bottom: 4px;
     }
     .boot-chooser-detail {
       font-size: 12px;
       color: var(--muted);
-      line-height: 1.5;
     }
     .boot-chooser-note {
       font-size: 11px;
@@ -1203,24 +1211,23 @@
 
 </head>
 <body>
-  <!-- BOOT CHOOSER MODAL — picks which data source to use when local and remote conflict -->
+  <!-- WELCOME MODAL — shown on every first load. Both buttons load cloud data. -->
   <div id="bootChooserModal" class="boot-chooser-modal" style="display:none;">
     <div class="boot-chooser-box">
-      <h2>Choose Data to Load</h2>
-      <p class="boot-chooser-sub">There's data both on this device and from the cloud. Pick which one to use.</p>
+      <div class="boot-chooser-emblem">🏁</div>
+      <h2 id="bootChooserTitle">Welcome to the League</h2>
+      <p class="boot-chooser-sub" id="bootChooserSub">Pick how you want to roll into this race weekend.</p>
       <div class="boot-chooser-options">
-        <button class="boot-chooser-option" id="bootChooseLocal">
-          <div class="boot-chooser-label">Local (this device)</div>
-          <div class="boot-chooser-detail" id="bootChooseLocalDetail">—</div>
+        <button class="boot-chooser-option" id="bootChooseA">
+          <div class="boot-chooser-label" id="bootChooseALabel">Let's go 🚀</div>
+          <div class="boot-chooser-detail" id="bootChooseADetail">Load the latest league data</div>
         </button>
-        <button class="boot-chooser-option" id="bootChooseRemote">
-          <div class="boot-chooser-label">Cloud (latest from <span id="bootChooseRemoteWho">—</span>)</div>
-          <div class="boot-chooser-detail" id="bootChooseRemoteDetail">—</div>
+        <button class="boot-chooser-option" id="bootChooseB">
+          <div class="boot-chooser-label" id="bootChooseBLabel">I'm ready 🏆</div>
+          <div class="boot-chooser-detail" id="bootChooseBDetail">Load the latest league data</div>
         </button>
       </div>
-      <div class="boot-chooser-note">
-        ⚠️ Picking "Cloud" replaces local data. Picking "Local" pushes to the cloud — everyone else will load your version on next refresh.
-      </div>
+      <div class="boot-chooser-note" id="bootChooserNote" style="display:none;"></div>
     </div>
   </div>
 <div id="toastContainer"></div>
@@ -1237,7 +1244,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v8.6</span>
+            <span class="version-badge" id="versionBadge">v8.7</span>
           </div>
         </div>
       </div>
@@ -1423,7 +1430,7 @@
     <div class="toolbar" style="margin-top:14px;">
       <button class="btn green" id="submitResultsBtn">Submit Results</button>
       <button class="btn red" id="deleteRoundResultsBtn">Delete Round</button>
-      <button class="btn secondary" id="recalcAllBtn">🔄 Recalc &amp; Save</button>
+      <button class="btn secondary" id="saveWildcardOnlyBtn">📌 Save Wildcard Only</button>
     </div>
   </div>
 
@@ -1584,6 +1591,40 @@
 
 <details class="settings-panel">
   <summary>
+    <span>Welcome Screen</span>
+    <span class="chev">▼</span>
+  </summary>
+  <div class="settings-body">
+    <div class="small" style="margin-bottom:10px;">
+      Customize the welcome screen text everyone sees when they open the app.
+    </div>
+    <div style="display:grid;gap:10px;margin-bottom:12px;">
+      <div>
+        <label class="small">Title</label>
+        <input id="welcomeTitleInput" />
+      </div>
+      <div>
+        <label class="small">Subtitle</label>
+        <input id="welcomeSubtitleInput" />
+      </div>
+      <div>
+        <label class="small">Option A label</label>
+        <input id="welcomeOptionAInput" />
+      </div>
+      <div>
+        <label class="small">Option B label</label>
+        <input id="welcomeOptionBInput" />
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn green" id="saveWelcomeBtn">Save Welcome Text</button>
+      <button class="btn secondary" id="previewWelcomeBtn">Preview</button>
+    </div>
+  </div>
+</details>
+
+<details class="settings-panel">
+  <summary>
     <span>Backup &amp; Restore</span>
     <span class="chev">▼</span>
   </summary>
@@ -1646,7 +1687,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v8.6</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v8.7</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -1764,7 +1805,12 @@ const DEFAULT_STATE = {
     wildcardBonus: 15,
     wildcardMin: 10,
     wildcardMax: 18,
-    standbyPercent: 75
+    standbyPercent: 75,
+    // Customizable welcome screen — shown once per session on load
+    welcomeTitle: "Welcome to the League",
+    welcomeSubtitle: "Pick how you want to roll into this race weekend.",
+    welcomeOptionA: "Let's go 🚀",
+    welcomeOptionB: "I'm ready 🏆"
   }
 };
 
@@ -1947,54 +1993,46 @@ function renderUndoRedoBar(){
 // read confirms data exists.
 let sessionHasSeenData = false;
 
-// Boot chooser state - flips to true once the user (or auto-detect) decides which data to load.
-// Until then, the Firestore listener defers final decisions.
+// Boot chooser state.
 let bootChoiceMade = false;
-let bootChooserPending = null; // holds { localState, remoteState } if waiting for user
+let bootChooserPending = null; // holds { remoteState }
 
-// Show the boot chooser when local and remote both have data and they differ.
-function showBootChooser({localState, remoteState}){
-  bootChooserPending = { localState, remoteState };
-  const localFp = stateFingerprint(localState);
-  const remoteFp = stateFingerprint(remoteState);
+// Show welcome screen. Both buttons load the cloud (remote) data — they only DIFFER
+// in their displayed text, which is customizable in Settings.
+function showBootChooser({remoteState}){
+  bootChooserPending = { remoteState };
+  const s = (state.settings || DEFAULT_STATE.settings);
+  const ds = DEFAULT_STATE.settings;
 
-  const localDetail = `${localFp.picks} draft picks · ${localFp.rounds} rounds · ${localFp.reps} subs`;
-  const remoteDetail = `${remoteFp.picks} draft picks · ${remoteFp.rounds} rounds · ${remoteFp.reps} subs`;
-  const remoteBy = remoteState.__lastSavedBy || "unknown";
+  document.getElementById("bootChooserTitle").textContent = s.welcomeTitle || ds.welcomeTitle;
+  document.getElementById("bootChooserSub").textContent = s.welcomeSubtitle || ds.welcomeSubtitle;
+  document.getElementById("bootChooseALabel").textContent = s.welcomeOptionA || ds.welcomeOptionA;
+  document.getElementById("bootChooseBLabel").textContent = s.welcomeOptionB || ds.welcomeOptionB;
 
-  document.getElementById("bootChooseLocalDetail").textContent = localDetail;
-  document.getElementById("bootChooseRemoteDetail").textContent = remoteDetail;
-  document.getElementById("bootChooseRemoteWho").textContent = remoteBy;
+  // Hide detail/note lines — keeping the illusion that this is a friendly welcome
+  document.getElementById("bootChooseADetail").style.display = "none";
+  document.getElementById("bootChooseBDetail").style.display = "none";
+  document.getElementById("bootChooserNote").style.display = "none";
 
   document.getElementById("bootChooserModal").style.display = "flex";
 
-  // Wire (rewires each time so handlers always reference the latest pending data)
-  document.getElementById("bootChooseLocal").onclick = () => {
-    document.getElementById("bootChooserModal").style.display = "none";
-    bootChoiceMade = true;
-    // Keep local state and push it up
-    state = bootChooserPending.localState;
-    sessionHasSeenData = stateFingerprint(state).rounds > 0 || stateFingerprint(state).picks > 0 || stateFingerprint(state).reps > 0;
-    bootChooserPending = null;
-    saveState("boot-choose-local");
-    recalcAllRoundPoints();
-    renderAll();
-    logMessage("Loaded local data and pushed to cloud.", "success");
-  };
-  document.getElementById("bootChooseRemote").onclick = () => {
+  const accept = () => {
     document.getElementById("bootChooserModal").style.display = "none";
     bootChoiceMade = true;
     // Adopt remote
     state = bootChooserPending.remoteState;
-    sessionHasSeenData = stateFingerprint(state).rounds > 0 || stateFingerprint(state).picks > 0 || stateFingerprint(state).reps > 0;
+    const fp = stateFingerprint(state);
+    sessionHasSeenData = (fp.rounds > 0 || fp.picks > 0 || fp.reps > 0);
     bootChooserPending = null;
     cleanupOrphanReplacements();
     writeLocalCache();
     lastCommittedSnapshot = captureSnapshot();
     recalcAllRoundPoints();
     renderAll();
-    logMessage("Loaded cloud data.", "success");
   };
+
+  document.getElementById("bootChooseA").onclick = accept;
+  document.getElementById("bootChooseB").onclick = accept;
 }
 
 // Undo/Redo history - cap at ~30 entries each. Each entry: { state, reason, stamp, by }
@@ -2149,34 +2187,24 @@ function startFirestoreListener(){
           addEphemeralLog(`📥 Remote change by ${savedBy} [${reason || "unknown"}] — ${fp.picks}p ${fp.rounds}r`, "info");
         }
 
-        // ─── FIRST AUTHORITATIVE SNAPSHOT: maybe show boot chooser ───
-        // Only consider showing the chooser when:
-        //   • We haven't yet made a boot decision this session
-        //   • This snapshot comes from the server (not the offline cache)
-        //   • Both local and remote have actual data
-        //   • The two states are meaningfully different
+        // ─── FIRST AUTHORITATIVE SNAPSHOT: show welcome screen ───
+        // On the first server-confirmed snapshot of the session:
+        //   • If remote has data, show the welcome screen and wait for user to tap a button.
+        //     Both buttons load cloud data — they only have different labels for fun.
+        //   • If remote is empty, no welcome needed — just proceed.
         if(!bootChoiceMade && !fromCache){
-          const localFp = stateFingerprint(state);
-          const localHas = localFp.picks > 0 || localFp.rounds > 0 || localFp.reps > 0;
-          const remoteHas = hasRealData;
-          if(localHas && remoteHas){
-            // Compare core fields. If equal, no need to prompt.
-            const localCore = JSON.stringify({ picks: state.draftPicks, rounds: state.roundResults, reps: state.replacements });
-            const remoteCore = JSON.stringify({ picks: data.draftPicks || [], rounds: data.roundResults || {}, reps: data.replacements || [] });
-            if(localCore !== remoteCore){
-              showBootChooser({ localState: deepClone(state), remoteState: mergeRemoteState(data) });
-              return; // wait for user decision
-            }
+          if(hasRealData){
+            showBootChooser({ remoteState: mergeRemoteState(data) });
+            return; // wait for user decision
           }
-          // Otherwise: either local or remote is empty (or they match) → auto-adopt remote
-          bootChoiceMade = true;
+          bootChoiceMade = true; // remote empty, nothing to load
         }
 
-        // Once boot choice is made: detect remote intentional reset
+        // After welcome: if someone hits Reset on another device, show welcome again.
         if(bootChoiceMade && !hasRealData && sessionHasSeenData && reason === "clear-all-data"){
-          addEphemeralLog(`⚠️ Remote was reset by ${savedBy || "another user"}. Choose what to keep.`, "warn");
+          addEphemeralLog(`⚠️ League was reset by ${savedBy || "another user"}.`, "warn");
           bootChoiceMade = false;
-          showBootChooser({ localState: deepClone(state), remoteState: mergeRemoteState(data) });
+          showBootChooser({ remoteState: mergeRemoteState(data) });
           return;
         }
 
@@ -3476,11 +3504,13 @@ function updateResultsPreview(){
 
 function renderResultsPage(){
   const opts = ROUND_SCHEDULE.map(r=>{
-    const saved = state.roundResults[r.round] ? " ✓" : "";
-    return `<option value="${r.round}">Round ${r.round}${saved}</option>`;
+    const rr = state.roundResults[r.round];
+    let marker = "";
+    if(rr?.positions) marker = " ✓";
+    else if(rr?.wildcardPosition) marker = " 🎯"; // wildcard set but no results yet
+    return `<option value="${r.round}">Round ${r.round}${marker}</option>`;
   }).join("");
   const sel = document.getElementById("resultsRoundSelect");
-  // Preserve current selection if user is in middle of editing a round
   const currentSelection = sel.value;
   sel.innerHTML = opts;
   sel.value = currentSelection || String(state.meta.currentRound);
@@ -3930,6 +3960,7 @@ function renderSettingsPage(){
   renderAliases();
   renderAutoBackups();
   renderScoringInputs();
+  renderWelcomeInputs();
 }
 
 function renderDraftOrderInputs(){
@@ -4012,6 +4043,45 @@ function resetScoringRules(){
     },
     { title: "Reset Scoring", okText: "Reset", okClass: "secondary" }
   );
+}
+
+function renderWelcomeInputs(){
+  const s = state.settings || DEFAULT_STATE.settings;
+  const ds = DEFAULT_STATE.settings;
+  const set = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+  set("welcomeTitleInput",    s.welcomeTitle    ?? ds.welcomeTitle);
+  set("welcomeSubtitleInput", s.welcomeSubtitle ?? ds.welcomeSubtitle);
+  set("welcomeOptionAInput",  s.welcomeOptionA  ?? ds.welcomeOptionA);
+  set("welcomeOptionBInput",  s.welcomeOptionB  ?? ds.welcomeOptionB);
+}
+
+function saveWelcomeText(){
+  const get = id => document.getElementById(id)?.value.trim() || "";
+  state.settings = Object.assign({}, state.settings, {
+    welcomeTitle:    get("welcomeTitleInput")    || DEFAULT_STATE.settings.welcomeTitle,
+    welcomeSubtitle: get("welcomeSubtitleInput") || DEFAULT_STATE.settings.welcomeSubtitle,
+    welcomeOptionA:  get("welcomeOptionAInput")  || DEFAULT_STATE.settings.welcomeOptionA,
+    welcomeOptionB:  get("welcomeOptionBInput")  || DEFAULT_STATE.settings.welcomeOptionB
+  });
+  saveState("save-welcome");
+  logMessage("Welcome screen text saved.", "success");
+}
+
+function previewWelcomeText(){
+  // Pretend-show the welcome modal with no action
+  const get = id => document.getElementById(id)?.value.trim() || "";
+  document.getElementById("bootChooserTitle").textContent = get("welcomeTitleInput") || DEFAULT_STATE.settings.welcomeTitle;
+  document.getElementById("bootChooserSub").textContent = get("welcomeSubtitleInput") || DEFAULT_STATE.settings.welcomeSubtitle;
+  document.getElementById("bootChooseALabel").textContent = get("welcomeOptionAInput") || DEFAULT_STATE.settings.welcomeOptionA;
+  document.getElementById("bootChooseBLabel").textContent = get("welcomeOptionBInput") || DEFAULT_STATE.settings.welcomeOptionB;
+  document.getElementById("bootChooseADetail").style.display = "none";
+  document.getElementById("bootChooseBDetail").style.display = "none";
+  document.getElementById("bootChooserNote").style.display = "none";
+  document.getElementById("bootChooserModal").style.display = "flex";
+  // Both buttons just close the preview
+  const close = () => { document.getElementById("bootChooserModal").style.display = "none"; };
+  document.getElementById("bootChooseA").onclick = close;
+  document.getElementById("bootChooseB").onclick = close;
 }
 
 function addTeam(){
@@ -4392,12 +4462,35 @@ function wireEvents(){
     logMessage(`Round ${round} wildcard randomized to ${val}. (Click Submit Results to save.)`, "info");
   };
   document.getElementById("submitResultsBtn").onclick = submitResults;
-  document.getElementById("recalcAllBtn").onclick = () => {
-    recalcAllRoundPoints();
-    saveState("manual-recalc");
-    renderAll();
-    const rounds = Object.keys(state.roundResults).filter(rk => state.roundResults[rk]?.positions).length;
-    logMessage(`Recalculated ${rounds} round${rounds!==1?'s':''} and saved.`, "success");
+  document.getElementById("saveWildcardOnlyBtn").onclick = () => {
+    const round = Number(document.getElementById("resultsRoundSelect").value);
+    const wildcard = Number(document.getElementById("wildcardInput").value);
+    if(!round){ logMessage("Select a round first.", "error"); return; }
+    const s = state.settings || DEFAULT_STATE.settings;
+    if(!wildcard || wildcard < s.wildcardMin || wildcard > s.wildcardMax){
+      logMessage(`Wildcard must be between ${s.wildcardMin} and ${s.wildcardMax}.`, "error");
+      return;
+    }
+    // If round already submitted (positions exist), just update wildcard and recalc
+    const existing = state.roundResults[round];
+    if(existing && existing.positions){
+      existing.wildcardPosition = wildcard;
+      recalcAllRoundPoints();
+      saveState("update-wildcard");
+      renderAll();
+      logMessage(`Round ${round} wildcard updated to ${wildcard}.`, "success");
+    } else {
+      // No results yet — save just the wildcard so it shows on Standings
+      state.roundResults[round] = {
+        submitted: false, round,
+        positions: null, // signals no race results submitted yet
+        wildcardPosition: wildcard,
+        teamPoints: {}, teamFlags: {}
+      };
+      saveState("save-wildcard-only");
+      renderAll();
+      logMessage(`Round ${round} wildcard saved as ${wildcard}. (No race results yet.)`, "success");
+    }
   };
   document.getElementById("deleteRoundResultsBtn").onclick = deleteRoundResults;
   document.getElementById("holeshotSelect").onchange = ()=>{
@@ -4421,6 +4514,8 @@ function wireEvents(){
   document.getElementById("addTeamBtn").onclick = addTeam;
   document.getElementById("saveScoringBtn").onclick = saveScoringRules;
   document.getElementById("resetScoringBtn").onclick = resetScoringRules;
+  document.getElementById("saveWelcomeBtn").onclick = saveWelcomeText;
+  document.getElementById("previewWelcomeBtn").onclick = previewWelcomeText;
   document.getElementById("saveDraftOrderBtn").onclick = saveDraftOrder;
   document.getElementById("randomizeDraftOrderBtn").onclick = randomizeDraftOrder;
   document.getElementById("clearAllBtn").onclick = clearAllData;
