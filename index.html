@@ -644,6 +644,73 @@
       padding: 6px 10px; font-size: 11px;
     }
 
+    /* ─── BOOT CHOOSER ─── */
+    .boot-chooser-modal {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.92);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .boot-chooser-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 460px;
+      width: 100%;
+    }
+    .boot-chooser-box h2 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 26px;
+      letter-spacing: .5px;
+      margin-bottom: 4px;
+    }
+    .boot-chooser-sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 18px;
+    }
+    .boot-chooser-options {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .boot-chooser-option {
+      background: var(--panel-2);
+      border: 1px solid var(--border-2);
+      border-radius: 10px;
+      padding: 14px 16px;
+      text-align: left;
+      cursor: pointer;
+      color: var(--text);
+      transition: border .15s, background .15s;
+    }
+    .boot-chooser-option:hover {
+      border-color: var(--accent);
+      background: rgba(255,77,26,.06);
+    }
+    .boot-chooser-label {
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 4px;
+    }
+    .boot-chooser-detail {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .boot-chooser-note {
+      font-size: 11px;
+      color: var(--gold);
+      background: rgba(232,183,48,.06);
+      border-left: 3px solid var(--gold);
+      padding: 8px 10px;
+      border-radius: 4px;
+    }
+
     /* ─── VERSION BADGE ─── */
     .version-badge {
       display: inline-block;
@@ -1136,6 +1203,26 @@
 
 </head>
 <body>
+  <!-- BOOT CHOOSER MODAL — picks which data source to use when local and remote conflict -->
+  <div id="bootChooserModal" class="boot-chooser-modal" style="display:none;">
+    <div class="boot-chooser-box">
+      <h2>Choose Data to Load</h2>
+      <p class="boot-chooser-sub">There's data both on this device and from the cloud. Pick which one to use.</p>
+      <div class="boot-chooser-options">
+        <button class="boot-chooser-option" id="bootChooseLocal">
+          <div class="boot-chooser-label">Local (this device)</div>
+          <div class="boot-chooser-detail" id="bootChooseLocalDetail">—</div>
+        </button>
+        <button class="boot-chooser-option" id="bootChooseRemote">
+          <div class="boot-chooser-label">Cloud (latest from <span id="bootChooseRemoteWho">—</span>)</div>
+          <div class="boot-chooser-detail" id="bootChooseRemoteDetail">—</div>
+        </button>
+      </div>
+      <div class="boot-chooser-note">
+        ⚠️ Picking "Cloud" replaces local data. Picking "Local" pushes to the cloud — everyone else will load your version on next refresh.
+      </div>
+    </div>
+  </div>
 <div id="toastContainer"></div>
 <div class="app">
 
@@ -1150,7 +1237,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v8.5</span>
+            <span class="version-badge" id="versionBadge">v8.6</span>
           </div>
         </div>
       </div>
@@ -1184,22 +1271,12 @@
   <section id="standingsPage" class="page active">
     <div class="panel">
       <h2>Wildcard Position</h2>
-      <div class="wildcard-info">
-        <div class="wildcard-card" id="wildcardCurrentCard">
-          <div class="label">Last Round</div>
-          <div class="value unset" id="wildcardCurrentValue">—</div>
-          <div class="sub" id="wildcardCurrentSub"></div>
-        </div>
-        <div class="wildcard-card" id="wildcardNextCard">
-          <div class="label">Next Round</div>
-          <div class="value unset" id="wildcardNextValue">—</div>
-          <div class="next-controls">
-            <input type="number" id="wildcardNextInput" placeholder="Set ahead" />
-            <button class="btn secondary" id="wildcardNextRandBtn">🎲</button>
-            <button class="btn green" id="wildcardNextSaveBtn">Set</button>
-          </div>
-        </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <label class="small" for="wildcardViewerSelect">Round:</label>
+        <select id="wildcardViewerSelect" style="flex:1;min-width:120px;max-width:180px;"></select>
+        <div id="wildcardViewerValue" style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:var(--gold);">—</div>
       </div>
+      <div class="small muted" id="wildcardViewerNote" style="margin-top:6px;">Pick a round to see its wildcard position.</div>
     </div>
 
 ```
@@ -1569,7 +1646,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v8.5</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v8.6</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -1686,7 +1763,7 @@ const DEFAULT_STATE = {
     holeshotBonus: 5,
     wildcardBonus: 15,
     wildcardMin: 10,
-    wildcardMax: 22,
+    wildcardMax: 18,
     standbyPercent: 75
   }
 };
@@ -1870,6 +1947,56 @@ function renderUndoRedoBar(){
 // read confirms data exists.
 let sessionHasSeenData = false;
 
+// Boot chooser state - flips to true once the user (or auto-detect) decides which data to load.
+// Until then, the Firestore listener defers final decisions.
+let bootChoiceMade = false;
+let bootChooserPending = null; // holds { localState, remoteState } if waiting for user
+
+// Show the boot chooser when local and remote both have data and they differ.
+function showBootChooser({localState, remoteState}){
+  bootChooserPending = { localState, remoteState };
+  const localFp = stateFingerprint(localState);
+  const remoteFp = stateFingerprint(remoteState);
+
+  const localDetail = `${localFp.picks} draft picks · ${localFp.rounds} rounds · ${localFp.reps} subs`;
+  const remoteDetail = `${remoteFp.picks} draft picks · ${remoteFp.rounds} rounds · ${remoteFp.reps} subs`;
+  const remoteBy = remoteState.__lastSavedBy || "unknown";
+
+  document.getElementById("bootChooseLocalDetail").textContent = localDetail;
+  document.getElementById("bootChooseRemoteDetail").textContent = remoteDetail;
+  document.getElementById("bootChooseRemoteWho").textContent = remoteBy;
+
+  document.getElementById("bootChooserModal").style.display = "flex";
+
+  // Wire (rewires each time so handlers always reference the latest pending data)
+  document.getElementById("bootChooseLocal").onclick = () => {
+    document.getElementById("bootChooserModal").style.display = "none";
+    bootChoiceMade = true;
+    // Keep local state and push it up
+    state = bootChooserPending.localState;
+    sessionHasSeenData = stateFingerprint(state).rounds > 0 || stateFingerprint(state).picks > 0 || stateFingerprint(state).reps > 0;
+    bootChooserPending = null;
+    saveState("boot-choose-local");
+    recalcAllRoundPoints();
+    renderAll();
+    logMessage("Loaded local data and pushed to cloud.", "success");
+  };
+  document.getElementById("bootChooseRemote").onclick = () => {
+    document.getElementById("bootChooserModal").style.display = "none";
+    bootChoiceMade = true;
+    // Adopt remote
+    state = bootChooserPending.remoteState;
+    sessionHasSeenData = stateFingerprint(state).rounds > 0 || stateFingerprint(state).picks > 0 || stateFingerprint(state).reps > 0;
+    bootChooserPending = null;
+    cleanupOrphanReplacements();
+    writeLocalCache();
+    lastCommittedSnapshot = captureSnapshot();
+    recalcAllRoundPoints();
+    renderAll();
+    logMessage("Loaded cloud data.", "success");
+  };
+}
+
 // Undo/Redo history - cap at ~30 entries each. Each entry: { state, reason, stamp, by }
 const UNDO_LIMIT = 30;
 let undoStack = [];
@@ -1913,9 +2040,11 @@ function saveState(reason, options){
   const fp = stateFingerprint();
   const isEmpty = (fp.picks === 0 && fp.rounds === 0 && fp.reps === 0);
 
-  // Defense 1: never save an empty state AFTER we've observed real data this session.
-  if(isEmpty && sessionHasSeenData){
-    logMessage(`⚠️ BLOCKED empty save attempt by ${getUserName()} [${reason}]`, "error");
+  // Defense: never save an accidental empty state after seeing real data.
+  // EXCEPTION: explicit restart actions (clear-all-data) are allowed.
+  const isIntentionalEmpty = (reason === "clear-all-data" || options.allowEmpty);
+  if(isEmpty && sessionHasSeenData && !isIntentionalEmpty){
+    logMessage(`⚠️ BLOCKED accidental empty save [${reason}]`, "error");
     console.error("BLOCKED empty save:", reason, new Error().stack);
     return;
   }
@@ -2020,22 +2149,34 @@ function startFirestoreListener(){
           addEphemeralLog(`📥 Remote change by ${savedBy} [${reason || "unknown"}] — ${fp.picks}p ${fp.rounds}r`, "info");
         }
 
-        // Detect a wipe attempt we need to warn about
-        if(!hasRealData && sessionHasSeenData){
-          addEphemeralLog(`⚠️ WIPE DETECTED from ${savedBy || "unknown"} [${reason || "unknown"}] — refusing to adopt`, "error");
-          // Don't adopt the wipe locally; save our current good data BACK to Firestore.
-          saveState("wipe-recovery");
-          return;
+        // ─── FIRST AUTHORITATIVE SNAPSHOT: maybe show boot chooser ───
+        // Only consider showing the chooser when:
+        //   • We haven't yet made a boot decision this session
+        //   • This snapshot comes from the server (not the offline cache)
+        //   • Both local and remote have actual data
+        //   • The two states are meaningfully different
+        if(!bootChoiceMade && !fromCache){
+          const localFp = stateFingerprint(state);
+          const localHas = localFp.picks > 0 || localFp.rounds > 0 || localFp.reps > 0;
+          const remoteHas = hasRealData;
+          if(localHas && remoteHas){
+            // Compare core fields. If equal, no need to prompt.
+            const localCore = JSON.stringify({ picks: state.draftPicks, rounds: state.roundResults, reps: state.replacements });
+            const remoteCore = JSON.stringify({ picks: data.draftPicks || [], rounds: data.roundResults || {}, reps: data.replacements || [] });
+            if(localCore !== remoteCore){
+              showBootChooser({ localState: deepClone(state), remoteState: mergeRemoteState(data) });
+              return; // wait for user decision
+            }
+          }
+          // Otherwise: either local or remote is empty (or they match) → auto-adopt remote
+          bootChoiceMade = true;
         }
 
-        // NEW: if remote has FEWER submitted rounds than local, local is ahead
-        // (this happens when a previous save didn't reach Firestore before a refresh).
-        // Push local up to Firestore instead of adopting stale remote.
-        // Only check rounds — picks/reps could legitimately differ between users mid-edit.
-        const localFp = stateFingerprint(state);
-        if(localFp.rounds > fp.rounds){
-          addEphemeralLog(`📤 Local has ${localFp.rounds} round(s), remote has ${fp.rounds} — pushing local up`, "warn");
-          saveState("local-ahead-recovery");
+        // Once boot choice is made: detect remote intentional reset
+        if(bootChoiceMade && !hasRealData && sessionHasSeenData && reason === "clear-all-data"){
+          addEphemeralLog(`⚠️ Remote was reset by ${savedBy || "another user"}. Choose what to keep.`, "warn");
+          bootChoiceMade = false;
+          showBootChooser({ localState: deepClone(state), remoteState: mergeRemoteState(data) });
           return;
         }
 
@@ -2064,6 +2205,7 @@ function startFirestoreListener(){
       // Guard: only seed if we haven't already checked this session AND local has data.
       if(initialSeedChecked) return;
       initialSeedChecked = true;
+      bootChoiceMade = true; // no remote data → no chooser needed
 
       const localHasData = state.draftPicks.length > 0
                         || Object.keys(state.roundResults).length > 0
@@ -2360,72 +2502,52 @@ function renderStandings(){
 }
 
 function renderWildcardPanel(){
-  const curEl       = document.getElementById("wildcardCurrentValue");
-  const curSubEl    = document.getElementById("wildcardCurrentSub");
-  const curLabelEl  = document.querySelector("#wildcardCurrentCard .label");
-  const nextEl      = document.getElementById("wildcardNextValue");
-  const nextInpEl   = document.getElementById("wildcardNextInput");
-  if(!curEl) return;
+  const sel = document.getElementById("wildcardViewerSelect");
+  const valEl = document.getElementById("wildcardViewerValue");
+  const noteEl = document.getElementById("wildcardViewerNote");
+  if(!sel) return;
 
-  // "Last Round" = the highest round number with submitted results
+  // Build round options for all rounds in the season
+  const total = state.meta.totalRounds || 17;
+  const prevSelection = sel.value;
+  const opts = [];
+  for(let r = 1; r <= total; r++){
+    opts.push(`<option value="${r}">Round ${r}</option>`);
+  }
+  sel.innerHTML = opts.join("");
+
+  // Default to the most recent submitted round, or round 1
   const submittedRounds = Object.keys(state.roundResults)
     .map(Number)
-    .filter(rn => state.roundResults[rn]?.wildcardPosition);
-  const lastRound = submittedRounds.length ? Math.max(...submittedRounds) : null;
-
-  // "Next Round" = current round (the one you're about to submit results for)
-  const nextRound = state.meta.currentRound;
-
-  // ─── Last Round display ───
-  if(curLabelEl) curLabelEl.textContent = "Last Round";
-  if(lastRound){
-    const wc = state.roundResults[lastRound].wildcardPosition;
-    curEl.textContent = wc;
-    curEl.classList.remove("unset");
-    curSubEl.textContent = `Round ${lastRound}`;
+    .filter(rn => state.roundResults[rn]?.wildcardPosition)
+    .sort((a,b) => b-a);
+  if(prevSelection){
+    sel.value = prevSelection;
+  } else if(submittedRounds.length > 0){
+    sel.value = String(submittedRounds[0]);
   } else {
-    curEl.textContent = "—";
-    curEl.classList.add("unset");
-    curSubEl.textContent = "No rounds submitted yet";
+    sel.value = "1";
   }
 
-  // ─── Next Round display ───
-  if(nextRound > state.meta.totalRounds){
-    nextEl.textContent = "—";
-    nextEl.classList.add("unset");
-    nextInpEl.disabled = true;
-    nextInpEl.placeholder = "Season over";
-    document.getElementById("wildcardNextRandBtn").disabled = true;
-    document.getElementById("wildcardNextSaveBtn").disabled = true;
+  updateWildcardViewer();
+}
+
+function updateWildcardViewer(){
+  const sel = document.getElementById("wildcardViewerSelect");
+  const valEl = document.getElementById("wildcardViewerValue");
+  const noteEl = document.getElementById("wildcardViewerNote");
+  if(!sel) return;
+  const round = Number(sel.value);
+  const rr = state.roundResults[round];
+  const saved = rr?.wildcardPosition;
+  if(saved){
+    valEl.textContent = String(saved);
+    valEl.style.color = "var(--gold)";
+    noteEl.textContent = `Round ${round} wildcard finish position`;
   } else {
-    const nextPre = state.preWildcards?.[nextRound];
-    if(nextPre){
-      nextEl.textContent = nextPre;
-      nextEl.classList.remove("unset");
-    } else {
-      nextEl.textContent = "—";
-      nextEl.classList.add("unset");
-    }
-    nextInpEl.disabled = false;
-    document.getElementById("wildcardNextSaveBtn").disabled = false;
-    nextInpEl.placeholder = `Round ${nextRound}`;
-    const s = state.settings || DEFAULT_STATE.settings;
-    nextInpEl.min = s.wildcardMin;
-    nextInpEl.max = s.wildcardMax;
-    // Show round number under the value
-    const nextSub = document.querySelector("#wildcardNextCard .sub");
-    if(nextSub) nextSub.textContent = `Round ${nextRound}`;
-    // Lock randomize button if this round already had a randomize
-    const randBtn = document.getElementById("wildcardNextRandBtn");
-    if(state.randomizedWildcards?.[nextRound]){
-      randBtn.disabled = true;
-      randBtn.title = "Already randomized this round";
-      randBtn.textContent = "🔒";
-    } else {
-      randBtn.disabled = false;
-      randBtn.title = "Randomize wildcard";
-      randBtn.textContent = "🎲";
-    }
+    valEl.textContent = "Not set";
+    valEl.style.color = "var(--muted)";
+    noteEl.textContent = "This round hasn't been submitted yet — set it on the Race Results page.";
   }
 }
 
@@ -3968,20 +4090,33 @@ function randomizeDraftOrder(){
 
 function clearAllData(){
   customConfirm(
-    "This will wipe ALL league data — draft picks, replacements, team names, rider pool, race results, standings, aliases, and message log. This cannot be undone.",
+    "This will wipe league data — draft picks, replacements, race results, standings, message log. Your Settings (scoring rules, wildcard range, etc.) will be preserved.",
     () => {
-      // Second confirmation for this destructive action
       customConfirm(
         "Are you absolutely sure? Last chance to cancel.",
         () => {
+          // Preserve settings, team names, rider pool, and aliases — those are setup, not gameplay
+          const savedSettings = deepClone(state.settings);
+          const savedTeams = deepClone(state.teams);
+          const savedRiders = deepClone(state.riders);
+          const savedAliases = deepClone(state.riderAliases);
+          const savedDraftOrder = deepClone(state.draftOrder);
+          const savedMeta = deepClone(state.meta);
           state = deepClone(DEFAULT_STATE);
+          state.settings = savedSettings;
+          state.teams = savedTeams;
+          state.riders = savedRiders;
+          state.riderAliases = savedAliases;
+          state.draftOrder = savedDraftOrder;
+          state.meta = savedMeta;
+          state.meta.currentRound = 1;
           saveState("clear-all-data"); renderAll();
-          logMessage("All league data has been reset.", "warn");
+          logMessage("League data reset. Settings preserved.", "warn");
         },
-        { title: "Final Confirmation", okText: "Yes, Wipe Everything" }
+        { title: "Final Confirmation", okText: "Yes, Reset" }
       );
     },
-    { title: "Reset All Data", okText: "Continue" }
+    { title: "Reset League Data", okText: "Continue" }
   );
 }
 
@@ -4203,42 +4338,8 @@ function wireEvents(){
   document.getElementById("undoBtn").onclick = doUndo;
   document.getElementById("redoBtn").onclick = doRedo;
 
-  // Wildcard preset for next round
-  document.getElementById("wildcardNextRandBtn").onclick = () => {
-    const nextRound = state.meta.currentRound;
-    if(state.randomizedWildcards?.[nextRound]){
-      logMessage(`Round ${nextRound} wildcard has already been randomized. Use Set to override manually.`, "error");
-      return;
-    }
-    const s = state.settings || DEFAULT_STATE.settings;
-    const lo = s.wildcardMin || 10;
-    const hi = s.wildcardMax || 22;
-    const val = Math.floor(Math.random()*(hi-lo+1))+lo;
-    document.getElementById("wildcardNextInput").value = val;
-    // Save the randomized value AND mark this round as already-randomized
-    if(!state.preWildcards) state.preWildcards = {};
-    if(!state.randomizedWildcards) state.randomizedWildcards = {};
-    state.preWildcards[nextRound] = val;
-    state.randomizedWildcards[nextRound] = true;
-    saveState("randomize-wildcard");
-    renderAll();
-    logMessage(`Round ${nextRound} wildcard randomized to ${val}.`, "success");
-  };
-  document.getElementById("wildcardNextSaveBtn").onclick = () => {
-    const val = Number(document.getElementById("wildcardNextInput").value);
-    const s = state.settings || DEFAULT_STATE.settings;
-    if(!val || val < s.wildcardMin || val > s.wildcardMax){
-      logMessage(`Wildcard must be between ${s.wildcardMin} and ${s.wildcardMax}.`, "error");
-      return;
-    }
-    const nextRound = state.meta.currentRound;
-    if(nextRound > state.meta.totalRounds){ logMessage("Season is over.", "error"); return; }
-    if(!state.preWildcards) state.preWildcards = {};
-    state.preWildcards[nextRound] = val;
-    saveState("set-wildcard");
-    renderAll();
-    logMessage(`Round ${nextRound} wildcard set to ${val}.`, "success");
-  };
+  // Wildcard viewer dropdown
+  document.getElementById("wildcardViewerSelect").onchange = updateWildcardViewer;
 
   // Sub picker modal
   document.getElementById("subPickerCancelBtn").onclick = closeSubPicker;
@@ -4282,20 +4383,13 @@ function wireEvents(){
   document.getElementById("clearPositionsBtn").onclick = clearPositionDropdowns;
   document.getElementById("randomizeWildcardBtn").onclick = ()=>{
     const round = Number(document.getElementById("resultsRoundSelect").value);
-    if(state.randomizedWildcards?.[round]){
-      logMessage(`Round ${round} wildcard has already been randomized. Set manually instead.`, "error");
-      return;
-    }
     const s = state.settings || DEFAULT_STATE.settings;
     const lo = s.wildcardMin || 10;
-    const hi = s.wildcardMax || 22;
+    const hi = s.wildcardMax || 18;
     const val = Math.floor(Math.random()*(hi-lo+1))+lo;
     document.getElementById("wildcardInput").value = val;
-    if(!state.randomizedWildcards) state.randomizedWildcards = {};
-    state.randomizedWildcards[round] = true;
-    saveState("randomize-wildcard");
     updateResultsPreview();
-    logMessage(`Round ${round} wildcard randomized to ${val}.`, "success");
+    logMessage(`Round ${round} wildcard randomized to ${val}. (Click Submit Results to save.)`, "info");
   };
   document.getElementById("submitResultsBtn").onclick = submitResults;
   document.getElementById("recalcAllBtn").onclick = () => {
