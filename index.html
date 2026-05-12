@@ -681,6 +681,96 @@
       border-color: var(--accent);
     }
 
+    /* ─── CHAIN ROWS (single line per drafted slot) ─── */
+    .chain-row {
+      background: var(--panel-2);
+      border: 1px solid var(--border-2);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-top: 8px;
+    }
+    .chain-row-header {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 6px;
+    }
+    .chain-row-body {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .chain-flow {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+    .chain-rider {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .chain-rider-orig {
+      border-color: rgba(61,184,245,.35);
+    }
+    .chain-rider-sub {
+      border-color: rgba(232,183,48,.35);
+    }
+    .chain-sub-badge {
+      font-size: 9px;
+      font-weight: 800;
+      background: rgba(232,183,48,.2);
+      color: var(--gold);
+      padding: 1px 5px;
+      border-radius: 4px;
+      letter-spacing: .5px;
+    }
+    .chain-rider-name {
+      white-space: nowrap;
+    }
+    .chain-arrow {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .remove-last-sub {
+      background: transparent;
+      color: var(--red);
+      border: 1px solid var(--red);
+      border-radius: 4px;
+      width: 20px; height: 20px;
+      padding: 0;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      margin-left: 2px;
+    }
+    .remove-last-sub:hover { background: var(--red); color: white; }
+    .add-sub-btn-chain {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .add-sub-btn-chain:hover { background: var(--accent-hover); }
+
     /* ─── RIDER SWAP PAGE ─── */
     .swap-intro {
       padding: 12px 14px;
@@ -886,21 +976,80 @@
       padding: 12px 14px;
       cursor: pointer;
       border-bottom: 1px solid var(--border-2);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
     }
     .sub-picker-option:last-child { border-bottom: none; }
     .sub-picker-option:hover { background: var(--panel-2); }
     .sub-picker-option.selected {
-      background: rgba(255,77,26,.12);
+      background: rgba(255,77,26,.08);
       border-left: 3px solid var(--accent);
       padding-left: 11px;
+    }
+    .sub-picker-option-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
     .sub-picker-option-name { font-weight: 600; }
     .sub-picker-option-tag {
       font-size: 11px;
       color: var(--muted);
+    }
+    .sub-picker-option-stats:empty { display: none; }
+    .sub-picker-option-stats {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-2);
+    }
+    .rider-stats-header {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .rider-stats-header strong { color: var(--text); }
+    .rider-stats-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+    .rider-stat-row {
+      display: grid;
+      grid-template-columns: 36px 1fr 40px;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      background: var(--panel-2);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .rider-stat-row.dnp { opacity: .5; }
+    .rider-stat-round {
+      font-weight: 700;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .rider-stat-detail {
+      font-size: 11px;
+      color: var(--text);
+    }
+    .rider-stat-points {
+      text-align: right;
+      font-weight: 700;
+    }
+    .rider-stats-empty {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      padding: 8px;
+    }
+    .rider-stats-note {
+      margin-top: 6px;
+      font-size: 10px;
+      color: var(--muted);
+      font-style: italic;
+      text-align: center;
     }
     .sub-picker-actions {
       display: flex;
@@ -1001,7 +1150,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v8.3</span>
+            <span class="version-badge" id="versionBadge">v8.4</span>
           </div>
         </div>
       </div>
@@ -1419,7 +1568,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v8.3</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v8.4</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -2448,32 +2597,7 @@ function renderTeamSwapList(){
           <span class="team-swap-chev">▼</span>
         </div>
         <div class="team-swap-body">
-          ${slots.map(slot => buildRiderSwapRow(team.id, slot)).join("")}
-          ${subCount > 0 ? `
-            <div class="active-subs-section">
-              <h4>Active Subs</h4>
-              ${activeSubs.map(r => {
-                const orig = riderById(r.originalRiderId)?.name || "?";
-                const rep  = riderById(r.replacementRiderId)?.name || "?";
-                // Only the deepest sub in the chain gets the "+ Add Sub" button
-                // (extending the chain only makes sense from its current end)
-                const isDeepest = !activeSubs.some(other => other.originalRiderId === r.replacementRiderId);
-                return `
-                  <div class="active-sub-row">
-                    <div class="active-sub-info">
-                      <span class="active-sub-flow">${escHtml(orig)}</span>
-                      <span class="active-sub-arrow">→</span>
-                      <span class="active-sub-flow">${escHtml(rep)}</span>
-                    </div>
-                    <div class="active-sub-actions">
-                      ${isDeepest ? `<button class="add-sub-btn-mini" data-team-id="${team.id}" data-rider-id="${r.replacementRiderId}">+ Add Sub</button>` : ''}
-                      <button class="remove-sub-btn" data-team-id="${team.id}" data-orig-id="${r.originalRiderId}">Remove</button>
-                    </div>
-                  </div>
-                `;
-              }).join("")}
-            </div>
-          ` : ''}
+          ${slots.map(slot => buildChainRow(team.id, slot)).join("")}
         </div>
       </div>
     `;
@@ -2487,22 +2611,23 @@ function renderTeamSwapList(){
     };
   });
 
-  // Wire Add Sub buttons (both main rider rows and active-sub rows) → open modal
-  host.querySelectorAll(".add-sub-btn, .add-sub-btn-mini").forEach(btn => {
+  // Wire Add Sub buttons → open modal
+  host.querySelectorAll(".add-sub-btn-chain").forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
       openSubPicker(Number(btn.dataset.teamId), Number(btn.dataset.riderId));
     };
   });
 
-  // Wire Remove Sub buttons
-  host.querySelectorAll(".remove-sub-btn").forEach(btn => {
+  // Wire Remove (X) buttons - removes the last link in the chain
+  host.querySelectorAll(".remove-last-sub").forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
       const teamId = Number(btn.dataset.teamId);
       const origId = Number(btn.dataset.origId);
+      const subName = riderById(Number(btn.dataset.subId))?.name || "sub";
       customConfirm(
-        `Remove the sub for ${riderById(origId)?.name}?`,
+        `Remove ${subName} from the chain?`,
         () => restoreOriginalRider(teamId, origId),
         { title: "Remove Sub", okText: "Remove" }
       );
@@ -2510,32 +2635,46 @@ function renderTeamSwapList(){
   });
 }
 
-function buildRiderSwapRow(teamId, slot){
-  // Determine the "active" rider in this slot - last in chain
-  const activeRiderId = slot.chain[slot.chain.length - 1];
-  const activeName = riderById(activeRiderId)?.name || "?";
+function buildChainRow(teamId, slot){
+  // One row per drafted slot. Shows the full chain inline:
+  //   Joey Savatgy → Eli Tomac → Shane McElrath  [+ Add Sub]
+  const chain = slot.chain;
   const pickNum = getOverallPickNumber(teamId, slot.originalRiderId);
-  const isOriginalActive = slot.chain.length === 1;
+  const activeRiderId = chain[chain.length - 1];
 
-  let chainHtml = "";
-  if(slot.chain.length > 1){
-    const chainNames = slot.chain.map((rid,i) => {
-      const name = riderById(rid)?.name || "?";
-      return i === 0 ? `${name} (Pick #${pickNum})` : name;
-    });
-    chainHtml = `<div class="rider-swap-chain">Chain: ${chainNames.map(escHtml).join(' → ')}</div>`;
-  }
+  // Build the chain display as spans with arrows between
+  const chainParts = chain.map((rid, i) => {
+    const name = riderById(rid)?.name || "?";
+    const isLast = i === chain.length - 1;
+    const subBadge = i > 0 ? `<span class="chain-sub-badge">SUB</span>` : '';
+    const removeBtn = isLast && i > 0
+      ? `<button class="remove-last-sub" data-team-id="${teamId}" data-orig-id="${chain[i-1]}" data-sub-id="${rid}" title="Remove this sub">✕</button>`
+      : '';
+    return `
+      <span class="chain-rider ${i===0 ? 'chain-rider-orig' : 'chain-rider-sub'}">
+        ${subBadge}
+        <span class="chain-rider-name">${escHtml(name)}</span>
+        ${removeBtn}
+      </span>
+    `;
+  }).join('<span class="chain-arrow">→</span>');
 
   return `
-    <div class="rider-swap-row">
-      <div style="flex:1;min-width:0;">
-        <div class="rider-swap-name">${escHtml(activeName)}</div>
-        <div class="rider-swap-sub">${isOriginalActive ? `Pick #${pickNum}` : `Sub L${slot.chain.length-1} for ${escHtml(slot.displayName)}`}</div>
-        ${chainHtml}
+    <div class="chain-row">
+      <div class="chain-row-header">
+        <span class="chain-pick-num">Pick #${pickNum}</span>
       </div>
-      <button class="add-sub-btn" data-team-id="${teamId}" data-rider-id="${activeRiderId}">+ Add Sub</button>
+      <div class="chain-row-body">
+        <div class="chain-flow">${chainParts}</div>
+        <button class="add-sub-btn-chain" data-team-id="${teamId}" data-rider-id="${activeRiderId}">+ Add Sub</button>
+      </div>
     </div>
   `;
+}
+
+function buildRiderSwapRow(teamId, slot){
+  // (Legacy — replaced by buildChainRow. Kept as a stub so any old references don't crash.)
+  return buildChainRow(teamId, slot);
 }
 
 function openSubPicker(teamId, injuredRiderId){
@@ -2573,24 +2712,99 @@ function openSubPicker(teamId, injuredRiderId){
       const tag = picks && picks.length ? `Pick #${picks.join(", #")}` : "Undrafted";
       return `
         <div class="sub-picker-option" data-rider-id="${r.id}">
-          <span class="sub-picker-option-name">${escHtml(r.name)}</span>
-          <span class="sub-picker-option-tag">${tag}</span>
+          <div class="sub-picker-option-main">
+            <span class="sub-picker-option-name">${escHtml(r.name)}</span>
+            <span class="sub-picker-option-tag">${tag}</span>
+          </div>
+          <div class="sub-picker-option-stats" id="subStats_${r.id}"></div>
         </div>
       `;
     }).join("");
 
     list.querySelectorAll(".sub-picker-option").forEach(opt => {
       opt.onclick = () => {
-        list.querySelectorAll(".sub-picker-option").forEach(o => o.classList.remove("selected"));
-        opt.classList.add("selected");
-        subPickerState.selectedReplacementId = Number(opt.dataset.riderId);
-        document.getElementById("subPickerConfirmBtn").disabled = false;
+        const riderId = Number(opt.dataset.riderId);
+        // Toggle stats panel for this rider
+        const wasSelected = opt.classList.contains("selected");
+        list.querySelectorAll(".sub-picker-option").forEach(o => {
+          o.classList.remove("selected");
+          const s = o.querySelector(".sub-picker-option-stats");
+          if(s) s.innerHTML = "";
+        });
+        if(!wasSelected){
+          opt.classList.add("selected");
+          renderRiderRoundStats(riderId, opt.querySelector(".sub-picker-option-stats"));
+          subPickerState.selectedReplacementId = riderId;
+          document.getElementById("subPickerConfirmBtn").disabled = false;
+        } else {
+          subPickerState.selectedReplacementId = null;
+          document.getElementById("subPickerConfirmBtn").disabled = true;
+        }
       };
     });
   }
 
   document.getElementById("subPickerConfirmBtn").disabled = true;
   document.getElementById("subPickerModal").classList.add("open");
+}
+
+// Compute and render a rider's per-round point history into the given container.
+function renderRiderRoundStats(riderId, container){
+  if(!container) return;
+  const s = state.settings || DEFAULT_STATE.settings;
+  const HS = s.holeshotBonus || 0;
+  const WC = s.wildcardBonus || 0;
+
+  const submittedRounds = Object.keys(state.roundResults)
+    .map(Number)
+    .filter(rn => state.roundResults[rn]?.positions)
+    .sort((a,b) => a - b);
+
+  if(submittedRounds.length === 0){
+    container.innerHTML = `<div class="rider-stats-empty">No race results yet.</div>`;
+    return;
+  }
+
+  let totalPoints = 0;
+  let rounds_raced = 0;
+  const rows = submittedRounds.map(rn => {
+    const rr = state.roundResults[rn];
+    const finish = rr.positions[riderId];
+    if(!finish){
+      return `<div class="rider-stat-row dnp">
+        <span class="rider-stat-round">R${rn}</span>
+        <span class="rider-stat-detail">Didn't race</span>
+        <span class="rider-stat-points">—</span>
+      </div>`;
+    }
+    rounds_raced++;
+    const base = pointsForFinish(finish);
+    const isHS = rr.holeshotRiderId === riderId;
+    const isWC = Number(rr.wildcardPosition) === Number(finish);
+    const hsBonus = isHS ? HS : 0;
+    const wcBonus = isWC ? WC : 0;
+    const total = base + hsBonus + wcBonus;
+    totalPoints += total;
+    const bits = [`P${finish}`];
+    if(isHS) bits.push(`<span style="color:var(--accent-2);">+HS</span>`);
+    if(isWC) bits.push(`<span style="color:var(--gold);">+WC</span>`);
+    return `<div class="rider-stat-row">
+      <span class="rider-stat-round">R${rn}</span>
+      <span class="rider-stat-detail">${bits.join(' · ')}</span>
+      <span class="rider-stat-points">${total}</span>
+    </div>`;
+  }).join("");
+
+  const avg = rounds_raced > 0 ? (totalPoints / rounds_raced).toFixed(1) : "0";
+  container.innerHTML = `
+    <div class="rider-stats-header">
+      <span>Total: <strong>${totalPoints}</strong></span>
+      <span>Avg/race: <strong>${avg}</strong></span>
+      <span>Races: <strong>${rounds_raced}/${submittedRounds.length}</strong></span>
+    </div>
+    <div class="rider-stats-list">${rows}</div>
+    <div class="rider-stats-note">Raw points if drafted (subs score 75%, rounded)</div>
+  `;
 }
 
 function closeSubPicker(){
