@@ -1244,7 +1244,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v8.8</span>
+            <span class="version-badge" id="versionBadge">v8.9</span>
           </div>
         </div>
       </div>
@@ -1687,7 +1687,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v8.8</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v8.9</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -1744,7 +1744,7 @@ const LEAGUE_DOC = db.collection("league").doc("state");
 const STORAGE_KEY = "fantasySmxLeague_v2";
 
 const DEFAULT_STATE = {
-  meta: { currentRound: 1, season: 2026, totalRounds: 17 },
+  meta: { currentRound: 1, season: 2026, totalRounds: 17, viewerWildcardRound: 1 },
   teams: [
     { id:1, name:"Jaren" },{ id:2, name:"Savannah" },{ id:3, name:"Jaycee" },
     { id:4, name:"Maisy" },{ id:5, name:"Grandpa" },{ id:6, name:"Grandma" },
@@ -1834,6 +1834,9 @@ function migrateState(merged){
   if(!Array.isArray(merged.messageLog))   merged.messageLog = [];
   if(typeof merged.preWildcards !== "object" || merged.preWildcards === null) merged.preWildcards = {};
   if(typeof merged.randomizedWildcards !== "object" || merged.randomizedWildcards === null) merged.randomizedWildcards = {};
+  // Meta migration — ensure new fields exist
+  if(!merged.meta) merged.meta = deepClone(DEFAULT_STATE.meta);
+  if(!merged.meta.viewerWildcardRound) merged.meta.viewerWildcardRound = 1;
   // Settings migration — preserve old fields, add new defaults
   const defaultSettings = deepClone(DEFAULT_STATE.settings);
   merged.settings = Object.assign(defaultSettings, merged.settings || {});
@@ -2531,31 +2534,19 @@ function renderStandings(){
 
 function renderWildcardPanel(){
   const sel = document.getElementById("wildcardViewerSelect");
-  const valEl = document.getElementById("wildcardViewerValue");
-  const noteEl = document.getElementById("wildcardViewerNote");
   if(!sel) return;
 
   // Build round options for all rounds in the season
   const total = state.meta.totalRounds || 17;
-  const prevSelection = sel.value;
   const opts = [];
   for(let r = 1; r <= total; r++){
     opts.push(`<option value="${r}">Round ${r}</option>`);
   }
   sel.innerHTML = opts.join("");
 
-  // Default to the most recent submitted round, or round 1
-  const submittedRounds = Object.keys(state.roundResults)
-    .map(Number)
-    .filter(rn => state.roundResults[rn]?.wildcardPosition)
-    .sort((a,b) => b-a);
-  if(prevSelection){
-    sel.value = prevSelection;
-  } else if(submittedRounds.length > 0){
-    sel.value = String(submittedRounds[0]);
-  } else {
-    sel.value = "1";
-  }
+  // Use the shared/persisted viewer round; fall back to 1
+  const savedView = Number(state.meta?.viewerWildcardRound) || 1;
+  sel.value = String(Math.min(Math.max(savedView, 1), total));
 
   updateWildcardViewer();
 }
@@ -2577,6 +2568,22 @@ function updateWildcardViewer(){
     valEl.style.color = "var(--muted)";
     noteEl.textContent = "This round hasn't been submitted yet — set it on the Race Results page.";
   }
+}
+
+// User changed the wildcard viewer dropdown - persist to Firestore so everyone
+// sees the same round when they load the standings page.
+function saveWildcardViewerRound(){
+  const sel = document.getElementById("wildcardViewerSelect");
+  if(!sel) return;
+  const round = Number(sel.value);
+  if(!round) return;
+  if(state.meta?.viewerWildcardRound === round) {
+    updateWildcardViewer(); // no save needed, just refresh display
+    return;
+  }
+  state.meta.viewerWildcardRound = round;
+  saveState("change-wildcard-view");
+  updateWildcardViewer();
 }
 
 function renderRoundTotals(){
@@ -4409,7 +4416,7 @@ function wireEvents(){
   document.getElementById("redoBtn").onclick = doRedo;
 
   // Wildcard viewer dropdown
-  document.getElementById("wildcardViewerSelect").onchange = updateWildcardViewer;
+  document.getElementById("wildcardViewerSelect").onchange = saveWildcardViewerRound;
 
   // Sub picker modal
   document.getElementById("subPickerCancelBtn").onclick = closeSubPicker;
