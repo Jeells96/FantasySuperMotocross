@@ -1150,7 +1150,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v8.4</span>
+            <span class="version-badge" id="versionBadge">v8.5</span>
           </div>
         </div>
       </div>
@@ -1346,6 +1346,7 @@
     <div class="toolbar" style="margin-top:14px;">
       <button class="btn green" id="submitResultsBtn">Submit Results</button>
       <button class="btn red" id="deleteRoundResultsBtn">Delete Round</button>
+      <button class="btn secondary" id="recalcAllBtn">🔄 Recalc &amp; Save</button>
     </div>
   </div>
 
@@ -1568,7 +1569,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v8.4</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v8.5</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -1942,13 +1943,13 @@ function saveState(reason, options){
       // Now that the save is committed, update the snapshot
       lastCommittedSnapshot = captureSnapshot();
       // Local-only log (don't persist to state since that would re-trigger saves)
-      addEphemeralLog(`💾 Saved by ${getUserName()} [${reason}] — ${fp.picks}p ${fp.rounds}r`, "info");
+      addEphemeralLog(`✓ Saved [${reason}] — ${fp.picks}p ${fp.rounds}r`, "success");
     })
     .catch(err => {
       localWritePending = false;
       setConnStatus("offline");
       console.error("Firestore write failed:", err);
-      addEphemeralLog(`❌ Save failed: ${err.message || err}`, "error");
+      addEphemeralLog(`❌ SAVE FAILED [${reason}]: ${err.message || err}`, "error");
     });
 }
 
@@ -2024,6 +2025,17 @@ function startFirestoreListener(){
           addEphemeralLog(`⚠️ WIPE DETECTED from ${savedBy || "unknown"} [${reason || "unknown"}] — refusing to adopt`, "error");
           // Don't adopt the wipe locally; save our current good data BACK to Firestore.
           saveState("wipe-recovery");
+          return;
+        }
+
+        // NEW: if remote has FEWER submitted rounds than local, local is ahead
+        // (this happens when a previous save didn't reach Firestore before a refresh).
+        // Push local up to Firestore instead of adopting stale remote.
+        // Only check rounds — picks/reps could legitimately differ between users mid-edit.
+        const localFp = stateFingerprint(state);
+        if(localFp.rounds > fp.rounds){
+          addEphemeralLog(`📤 Local has ${localFp.rounds} round(s), remote has ${fp.rounds} — pushing local up`, "warn");
+          saveState("local-ahead-recovery");
           return;
         }
 
@@ -4286,6 +4298,13 @@ function wireEvents(){
     logMessage(`Round ${round} wildcard randomized to ${val}.`, "success");
   };
   document.getElementById("submitResultsBtn").onclick = submitResults;
+  document.getElementById("recalcAllBtn").onclick = () => {
+    recalcAllRoundPoints();
+    saveState("manual-recalc");
+    renderAll();
+    const rounds = Object.keys(state.roundResults).filter(rk => state.roundResults[rk]?.positions).length;
+    logMessage(`Recalculated ${rounds} round${rounds!==1?'s':''} and saved.`, "success");
+  };
   document.getElementById("deleteRoundResultsBtn").onclick = deleteRoundResults;
   document.getElementById("holeshotSelect").onchange = ()=>{
     const val = Number(document.getElementById("holeshotSelect").value||0);
