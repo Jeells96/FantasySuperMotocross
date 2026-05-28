@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -9,11 +8,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 
   <!-- Firebase v10 CDN (compat / global build — no bundler needed) -->
-
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-
   <style>
     :root {
       --bg: #080a0d;
@@ -719,6 +715,55 @@
       border-radius: 4px;
     }
 
+    /* ─── DRAFT ORDER STRIP ─── */
+    .draft-strip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow-x: auto;
+      padding: 10px 4px 12px;
+      margin-bottom: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .draft-strip-team {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: var(--panel-2);
+      border: 1px solid var(--border-2);
+      min-width: 64px;
+    }
+    .draft-strip-team.current {
+      background: rgba(255,77,26,.15);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    .draft-strip-team.done { opacity: .45; }
+    .draft-strip-name {
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      max-width: 80px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .draft-strip-team.current .draft-strip-name { color: var(--accent); }
+    .draft-strip-pickcount { font-size: 9px; color: var(--muted); }
+    .draft-strip-arrow { flex-shrink: 0; font-size: 14px; color: var(--muted); }
+    .draft-strip-round {
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0 8px;
+    }
+
     /* ─── VERSION BADGE ─── */
     .version-badge {
       display: inline-block;
@@ -1208,7 +1253,6 @@
       .alias-add-form { grid-template-columns: 1fr 1fr; }
     }
   </style>
-
 </head>
 <body>
   <!-- WELCOME MODAL — shown on every first load. Both buttons load cloud data. -->
@@ -1234,7 +1278,6 @@
 <div class="app">
 
   <!-- HERO -->
-
   <section class="hero">
     <div class="hero-inner">
       <div class="hero-top">
@@ -1244,7 +1287,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v9.2</span>
+            <span class="version-badge" id="versionBadge">v9.3</span>
           </div>
         </div>
       </div>
@@ -1252,7 +1295,6 @@
   </section>
 
   <!-- UNDO / REDO BAR -->
-
   <div class="undo-bar">
     <button class="btn secondary btn-mini" id="undoBtn" disabled>
       <span id="undoLabel">↶ Undo</span>
@@ -1261,7 +1303,6 @@
   </div>
 
   <!-- NAV -->
-
   <nav class="nav">
     <button class="tab-btn active" data-page="standingsPage">Standings</button>
     <button class="tab-btn" data-page="draftPage">Draft Board</button>
@@ -1270,11 +1311,9 @@
   </nav>
 
   <!-- Settings gear (floats top-right; click → Settings page) -->
-
-<button id="settingsGearBtn" class="settings-gear" title="Settings" aria-label="Settings">⚙</button>
+  <button id="settingsGearBtn" class="settings-gear" title="Settings" aria-label="Settings">⚙</button>
 
   <!-- ═══ STANDINGS PAGE ═══ -->
-
   <section id="standingsPage" class="page active">
     <div class="panel">
       <h2>Wildcard Position</h2>
@@ -1285,48 +1324,44 @@
       <div class="small muted" id="wildcardViewerStamp" style="margin-top:8px;"></div>
     </div>
 
-```
-<div class="panel">
-  <h2>Season Standings</h2>
-  <div class="small muted" style="margin-bottom:8px;">Tap a team row to see weekly breakdown</div>
-  <div class="scoring-legend">
-    <span class="legend-item"><span class="legend-swatch sw-hs"></span>Holeshot bonus</span>
-    <span class="legend-item"><span class="legend-swatch sw-wc"></span>Wildcard bonus</span>
-    <span class="legend-item"><span class="legend-swatch sw-missing"></span>Rider didn't race — needs standby</span>
-  </div>
-  <div class="scroll-x">
-    <table id="roundTotalsTable">
-      <thead></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</div>
+    <div class="panel">
+      <h2>Season Standings</h2>
+      <div class="small muted" style="margin-bottom:8px;">Tap a team row to see weekly breakdown</div>
+      <div class="scoring-legend">
+        <span class="legend-item"><span class="legend-swatch sw-hs"></span>Holeshot bonus</span>
+        <span class="legend-item"><span class="legend-swatch sw-wc"></span>Wildcard bonus</span>
+        <span class="legend-item"><span class="legend-swatch sw-missing"></span>Rider didn't race — needs standby</span>
+      </div>
+      <div class="scroll-x">
+        <table id="roundTotalsTable">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
 
-<div class="panel">
-  <h2>Team Rosters</h2>
-  <div class="small muted" style="margin-bottom:8px;">Tap a team to see weekly breakdown</div>
-  <div class="scroll-x">
-    <table id="standingsTable">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Team</th>
-          <th>Rider 1</th>
-          <th>Rider 2</th>
-          <th>Total</th>
-          <th>Last Rnd</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</div>
-```
-
+    <div class="panel">
+      <h2>Team Rosters</h2>
+      <div class="small muted" style="margin-bottom:8px;">Tap a team to see weekly breakdown</div>
+      <div class="scroll-x">
+        <table id="standingsTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Team</th>
+              <th>Rider 1</th>
+              <th>Rider 2</th>
+              <th>Total</th>
+              <th>Last Rnd</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
   </section>
 
   <!-- ═══ DRAFT BOARD PAGE ═══ -->
-
   <section id="draftPage" class="page">
     <div class="panel">
       <h2>Draft Board</h2>
@@ -1334,6 +1369,7 @@
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;" id="nowPickingPick"></div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--accent);" id="nowPickingName"></div>
       </div>
+      <div id="draftOrderStrip" class="draft-strip" style="display:none;"></div>
       <div class="small muted" style="margin-bottom:10px;">
         Tap a rider to pick them for a team. First pick on a team = Round 1, second = Round 2.
       </div>
@@ -1352,7 +1388,6 @@
   </section>
 
   <!-- ═══ RIDER SWAP PAGE ═══ -->
-
   <section id="swapPage" class="page">
     <div class="swap-intro">
       Add an <strong>injury sub</strong> for any rider on any team. Subs only score for rounds where the rider above them didn't race, and earn <strong>75%</strong> of the points (rounded). You can chain subs — even subs for subs.
@@ -1365,7 +1400,6 @@
   </section>
 
   <!-- Sub picker modal -->
-
   <div class="sub-picker-modal" id="subPickerModal">
     <div class="sub-picker-box">
       <h3 id="subPickerTitle">Add Sub</h3>
@@ -1380,7 +1414,6 @@
   </div>
 
   <!-- ═══ RESULTS PAGE ═══ -->
-
   <section id="resultsPage" class="page">
     <div class="grid-2">
       <div class="panel">
@@ -1390,312 +1423,315 @@
           <button class="btn secondary" id="openResultsSiteBtn" type="button">🔗 Open supercrosslive.com</button>
         </div>
 
-```
-    <div style="margin-bottom:14px;">
-      <label class="small" style="display:block;margin-bottom:6px;">Upload PDF Results File</label>
-      <label id="pdfUploadLabel" style="display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--panel-2);border:1px dashed var(--border);border-radius:10px;padding:12px 14px;transition:.15s;">
-        <span style="font-size:20px;">📄</span>
-        <span id="pdfUploadText" class="small">Tap to choose PDF from Files…</span>
-        <input type="file" id="pdfFileInput" accept="application/pdf,.pdf" style="display:none;" />
-      </label>
-      <div class="small" style="margin-top:6px;">Supports Format A (standard race result, auto-detects holeshot) and Format B (triple crown overall, holeshot unknown).</div>
-    </div>
+        <div style="margin-bottom:14px;">
+          <label class="small" style="display:block;margin-bottom:6px;">Paste Race Results (text)</label>
+          <textarea id="pasteResultsInput" rows="5" placeholder="Paste the full results table here (copied from the results website)…" style="font-family:monospace;font-size:11px;resize:vertical;width:100%;"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <button class="btn green" id="parsePasteBtn">Fill Finishing Order from Text</button>
+            <button class="btn secondary btn-mini" id="clearPasteBtn">Clear Text</button>
+          </div>
+          <div class="small" id="pasteResultMsg" style="margin-top:6px;"></div>
+        </div>
 
-    <!-- ─── POSITION DROPDOWNS ─── -->
-    <div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <h3 style="margin:0;">Finishing Order</h3>
-        <button class="btn secondary" id="clearPositionsBtn" style="font-size:12px;padding:6px 10px;">Clear All</button>
-      </div>
-      <div class="results-grid" id="resultsDropdowns"></div>
-    </div>
+        <div style="margin-bottom:14px;">
+          <label class="small" style="display:block;margin-bottom:6px;">Or Upload PDF Results File</label>
+          <label id="pdfUploadLabel" style="display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--panel-2);border:1px dashed var(--border);border-radius:10px;padding:12px 14px;transition:.15s;">
+            <span style="font-size:20px;">📄</span>
+            <span id="pdfUploadText" class="small">Tap to choose PDF from Files…</span>
+            <input type="file" id="pdfFileInput" accept="application/pdf,.pdf" style="display:none;" />
+          </label>
+          <div class="small" style="margin-top:6px;">Supports Format A (standard race result, auto-detects holeshot) and Format B (triple crown overall, holeshot unknown).</div>
+        </div>
 
-    <!-- ─── HOLESHOT + WILDCARD ─── -->
-    <div class="two-col" style="margin-top:12px;">
-      <div>
-        <label class="small">Holeshot Winner</label>
-        <select id="holeshotSelect" style="margin-top:4px;"></select>
-        <div class="hs-note unknown" id="holeshotNote">Holeshot: Unknown — select manually if needed</div>
-      </div>
-      <div>
-        <label class="small" id="wildcardLabel">Wildcard Position</label>
-        <div style="display:flex;gap:8px;margin-top:4px;">
-          <input type="number" id="wildcardInput" placeholder="—" />
-          <button class="btn secondary" id="randomizeWildcardBtn" type="button">Rand</button>
+        <!-- ─── POSITION DROPDOWNS ─── -->
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <h3 style="margin:0;">Finishing Order</h3>
+            <button class="btn secondary" id="clearPositionsBtn" style="font-size:12px;padding:6px 10px;">Clear All</button>
+          </div>
+          <div class="results-grid" id="resultsDropdowns"></div>
+        </div>
+
+        <!-- ─── HOLESHOT + WILDCARD ─── -->
+        <div class="two-col" style="margin-top:12px;">
+          <div>
+            <label class="small">Holeshot Winner</label>
+            <select id="holeshotSelect" style="margin-top:4px;"></select>
+            <div class="hs-note unknown" id="holeshotNote">Holeshot: Unknown — select manually if needed</div>
+          </div>
+          <div>
+            <label class="small" id="wildcardLabel">Wildcard Position</label>
+            <div style="display:flex;gap:8px;margin-top:4px;">
+              <input type="number" id="wildcardInput" placeholder="—" />
+              <button class="btn secondary" id="randomizeWildcardBtn" type="button">Rand</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar" style="margin-top:14px;">
+          <button class="btn green" id="submitResultsBtn">Submit Results</button>
+          <button class="btn red" id="deleteRoundResultsBtn">Delete Round</button>
+          <button class="btn secondary" id="saveWildcardOnlyBtn">📌 Save Wildcard Only</button>
+          <button class="btn" id="displayWildcardBtn">📣 Display on Standings</button>
         </div>
       </div>
+
+      <div class="panel">
+        <h2>Preview</h2>
+        <div id="resultsPreview" class="small">No results loaded yet.</div>
+      </div>
     </div>
-
-    <div class="toolbar" style="margin-top:14px;">
-      <button class="btn green" id="submitResultsBtn">Submit Results</button>
-      <button class="btn red" id="deleteRoundResultsBtn">Delete Round</button>
-      <button class="btn secondary" id="saveWildcardOnlyBtn">📌 Save Wildcard Only</button>
-      <button class="btn" id="displayWildcardBtn">📣 Display on Standings</button>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h2>Preview</h2>
-    <div id="resultsPreview" class="small">No results loaded yet.</div>
-  </div>
-</div>
-```
-
   </section>
 
   <!-- ═══ SETTINGS PAGE ═══ -->
-
   <section id="settingsPage" class="page">
 
-```
-<details class="settings-panel" open>
-  <summary>
-    <span>Your Name (for audit log)</span>
-    <span class="chev">▼</span>
-  </summary>
-  <div class="settings-body">
-    <div class="small" style="margin-bottom:8px;">
-      Name that appears in the Message Log when you make changes. Per-device (not shared).
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <input id="userNameInput" placeholder="Your name (e.g. Jaren)" />
-      <button class="btn green btn-mini" id="saveUserNameBtn">Save</button>
-    </div>
-  </div>
-</details>
-
-<details class="settings-panel">
-  <summary>
-    <span>Teams</span>
-    <span class="chev">▼</span>
-  </summary>
-  <div class="settings-body">
-    <div class="small" style="margin-bottom:10px;">
-      Edit team names. Add new teams, or remove teams that have no draft picks. Changes save automatically.
-    </div>
-    <div id="teamNameInputs"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
-      <input id="newTeamNameInput" placeholder="New team name" style="flex:1 1 160px;" />
-      <button class="btn green btn-mini" id="addTeamBtn">+ Add Team</button>
-    </div>
-    <div style="margin-top:10px;">
-      <button class="btn green" id="saveTeamsBtn">Save Team Names</button>
-    </div>
-  </div>
-</details>
-
-<details class="settings-panel" id="draftOrderPanel">
-  <summary>
-    <span>Draft Order</span>
-    <span class="chev">▼</span>
-  </summary>
-  <div class="settings-body">
-    <div id="draftOrderInputs"></div>
-    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn green" id="saveDraftOrderBtn">Save Draft Order</button>
-      <button class="btn secondary" id="randomizeDraftOrderBtn">🎲 Randomize</button>
-    </div>
-  </div>
-</details>
-
-<details class="settings-panel">
-  <summary>
-    <span>Rider Pool</span>
-    <span class="chev">▼</span>
-  </summary>
-  <div class="settings-body">
-    <div class="small" style="margin-bottom:10px;">
-      Edit rider names here to match your PDF exactly. Tap a field to change it, then tap Save.
-      Riders already drafted or with race results can still be renamed — just don't delete them.
-    </div>
-    <div id="riderPoolList"></div>
-    <div class="pool-add-form">
-      <input id="newRiderName" placeholder="Rider name (e.g. Jett Lawrence)" />
-      <button class="btn green btn-mini" id="addNewRiderBtn">+ Add Rider</button>
-    </div>
-    <div style="margin-top:10px;">
-      <button class="btn green" id="savePoolBtn">Save All Rider Names</button>
-    </div>
-  </div>
-</details>
-
-<details class="settings-panel">
-  <summary>
-    <span>PDF Name Aliases</span>
-    <span class="chev">▼</span>
-  </summary>
-  <div class="settings-body">
-    <div class="small" style="margin-bottom:10px;">
-      If a rider's name in the PDF doesn't match the roster (e.g. "R.J. Hampshire" vs "RJ Hampshire"),
-      add an alias here so the PDF parser knows they're the same person.
-    </div>
-    <div id="aliasList"></div>
-    <div class="alias-add-form">
-      <input id="newAliasPdfName" placeholder="Name as it appears in PDF" />
-      <select id="newAliasRiderSelect"></select>
-      <button class="btn green btn-mini" id="addAliasBtn">+ Add Alias</button>
-    </div>
-  </div>
-</details>
-
-<details class="settings-panel">
-  <summary>
-    <span>Scoring Rules</span>
-    <span class="chev">▼</span>
-  </summary>
-  <div class="settings-body">
-    <div class="small" style="margin-bottom:10px;">
-      Configure how points are awarded. Changes apply to all past and future races and recompute standings instantly.
-    </div>
-
-    <h3 style="font-size:13px;margin-bottom:8px;">Points by Finish Position</h3>
-    <div id="pointsTableInputs" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px;"></div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-      <div>
-        <label class="small">Pos. 15+ (lower tier)</label>
-        <input type="number" id="pointsLowerTierInput" min="0" />
+    <details class="settings-panel" open>
+      <summary>
+        <span>Your Name (for audit log)</span>
+        <span class="chev">▼</span>
+      </summary>
+      <div class="settings-body">
+        <div class="small" style="margin-bottom:8px;">
+          Name that appears in the Message Log when you make changes. Per-device (not shared).
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="userNameInput" placeholder="Your name (e.g. Jaren)" />
+          <button class="btn green btn-mini" id="saveUserNameBtn">Save</button>
+        </div>
       </div>
-      <div>
-        <label class="small">Holeshot Bonus</label>
-        <input type="number" id="holeshotBonusInput" min="0" />
-      </div>
-      <div>
-        <label class="small">Wildcard Bonus</label>
-        <input type="number" id="wildcardBonusInput" min="0" />
-      </div>
-      <div>
-        <label class="small">Standby %</label>
-        <input type="number" id="standbyPercentInput" min="0" max="100" />
-      </div>
-    </div>
+    </details>
 
-    <h3 style="font-size:13px;margin-bottom:8px;">Wildcard Range</h3>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-      <div>
-        <label class="small">Min position</label>
-        <input type="number" id="wildcardMinInput" min="1" max="22" />
+    <details class="settings-panel">
+      <summary>
+        <span>Teams</span>
+        <span class="chev">▼</span>
+      </summary>
+      <div class="settings-body">
+        <div class="small" style="margin-bottom:10px;">
+          Edit team names. Add new teams, or remove teams that have no draft picks. Changes save automatically.
+        </div>
+        <div id="teamNameInputs"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+          <input id="newTeamNameInput" placeholder="New team name" style="flex:1 1 160px;" />
+          <button class="btn green btn-mini" id="addTeamBtn">+ Add Team</button>
+        </div>
+        <div style="margin-top:10px;">
+          <button class="btn green" id="saveTeamsBtn">Save Team Names</button>
+        </div>
       </div>
-      <div>
-        <label class="small">Max position</label>
-        <input type="number" id="wildcardMaxInput" min="1" max="22" />
-      </div>
-    </div>
+    </details>
 
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn green" id="saveScoringBtn">Save Scoring Rules</button>
-      <button class="btn secondary" id="resetScoringBtn">Reset to Defaults</button>
-    </div>
-  </div>
-</details>
+    <details class="settings-panel" id="draftOrderPanel">
+      <summary>
+        <span>Draft Order</span>
+        <span class="chev">▼</span>
+      </summary>
+      <div class="settings-body">
+        <div id="draftOrderInputs"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn green" id="saveDraftOrderBtn">Save Draft Order</button>
+          <button class="btn secondary" id="randomizeDraftOrderBtn">🎲 Randomize</button>
+        </div>
+      </div>
+    </details>
 
-<details class="settings-panel">
-  <summary>
-    <span>Welcome Screen</span>
-    <span class="chev">▼</span>
-  </summary>
-  <div class="settings-body">
-    <div class="small" style="margin-bottom:10px;">
-      Customize the welcome screen text everyone sees when they open the app.
-    </div>
-    <div style="display:grid;gap:10px;margin-bottom:12px;">
-      <div>
-        <label class="small">Title</label>
-        <input id="welcomeTitleInput" />
+    <details class="settings-panel">
+      <summary>
+        <span>Rider Pool</span>
+        <span class="chev">▼</span>
+      </summary>
+      <div class="settings-body">
+        <div class="small" style="margin-bottom:10px;">
+          Edit rider names here to match your PDF exactly. Tap a field to change it, then tap Save.
+          Riders already drafted or with race results can still be renamed — just don't delete them.
+        </div>
+        <div id="riderPoolList"></div>
+        <div class="pool-add-form">
+          <input id="newRiderName" placeholder="Rider name (e.g. Jett Lawrence)" />
+          <button class="btn green btn-mini" id="addNewRiderBtn">+ Add Rider</button>
+        </div>
+        <div style="margin-top:10px;">
+          <button class="btn green" id="savePoolBtn">Save All Rider Names</button>
+        </div>
       </div>
-      <div>
-        <label class="small">Subtitle</label>
-        <input id="welcomeSubtitleInput" />
-      </div>
-      <div>
-        <label class="small">Option A label</label>
-        <input id="welcomeOptionAInput" />
-      </div>
-      <div>
-        <label class="small">Option B label</label>
-        <input id="welcomeOptionBInput" />
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn green" id="saveWelcomeBtn">Save Welcome Text</button>
-      <button class="btn secondary" id="previewWelcomeBtn">Preview</button>
-    </div>
-  </div>
-</details>
+    </details>
 
-<details class="settings-panel">
-  <summary>
-    <span>Backup &amp; Restore</span>
-    <span class="chev">▼</span>
-  </summary>
-  <div class="settings-body">
-    <div class="small" style="margin-bottom:10px;">
-      Export a snapshot of the full league state as text. Paste it back in to restore.
-      Good to save after your draft finishes — just in case.
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      <button class="btn" id="exportBackupBtn">📋 Copy Backup to Clipboard</button>
-      <button class="btn secondary" id="showBackupBtn">Show Backup Text</button>
-    </div>
-    <textarea id="backupTextarea" rows="6" placeholder="Paste backup here to restore…" style="font-family:monospace;font-size:11px;resize:vertical;"></textarea>
-    <div style="margin-top:10px;">
-      <button class="btn red" id="restoreBackupBtn">Restore from Pasted Text</button>
-    </div>
-    <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-2);">
-      <div class="small" style="margin-bottom:8px;">
-        <strong>Auto-Backups</strong> — the app keeps the 5 most recent states on this device.
-        If something goes wrong, restore one from here.
+    <details class="settings-panel">
+      <summary>
+        <span>PDF Name Aliases</span>
+        <span class="chev">▼</span>
+      </summary>
+      <div class="settings-body">
+        <div class="small" style="margin-bottom:10px;">
+          If a rider's name in the PDF doesn't match the roster (e.g. "R.J. Hampshire" vs "RJ Hampshire"),
+          add an alias here so the PDF parser knows they're the same person.
+        </div>
+        <div id="aliasList"></div>
+        <div class="alias-add-form">
+          <input id="newAliasPdfName" placeholder="Name as it appears in PDF" />
+          <select id="newAliasRiderSelect"></select>
+          <button class="btn green btn-mini" id="addAliasBtn">+ Add Alias</button>
+        </div>
       </div>
-      <div id="autoBackupList" class="small"></div>
-    </div>
-  </div>
-</details>
+    </details>
 
-<details class="settings-panel">
-  <summary>
-    <span>Message Log <span id="messageLogCount" class="log-count-badge">0</span></span>
-    <span class="chev">▼</span>
-  </summary>
-  <div class="settings-body">
-    <div class="small" style="margin-bottom:10px;">
-      All notifications get logged here instead of popping up as alerts.
-    </div>
-    <div id="messageLogList"></div>
-    <div style="margin-top:10px;">
-      <button class="btn secondary" id="clearLogBtn">Clear Log</button>
-    </div>
-  </div>
-</details>
+    <details class="settings-panel">
+      <summary>
+        <span>Scoring Rules</span>
+        <span class="chev">▼</span>
+      </summary>
+      <div class="settings-body">
+        <div class="small" style="margin-bottom:10px;">
+          Configure how points are awarded. Changes apply to all past and future races and recompute standings instantly.
+        </div>
 
-<details class="settings-panel danger-panel">
-  <summary>
-    <span style="color:#ff9898;">Reset / Clear All</span>
-    <span class="chev">▼</span>
-  </summary>
-  <div class="settings-body">
-    <div class="small" style="margin-bottom:12px;">
-      <strong>Clear Draft Only</strong> wipes all picks and injury replacements but keeps team names, rider pool, and race results.
-    </div>
-    <button class="btn secondary" id="clearDraftBtn" style="margin-bottom:14px;">Clear Draft Only</button>
-    <div class="small" style="margin-bottom:12px;">
-      <strong>Reset All Data</strong> wipes everything — draft picks, replacements, team names, results, standings, message log, and settings.
-    </div>
-    <button class="btn red" id="clearAllBtn">RESET ALL DATA</button>
-    <div class="small" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border-2);margin-bottom:8px;">
-      <strong>Clear Local Storage</strong> — emergency recovery if your device runs into storage issues. Wipes only this device's cache and reloads from the cloud. Doesn't affect anyone else.
-    </div>
-    <button class="btn secondary" id="clearLocalCacheBtn">🧹 Clear Local Cache &amp; Reload</button>
-  </div>
-</details>
-```
+        <h3 style="font-size:13px;margin-bottom:8px;">Points by Finish Position</h3>
+        <div id="pointsTableInputs" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px;"></div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+          <div>
+            <label class="small">Pos. 15+ (lower tier)</label>
+            <input type="number" id="pointsLowerTierInput" min="0" />
+          </div>
+          <div>
+            <label class="small">Holeshot Bonus</label>
+            <input type="number" id="holeshotBonusInput" min="0" />
+          </div>
+          <div>
+            <label class="small">Wildcard Bonus</label>
+            <input type="number" id="wildcardBonusInput" min="0" />
+          </div>
+          <div>
+            <label class="small">Standby %</label>
+            <input type="number" id="standbyPercentInput" min="0" max="100" />
+          </div>
+        </div>
+
+        <h3 style="font-size:13px;margin-bottom:8px;">Wildcard Range</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+          <div>
+            <label class="small">Min position</label>
+            <input type="number" id="wildcardMinInput" min="1" max="22" />
+          </div>
+          <div>
+            <label class="small">Max position</label>
+            <input type="number" id="wildcardMaxInput" min="1" max="22" />
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn green" id="saveScoringBtn">Save Scoring Rules</button>
+          <button class="btn secondary" id="resetScoringBtn">Reset to Defaults</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="settings-panel">
+      <summary>
+        <span>Welcome Screen</span>
+        <span class="chev">▼</span>
+      </summary>
+      <div class="settings-body">
+        <div class="small" style="margin-bottom:10px;">
+          Customize the welcome screen text everyone sees when they open the app.
+        </div>
+        <div style="display:grid;gap:10px;margin-bottom:12px;">
+          <div>
+            <label class="small">Title</label>
+            <input id="welcomeTitleInput" />
+          </div>
+          <div>
+            <label class="small">Subtitle</label>
+            <input id="welcomeSubtitleInput" />
+          </div>
+          <div>
+            <label class="small">Option A label</label>
+            <input id="welcomeOptionAInput" />
+          </div>
+          <div>
+            <label class="small">Option B label</label>
+            <input id="welcomeOptionBInput" />
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn green" id="saveWelcomeBtn">Save Welcome Text</button>
+          <button class="btn secondary" id="previewWelcomeBtn">Preview</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="settings-panel">
+      <summary>
+        <span>Backup &amp; Restore</span>
+        <span class="chev">▼</span>
+      </summary>
+      <div class="settings-body">
+        <div class="small" style="margin-bottom:10px;">
+          Export a snapshot of the full league state as text. Paste it back in to restore.
+          Good to save after your draft finishes — just in case.
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <button class="btn" id="exportBackupBtn">📋 Copy Backup to Clipboard</button>
+          <button class="btn secondary" id="showBackupBtn">Show Backup Text</button>
+        </div>
+        <textarea id="backupTextarea" rows="6" placeholder="Paste backup here to restore…" style="font-family:monospace;font-size:11px;resize:vertical;"></textarea>
+        <div style="margin-top:10px;">
+          <button class="btn red" id="restoreBackupBtn">Restore from Pasted Text</button>
+        </div>
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-2);">
+          <div class="small" style="margin-bottom:8px;">
+            <strong>Auto-Backups</strong> — the app keeps the 5 most recent states on this device.
+            If something goes wrong, restore one from here.
+          </div>
+          <div id="autoBackupList" class="small"></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="settings-panel">
+      <summary>
+        <span>Message Log <span id="messageLogCount" class="log-count-badge">0</span></span>
+        <span class="chev">▼</span>
+      </summary>
+      <div class="settings-body">
+        <div class="small" style="margin-bottom:10px;">
+          All notifications get logged here instead of popping up as alerts.
+        </div>
+        <div id="messageLogList"></div>
+        <div style="margin-top:10px;">
+          <button class="btn secondary" id="clearLogBtn">Clear Log</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="settings-panel danger-panel">
+      <summary>
+        <span style="color:#ff9898;">Reset / Clear All</span>
+        <span class="chev">▼</span>
+      </summary>
+      <div class="settings-body">
+        <div class="small" style="margin-bottom:12px;">
+          <strong>Clear Draft Only</strong> wipes all picks and injury replacements but keeps team names, rider pool, and race results.
+        </div>
+        <button class="btn secondary" id="clearDraftBtn" style="margin-bottom:14px;">Clear Draft Only</button>
+        <div class="small" style="margin-bottom:12px;">
+          <strong>Reset All Data</strong> wipes everything — draft picks, replacements, team names, results, standings, message log, and settings.
+        </div>
+        <button class="btn red" id="clearAllBtn">RESET ALL DATA</button>
+        <div class="small" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border-2);margin-bottom:8px;">
+          <strong>Clear Local Storage</strong> — emergency recovery if your device runs into storage issues. Wipes only this device's cache and reloads from the cloud. Doesn't affect anyone else.
+        </div>
+        <button class="btn secondary" id="clearLocalCacheBtn">🧹 Clear Local Cache &amp; Reload</button>
+      </div>
+    </details>
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.2</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.3</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
-
 <div class="popup" id="confirmPopup">
   <div class="popup-card" style="max-width:420px;">
     <div class="popup-head">
@@ -1712,7 +1748,6 @@
 </div>
 
 <!-- ─── RIDER / TEAM POPUP ─── -->
-
 <div class="popup" id="riderPopup">
   <div class="popup-card">
     <div class="popup-head">
@@ -3128,6 +3163,7 @@ function renderNowPicking(){
     banner.style.background = "rgba(45,212,110,.08)";
     banner.style.borderColor = "rgba(45,212,110,.3)";
     nameEl.style.color   = "var(--green)";
+    renderDraftStrip(fullOrder, -1);
     return;
   }
 
@@ -3146,6 +3182,58 @@ function renderNowPicking(){
   nameEl.style.color         = "var(--accent)";
   pickEl.textContent  = `Now Picking — ${pickLabel}`;
   nameEl.textContent  = team?.name || "Unknown";
+
+  renderDraftStrip(fullOrder, nextPickIndex);
+}
+
+// Render a horizontal strip of the full snake-draft sequence with current picker
+// highlighted and a direction arrow showing which way the draft is moving.
+function renderDraftStrip(fullOrder, currentIndex){
+  const strip = document.getElementById("draftOrderStrip");
+  if(!strip) return;
+
+  const teamsCount = state.teams.length;
+  // Direction: Round 1 = forward (→), Round 2 = backward (←)
+  const inRound2 = currentIndex >= teamsCount;
+  const dirArrow = currentIndex === -1 ? "" : (inRound2 ? "←" : "→");
+
+  let html = "";
+  fullOrder.forEach((teamId, i) => {
+    const team = teamById(teamId);
+    const round = i < teamsCount ? 1 : 2;
+    const pickInRound = (i % teamsCount) + 1;
+    const done = i < currentIndex || currentIndex === -1;
+    const current = i === currentIndex;
+
+    // Insert a round divider + direction arrow when round changes
+    if(i === teamsCount){
+      html += `<span class="draft-strip-round">R2 ←</span>`;
+    } else if(i === 0){
+      html += `<span class="draft-strip-round">R1 →</span>`;
+    }
+
+    const cls = current ? "current" : (done ? "done" : "");
+    html += `
+      <div class="draft-strip-team ${cls}">
+        <span class="draft-strip-name">${escHtml(team?.name || "?")}</span>
+        <span class="draft-strip-pickcount">${round}.${pickInRound}</span>
+      </div>
+    `;
+    // Arrow between teams (within a round)
+    if(i !== fullOrder.length - 1 && i !== teamsCount - 1){
+      const arrow = (i < teamsCount - 1) ? "→" : "←";
+      html += `<span class="draft-strip-arrow">${arrow}</span>`;
+    }
+  });
+
+  strip.innerHTML = html;
+  strip.style.display = "flex";
+
+  // Auto-scroll so the current picker is visible
+  const currentEl = strip.querySelector(".draft-strip-team.current");
+  if(currentEl){
+    currentEl.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }
 }
 
 function renderRiderGrid(){
@@ -3637,6 +3725,59 @@ function normalizeRiderName(n){
     .trim();
 }
 
+// ─── PASTE-TEXT RESULTS PARSER ───────────────────────────────────────────────
+function dedupeDoubledName(raw){
+  raw = String(raw).trim();
+  const words = raw.split(/\s+/);
+  if(words.length >= 2 && words.length % 2 === 0){
+    const half = words.length / 2;
+    const first = words.slice(0, half).join(" ");
+    const second = words.slice(half).join(" ");
+    if(first.toLowerCase() === second.toLowerCase()) return first;
+  }
+  return raw;
+}
+
+function parsePastedResults(text){
+  const lines = text.split(/\r?\n/).map(l => l.replace(/\s+$/,"")).filter(l => l.trim());
+  const rows = [];
+  lines.forEach(line => {
+    let cols = line.includes("\t") ? line.split("\t") : line.split(/\s{2,}/);
+    cols = cols.map(c => c.trim()).filter(c => c.length);
+    if(cols.length < 2) return;
+    const pos = parseInt(cols[0], 10);
+    if(!pos || pos < 1) return;
+    const name = dedupeDoubledName(cols[1]);
+    if(!name) return;
+    rows.push({ position: pos, name });
+  });
+  return rows;
+}
+
+function applyPastedResults(rows){
+  for(let pos=1; pos<=22; pos++){
+    const sel = document.getElementById(`pos_${pos}`);
+    if(sel) sel.value = "";
+  }
+  const matched = [];
+  const unmatched = [];
+  rows.forEach(row => {
+    const rider = resolveNameToRider(row.name);
+    if(rider){
+      if(row.position >= 1 && row.position <= 22){
+        const sel = document.getElementById(`pos_${row.position}`);
+        if(sel){ sel.value = String(rider.id); matched.push({ pos: row.position, name: rider.name }); }
+      }
+    } else {
+      unmatched.push(row.name);
+    }
+  });
+  validateDropdownDuplicates();
+  updateResultsPreview();
+  return { matched, unmatched };
+}
+
+// ═══════════════════════════════════════════════════
 // Lookup a name in either the roster or the user's alias list
 function resolveNameToRider(rawName){
   const norm = normalizeRiderName(rawName);
@@ -4507,6 +4648,29 @@ function wireEvents(){
     if(file && file.type==="application/pdf") parsePdfFile(file);
   });
   document.getElementById("clearPositionsBtn").onclick = clearPositionDropdowns;
+
+  // Paste-text results
+  document.getElementById("parsePasteBtn").onclick = () => {
+    const text = document.getElementById("pasteResultsInput").value;
+    const msgEl = document.getElementById("pasteResultMsg");
+    if(!text.trim()){ msgEl.textContent = "Paste some results first."; msgEl.style.color = "var(--red)"; return; }
+    const rows = parsePastedResults(text);
+    if(rows.length === 0){ msgEl.textContent = "Couldn't find any result rows in that text."; msgEl.style.color = "var(--red)"; return; }
+    const { matched, unmatched } = applyPastedResults(rows);
+    let msg = `Filled ${matched.length} rider${matched.length!==1?'s':''} from ${rows.length} parsed rows.`;
+    if(unmatched.length){
+      // Only mention unmatched that AREN'T just non-roster riders — but we can't tell,
+      // so just note how many weren't in our pool.
+      msg += ` ${unmatched.length} name(s) weren't in your rider pool (ignored).`;
+    }
+    msgEl.textContent = msg;
+    msgEl.style.color = matched.length ? "var(--green)" : "var(--gold)";
+    logMessage(`Pasted results: ${matched.length} riders matched.`, "success");
+  };
+  document.getElementById("clearPasteBtn").onclick = () => {
+    document.getElementById("pasteResultsInput").value = "";
+    document.getElementById("pasteResultMsg").textContent = "";
+  };
   document.getElementById("randomizeWildcardBtn").onclick = ()=>{
     const round = Number(document.getElementById("resultsRoundSelect").value);
     const s = state.settings || DEFAULT_STATE.settings;
