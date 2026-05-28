@@ -717,51 +717,55 @@
 
     /* ─── DRAFT ORDER STRIP ─── */
     .draft-strip {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      overflow-x: auto;
-      padding: 10px 4px 12px;
       margin-bottom: 12px;
-      -webkit-overflow-scrolling: touch;
     }
-    .draft-strip-team {
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 3px;
-      padding: 6px 10px;
-      border-radius: 8px;
-      background: var(--panel-2);
-      border: 1px solid var(--border-2);
-      min-width: 64px;
-    }
-    .draft-strip-team.current {
-      background: rgba(255,77,26,.15);
-      border-color: var(--accent);
-      box-shadow: 0 0 0 1px var(--accent);
-    }
-    .draft-strip-team.done { opacity: .45; }
-    .draft-strip-name {
+    .draft-strip-roundlabel {
       font-size: 11px;
-      font-weight: 700;
-      white-space: nowrap;
-      max-width: 80px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .draft-strip-team.current .draft-strip-name { color: var(--accent); }
-    .draft-strip-pickcount { font-size: 9px; color: var(--muted); }
-    .draft-strip-arrow { flex-shrink: 0; font-size: 14px; color: var(--muted); }
-    .draft-strip-round {
-      flex-shrink: 0;
-      font-size: 10px;
       font-weight: 700;
       letter-spacing: .5px;
       text-transform: uppercase;
       color: var(--muted);
-      padding: 0 8px;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+    .draft-strip-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      flex-wrap: nowrap;
+    }
+    .draft-strip-team {
+      flex: 1 1 0;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 2px;
+      border-radius: 7px;
+      background: var(--panel-2);
+      border: 1px solid var(--border-2);
+    }
+    .draft-strip-team.current {
+      background: rgba(255,77,26,.18);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    .draft-strip-team.done { opacity: .4; }
+    .draft-strip-name {
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .draft-strip-team.current .draft-strip-name { color: var(--accent); }
+    .draft-strip-arrow {
+      flex: 0 0 auto;
+      font-size: 11px;
+      color: var(--muted);
+      padding: 0 1px;
     }
 
     /* ─── VERSION BADGE ─── */
@@ -1287,7 +1291,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v9.3</span>
+            <span class="version-badge" id="versionBadge">v9.4</span>
           </div>
         </div>
       </div>
@@ -1423,6 +1427,26 @@
           <button class="btn secondary" id="openResultsSiteBtn" type="button">🔗 Open supercrosslive.com</button>
         </div>
 
+        <!-- PIN LOCK BANNER (shown when locked) -->
+        <div id="resultsLockBanner" style="margin:14px 0;padding:14px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:18px;">🔒</span>
+            <strong style="font-size:14px;">Editing Locked</strong>
+          </div>
+          <div class="small muted" style="margin-bottom:10px;">Enter the PIN to submit or change results. You can still view past results below without it.</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="password" id="resultsPinInput" inputmode="numeric" placeholder="PIN" style="max-width:120px;letter-spacing:3px;" />
+            <button class="btn green" id="resultsPinBtn" type="button">Unlock</button>
+          </div>
+          <div class="small" id="resultsPinMsg" style="margin-top:6px;"></div>
+        </div>
+
+        <!-- EDIT AREA (hidden until unlocked) -->
+        <div id="resultsEditArea" style="display:none;">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+          <button class="btn secondary btn-mini" id="resultsLockBtn" type="button">🔒 Lock</button>
+        </div>
+
         <div style="margin-bottom:14px;">
           <label class="small" style="display:block;margin-bottom:6px;">Paste Race Results (text)</label>
           <textarea id="pasteResultsInput" rows="5" placeholder="Paste the full results table here (copied from the results website)…" style="font-family:monospace;font-size:11px;resize:vertical;width:100%;"></textarea>
@@ -1455,9 +1479,11 @@
         <!-- ─── HOLESHOT + WILDCARD ─── -->
         <div class="two-col" style="margin-top:12px;">
           <div>
-            <label class="small">Holeshot Winner</label>
+            <label class="small">Holeshot — Moto 1</label>
             <select id="holeshotSelect" style="margin-top:4px;"></select>
-            <div class="hs-note unknown" id="holeshotNote">Holeshot: Unknown — select manually if needed</div>
+            <label class="small" style="margin-top:8px;display:block;">Holeshot — Moto 2</label>
+            <select id="holeshotSelect2" style="margin-top:4px;"></select>
+            <div class="hs-note unknown" id="holeshotNote">Holeshot: select for each moto if known</div>
           </div>
           <div>
             <label class="small" id="wildcardLabel">Wildcard Position</label>
@@ -1474,6 +1500,7 @@
           <button class="btn secondary" id="saveWildcardOnlyBtn">📌 Save Wildcard Only</button>
           <button class="btn" id="displayWildcardBtn">📣 Display on Standings</button>
         </div>
+        </div><!-- /resultsEditArea -->
       </div>
 
       <div class="panel">
@@ -1728,7 +1755,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.3</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.4</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -2060,6 +2087,46 @@ let sessionHasSeenData = false;
 
 // Boot chooser state.
 let bootChoiceMade = false;
+
+// Race Results PIN gate — editing locked until the PIN is entered (per session).
+const RESULTS_PIN = "2325";
+let resultsUnlocked = false;
+
+function applyResultsLockState(){
+  const editArea = document.getElementById("resultsEditArea");
+  const banner = document.getElementById("resultsLockBanner");
+  if(!editArea || !banner) return;
+  if(resultsUnlocked){
+    editArea.style.display = "block";
+    banner.style.display = "none";
+  } else {
+    editArea.style.display = "none";
+    banner.style.display = "block";
+  }
+  // Refresh the preview so locked users see saved data for the selected round
+  if(typeof updateResultsPreview === "function") updateResultsPreview();
+}
+
+function unlockResults(){
+  const input = document.getElementById("resultsPinInput");
+  const msg = document.getElementById("resultsPinMsg");
+  const val = (input?.value || "").trim();
+  if(val === RESULTS_PIN){
+    resultsUnlocked = true;
+    if(input) input.value = "";
+    if(msg) msg.textContent = "";
+    applyResultsLockState();
+    logMessage("Results editing unlocked.", "success");
+  } else {
+    if(msg){ msg.textContent = "Incorrect PIN."; msg.style.color = "var(--red)"; }
+  }
+}
+
+function lockResults(){
+  resultsUnlocked = false;
+  applyResultsLockState();
+  logMessage("Results editing locked.", "info");
+}
 let bootChooserPending = null; // holds { remoteState }
 
 // Show welcome screen. Both buttons load the cloud (remote) data — they only DIFFER
@@ -2491,7 +2558,9 @@ function recalcAllRoundPoints(){
         const finish = rr.positions[slot.riderId];
         if(finish){
           let slotPoints = pointsForFinish(finish);
+          // Holeshot bonus — a rider can earn it for each moto they won the holeshot in
           if(rr.holeshotRiderId===slot.riderId){ slotPoints += HS; hadHoleshot = true; }
+          if(rr.holeshotRiderId2===slot.riderId){ slotPoints += HS; hadHoleshot = true; }
           if(Number(rr.wildcardPosition)===Number(finish)){ slotPoints += WC; hadWildcard = true; }
           if(slot.usedStandby){
             slotPoints = Math.round(slotPoints * PCT);
@@ -2548,7 +2617,10 @@ function computeTeamBreakdown(teamId){
       }
       const base = pointsForFinish(finish);
       const s = state.settings || DEFAULT_STATE.settings;
-      const hs = rr.holeshotRiderId === slot.riderId ? (s.holeshotBonus || 0) : 0;
+      let hsCount = 0;
+      if(rr.holeshotRiderId === slot.riderId) hsCount++;
+      if(rr.holeshotRiderId2 === slot.riderId) hsCount++;
+      const hs = hsCount * (s.holeshotBonus || 0);
       const wc = Number(rr.wildcardPosition) === Number(finish) ? (s.wildcardBonus || 0) : 0;
       const rawTotal = base + hs + wc;
       const pct = (s.standbyPercent || 75) / 100;
@@ -2705,10 +2777,12 @@ function renderRoundTotals(){
 }
 
 function renderDraftControls(){
-  // Only holeshot select remains here; injury swap moved to its own page
+  // Holeshot selects (two — one per moto)
   const hsOpts = [...state.riders].sort((a,b)=>a.name.localeCompare(b.name)).map(r=>`<option value="${r.id}">${escHtml(r.name)}</option>`).join("");
   const hsEl = document.getElementById("holeshotSelect");
   if(hsEl) hsEl.innerHTML = `<option value="">— None / Unknown —</option>${hsOpts}`;
+  const hsEl2 = document.getElementById("holeshotSelect2");
+  if(hsEl2) hsEl2.innerHTML = `<option value="">— None / Unknown —</option>${hsOpts}`;
 }
 
 // Overall pick number (1..20) for a given team's rider — based on snake draft order
@@ -3186,54 +3260,46 @@ function renderNowPicking(){
   renderDraftStrip(fullOrder, nextPickIndex);
 }
 
-// Render a horizontal strip of the full snake-draft sequence with current picker
-// highlighted and a direction arrow showing which way the draft is moving.
+// Render a horizontal strip of just the current round's order, names across the
+// screen with the current picker highlighted. Arrows point the draft direction
+// (right in R1, left in R2). No arrow after the last pick of the round.
 function renderDraftStrip(fullOrder, currentIndex){
   const strip = document.getElementById("draftOrderStrip");
   if(!strip) return;
 
   const teamsCount = state.teams.length;
-  // Direction: Round 1 = forward (→), Round 2 = backward (←)
+
+  if(currentIndex === -1){
+    // Draft complete — hide the strip
+    strip.style.display = "none";
+    return;
+  }
+
   const inRound2 = currentIndex >= teamsCount;
-  const dirArrow = currentIndex === -1 ? "" : (inRound2 ? "←" : "→");
+  // The order to display for the active round
+  const roundOrder = inRound2
+    ? [...state.draftOrder].reverse()
+    : [...state.draftOrder];
+  const dirArrow = inRound2 ? "←" : "→";
+  // Index of current pick within this round (0-based)
+  const idxInRound = currentIndex % teamsCount;
 
-  let html = "";
-  fullOrder.forEach((teamId, i) => {
+  let html = `<div class="draft-strip-roundlabel">Round ${inRound2 ? 2 : 1}</div><div class="draft-strip-row">`;
+  roundOrder.forEach((teamId, i) => {
     const team = teamById(teamId);
-    const round = i < teamsCount ? 1 : 2;
-    const pickInRound = (i % teamsCount) + 1;
-    const done = i < currentIndex || currentIndex === -1;
-    const current = i === currentIndex;
-
-    // Insert a round divider + direction arrow when round changes
-    if(i === teamsCount){
-      html += `<span class="draft-strip-round">R2 ←</span>`;
-    } else if(i === 0){
-      html += `<span class="draft-strip-round">R1 →</span>`;
-    }
-
+    const current = i === idxInRound;
+    const done = i < idxInRound;
     const cls = current ? "current" : (done ? "done" : "");
-    html += `
-      <div class="draft-strip-team ${cls}">
-        <span class="draft-strip-name">${escHtml(team?.name || "?")}</span>
-        <span class="draft-strip-pickcount">${round}.${pickInRound}</span>
-      </div>
-    `;
-    // Arrow between teams (within a round)
-    if(i !== fullOrder.length - 1 && i !== teamsCount - 1){
-      const arrow = (i < teamsCount - 1) ? "→" : "←";
-      html += `<span class="draft-strip-arrow">${arrow}</span>`;
+    html += `<div class="draft-strip-team ${cls}"><span class="draft-strip-name">${escHtml(team?.name || "?")}</span></div>`;
+    // Arrow between teams — but NOT after the last team
+    if(i !== roundOrder.length - 1){
+      html += `<span class="draft-strip-arrow">${dirArrow}</span>`;
     }
   });
+  html += `</div>`;
 
   strip.innerHTML = html;
-  strip.style.display = "flex";
-
-  // Auto-scroll so the current picker is visible
-  const currentEl = strip.querySelector(".draft-strip-team.current");
-  if(currentEl){
-    currentEl.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }
+  strip.style.display = "block";
 }
 
 function renderRiderGrid(){
@@ -3612,31 +3678,47 @@ function clearPositionDropdowns(){
     if(sel){ sel.value=""; sel.style.borderColor=""; }
   }
   document.getElementById("holeshotSelect").value="";
+  document.getElementById("holeshotSelect2").value="";
   document.getElementById("holeshotNote").className="hs-note unknown";
-  document.getElementById("holeshotNote").textContent="Holeshot: Unknown — select manually if needed";
+  document.getElementById("holeshotNote").textContent="Holeshot: select for each moto if known";
   updateResultsPreview();
 }
 
 function updateResultsPreview(){
-  const positions = getPositionsFromDropdowns();
-  const holeshotRiderId = Number(document.getElementById("holeshotSelect")?.value||0);
-  const wildcard = Number(document.getElementById("wildcardInput")?.value||0);
   const round = Number(document.getElementById("resultsRoundSelect")?.value||state.meta.currentRound);
 
+  let positions, holeshotRiderId, holeshotRiderId2, wildcard;
+  if(resultsUnlocked){
+    // Unlocked — preview reflects the live dropdowns being edited
+    positions = getPositionsFromDropdowns();
+    holeshotRiderId = Number(document.getElementById("holeshotSelect")?.value||0);
+    holeshotRiderId2 = Number(document.getElementById("holeshotSelect2")?.value||0);
+    wildcard = Number(document.getElementById("wildcardInput")?.value||0);
+  } else {
+    // Locked — show the saved results for the selected round (read-only)
+    const rr = state.roundResults[round];
+    positions = rr?.positions || {};
+    holeshotRiderId = rr?.holeshotRiderId || 0;
+    holeshotRiderId2 = rr?.holeshotRiderId2 || 0;
+    wildcard = rr?.wildcardPosition || 0;
+  }
+
+  const hsIds = [holeshotRiderId, holeshotRiderId2].filter(Boolean);
   const rows = Object.entries(positions)
     .sort((a,b)=>a[1]-b[1])
     .map(([riderId,pos])=>{
       const r = riderById(Number(riderId));
-      const hs = Number(riderId)===holeshotRiderId?" <span style='color:var(--accent-2);'>(HS)</span>":"";
+      const hs = hsIds.includes(Number(riderId))?" <span style='color:var(--accent-2);'>(HS)</span>":"";
       const wc = Number(pos)===wildcard?" <span style='color:var(--gold);'>(WC)</span>":"";
       return `<div class="chip">${pos}. ${escHtml(r?.name||"Unknown")}${hs}${wc}</div>`;
     }).join("");
 
+  const hsNames = hsIds.map(id => riderById(id)?.name || "—").join(" & ");
   document.getElementById("resultsPreview").innerHTML = `
-    <div style="margin-bottom:10px;"><strong>Round ${round}</strong></div>
+    <div style="margin-bottom:10px;"><strong>Round ${round}</strong>${!resultsUnlocked?' <span class="small muted">(view only)</span>':''}</div>
     <div class="small muted" style="margin-bottom:8px;">Wildcard position: <strong>${wildcard||"—"}</strong></div>
-    <div class="small muted" style="margin-bottom:10px;">Holeshot: <strong>${holeshotRiderId?escHtml(riderById(holeshotRiderId)?.name||"—"):"Unknown"}</strong></div>
-    <div>${rows||'<span class="muted">No riders selected yet.</span>'}</div>
+    <div class="small muted" style="margin-bottom:10px;">Holeshot: <strong>${hsNames||"Unknown"}</strong></div>
+    <div>${rows||'<span class="muted">No results for this round yet.</span>'}</div>
   `;
 }
 
@@ -3665,6 +3747,7 @@ function renderResultsPage(){
     wcInput.max = s.wildcardMax;
   }
 
+  applyResultsLockState();
   updateResultsPreview();
 }
 
@@ -3680,8 +3763,9 @@ function loadResultsForCurrentRound(){
   }
   document.getElementById("wildcardInput").value = "";
   document.getElementById("holeshotSelect").value = "";
+  document.getElementById("holeshotSelect2").value = "";
   document.getElementById("holeshotNote").className = "hs-note unknown";
-  document.getElementById("holeshotNote").textContent = "Holeshot: Unknown — select manually if needed";
+  document.getElementById("holeshotNote").textContent = "Holeshot: select for each moto if known";
 
   if(!rr || !rr.positions){
     // No submitted results yet. Wildcard may still be set (Save Wildcard Only),
@@ -3705,10 +3789,16 @@ function loadResultsForCurrentRound(){
     document.getElementById("wildcardInput").value = rr.wildcardPosition;
   }
   if(rr.holeshotRiderId){
-    const hs = document.getElementById("holeshotSelect");
-    hs.value = rr.holeshotRiderId;
+    document.getElementById("holeshotSelect").value = rr.holeshotRiderId;
+  }
+  if(rr.holeshotRiderId2){
+    document.getElementById("holeshotSelect2").value = rr.holeshotRiderId2;
+  }
+  if(rr.holeshotRiderId || rr.holeshotRiderId2){
+    const names = [rr.holeshotRiderId, rr.holeshotRiderId2]
+      .filter(Boolean).map(id => riderById(id)?.name || "?").join(" & ");
     document.getElementById("holeshotNote").className = "hs-note detected";
-    document.getElementById("holeshotNote").textContent = `Holeshot: ${riderById(rr.holeshotRiderId)?.name || "?"}`;
+    document.getElementById("holeshotNote").textContent = `Holeshot: ${names}`;
   }
   validateDropdownDuplicates();
 }
@@ -3943,6 +4033,7 @@ function submitResults(){
   const round = Number(document.getElementById("resultsRoundSelect").value);
   const wildcard = Number(document.getElementById("wildcardInput").value);
   const holeshotRiderId = Number(document.getElementById("holeshotSelect").value||0);
+  const holeshotRiderId2 = Number(document.getElementById("holeshotSelect2").value||0);
 
   if(!round) { logMessage("Select a round.", "error"); return; }
   const wcMin = state.settings?.wildcardMin || 10;
@@ -3963,7 +4054,7 @@ function submitResults(){
 
   state.roundResults[round] = {
     submitted:true, round,
-    positions, holeshotRiderId, wildcardPosition:wildcard, teamPoints: {}
+    positions, holeshotRiderId, holeshotRiderId2, wildcardPosition:wildcard, teamPoints: {}
   };
 
   // Pre-wildcard is now superseded by saved result
@@ -4647,6 +4738,9 @@ function wireEvents(){
     const file = e.dataTransfer.files?.[0];
     if(file && file.type==="application/pdf") parsePdfFile(file);
   });
+  document.getElementById("resultsPinBtn").onclick = unlockResults;
+  document.getElementById("resultsPinInput").onkeydown = (e) => { if(e.key === "Enter") unlockResults(); };
+  document.getElementById("resultsLockBtn").onclick = lockResults;
   document.getElementById("clearPositionsBtn").onclick = clearPositionDropdowns;
 
   // Paste-text results
@@ -4726,18 +4820,22 @@ function wireEvents(){
     logMessage(`Round ${round} wildcard (#${rr.wildcardPosition}) is now showing on Standings.`, "success");
   };
   document.getElementById("deleteRoundResultsBtn").onclick = deleteRoundResults;
-  document.getElementById("holeshotSelect").onchange = ()=>{
-    const val = Number(document.getElementById("holeshotSelect").value||0);
+  const updateHsNote = () => {
+    const v1 = Number(document.getElementById("holeshotSelect").value||0);
+    const v2 = Number(document.getElementById("holeshotSelect2").value||0);
     const note = document.getElementById("holeshotNote");
-    if(val){
+    const names = [v1, v2].filter(Boolean).map(id => riderById(id)?.name || "");
+    if(names.length){
       note.className="hs-note detected";
-      note.textContent=`Holeshot: Manually selected — ${riderById(val)?.name||""}`;
+      note.textContent=`Holeshot: ${names.join(" & ")}`;
     }else{
       note.className="hs-note unknown";
-      note.textContent="Holeshot: Unknown — select manually if needed";
+      note.textContent="Holeshot: select for each moto if known";
     }
     updateResultsPreview();
   };
+  document.getElementById("holeshotSelect").onchange = updateHsNote;
+  document.getElementById("holeshotSelect2").onchange = updateHsNote;
   document.getElementById("wildcardInput").oninput = updateResultsPreview;
   document.getElementById("resultsRoundSelect").onchange = () => {
     loadResultsForCurrentRound();
