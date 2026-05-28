@@ -1291,7 +1291,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v9.4</span>
+            <span class="version-badge" id="versionBadge">v9.5</span>
           </div>
         </div>
       </div>
@@ -1755,7 +1755,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.4</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.5</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -3280,7 +3280,9 @@ function renderDraftStrip(fullOrder, currentIndex){
   const roundOrder = inRound2
     ? [...state.draftOrder].reverse()
     : [...state.draftOrder];
-  const dirArrow = inRound2 ? "←" : "→";
+  // The display order is already reversed for Round 2, so arrows always point
+  // in the reading direction (left → right) to match the actual draft flow.
+  const dirArrow = "→";
   // Index of current pick within this round (0-based)
   const idxInRound = currentIndex % teamsCount;
 
