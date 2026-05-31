@@ -1302,7 +1302,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v9.9</span>
+            <span class="version-badge" id="versionBadge">v9.10</span>
           </div>
         </div>
       </div>
@@ -1767,7 +1767,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.9</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.10</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -3664,13 +3664,13 @@ function renderUnmatchedOverlay(){
     const wrap = document.getElementById(`posrow_${u.pos}`);
     const sel = document.getElementById(`pos_${u.pos}`);
     if(!wrap || !sel) return;
-    // If the dropdown has a selected rider (shouldn't happen for unmatched), keep dropdown
     if(sel.value) return;
-    // Replace dropdown visually with a red box showing the unmatched name
     sel.style.display = "none";
     const overlay = document.createElement("div");
     overlay.className = "unmatched-overlay";
-    overlay.title = "Not in your rider pool";
+    overlay.dataset.pos = u.pos;
+    overlay.dataset.name = u.name;
+    overlay.title = resultsUnlocked ? "Tap to add to rider pool" : "Not in your rider pool";
     overlay.style.cssText = `
       flex:1;
       background: rgba(255,70,70,.18);
@@ -3685,13 +3685,84 @@ function renderUnmatchedOverlay(){
       align-items: center;
       justify-content: space-between;
       gap: 6px;
+      cursor: ${resultsUnlocked ? "pointer" : "default"};
     `;
+    const action = resultsUnlocked ? '+ add to pool' : 'not in pool';
     overlay.innerHTML = `
       <span>${escHtml(u.name)}</span>
-      <span style="font-size:10px;opacity:.9;color:#ff6b6b;-webkit-text-fill-color:#ff6b6b;">not in pool</span>
+      <span style="font-size:10px;opacity:.9;color:#ff6b6b;-webkit-text-fill-color:#ff6b6b;">${action}</span>
     `;
+    if(resultsUnlocked){
+      overlay.onclick = () => addUnmatchedToPool(u.pos, u.name);
+    }
     wrap.appendChild(overlay);
   });
+}
+
+// Add an unmatched rider to the pool. Called when the user taps a red overlay
+// in the Finishing Order grid (only available when results are unlocked).
+function addUnmatchedToPool(pos, rawName){
+  // Title-case the name since pasted names are often ALL CAPS
+  const titleCased = String(rawName).split(/\s+/).map(w => {
+    if(w.length <= 1) return w.toUpperCase();
+    // Preserve patterns like "R.J." or "RJ"
+    if(/^[A-Z]\.[A-Z]\.?$/.test(w)) return w;
+    if(/^[A-Z]{2,3}$/.test(w) && w.length <= 3) return w; // RJ, JT, etc.
+    return w[0].toUpperCase() + w.slice(1).toLowerCase();
+  }).join(" ");
+
+  // Check for existing rider by normalized name (case-insensitive, punctuation-free)
+  const norm = normalizeRiderName(titleCased);
+  const existing = state.riders.find(r => normalizeRiderName(r.name) === norm);
+  if(existing){
+    // Already in pool — just remove from unmatched and assign to dropdown
+    pendingUnmatchedRiders = pendingUnmatchedRiders.filter(u => !(u.pos === pos && u.name === rawName));
+    const sel = document.getElementById(`pos_${pos}`);
+    if(sel) sel.value = String(existing.id);
+    renderUnmatchedOverlay();
+    validateDropdownDuplicates();
+    updateResultsPreview();
+    logMessage(`${titleCased} is already in the pool — assigned to P${pos}.`, "info");
+    return;
+  }
+
+  // Add new rider to pool
+  const maxId = state.riders.reduce((m,r) => Math.max(m, r.id), 0);
+  const newRider = { id: maxId + 1, name: titleCased, realTeam: "—" };
+  state.riders.push(newRider);
+
+  // Save an alias so the raw paste name (e.g. "GRANT HARLAN") maps to the title-cased name
+  if(!state.riderAliases) state.riderAliases = [];
+  if(rawName !== titleCased && !state.riderAliases.some(a => a.pdfName === rawName)){
+    state.riderAliases.push({ pdfName: rawName, riderId: newRider.id });
+  }
+
+  // Remove from unmatched and assign to dropdown
+  pendingUnmatchedRiders = pendingUnmatchedRiders.filter(u => !(u.pos === pos && u.name === rawName));
+
+  // If this round is already submitted, update the saved unmatchedRiders too
+  const roundNum = Number(document.getElementById("resultsRoundSelect").value);
+  const rr = state.roundResults[roundNum];
+  if(rr && Array.isArray(rr.unmatchedRiders)){
+    rr.unmatchedRiders = rr.unmatchedRiders.filter(u => !(u.pos === pos && u.name === rawName));
+    // Also write into positions so they score going forward
+    if(rr.positions){
+      rr.positions[newRider.id] = pos;
+    }
+  }
+
+  // Rebuild dropdowns so new rider appears in all selects, then re-assign this slot
+  buildPositionDropdowns();
+  loadResultsForCurrentRound(); // restores selected riders for this round
+
+  // Set this position to the new rider
+  const sel = document.getElementById(`pos_${pos}`);
+  if(sel) sel.value = String(newRider.id);
+
+  recalcAllRoundPoints();
+  saveState("add-unmatched-rider");
+  renderAll();
+  logMessage(`Added ${titleCased} to rider pool and assigned to P${pos}.`, "success");
 }
 
 function getPositionsFromDropdowns(){
@@ -3781,17 +3852,15 @@ function updateResultsPreview(){
     const wc = Number(pos)===wildcard?" <span style='color:var(--gold);'>(WC)</span>":"";
     chips.push({ pos: Number(pos), html: `<div class="chip">${pos}. ${escHtml(r?.name||"Unknown")}${hs}${wc}</div>` });
   });
-  // Add unmatched riders (only when unlocked — viewers don't need to see this)
-  if(resultsUnlocked){
-    pendingUnmatchedRiders.forEach(u => {
-      if(u.pos >= 1 && u.pos <= 99){
-        chips.push({
-          pos: u.pos,
-          html: `<div class="chip chip-unmatched" style="background:rgba(255,70,70,.22);border:1.5px solid #ff4d4d;color:#ff6b6b;-webkit-text-fill-color:#ff6b6b;font-weight:700;" title="Not in rider pool">${u.pos}. ${escHtml(u.name)} <span style="font-size:10px;color:#ff6b6b;-webkit-text-fill-color:#ff6b6b;opacity:.95;">(not in pool)</span></div>`
-        });
-      }
-    });
-  }
+  // Add unmatched riders — saved per-round, visible to everyone (locked or not)
+  pendingUnmatchedRiders.forEach(u => {
+    if(u.pos >= 1 && u.pos <= 99){
+      chips.push({
+        pos: u.pos,
+        html: `<div class="chip chip-unmatched" style="background:rgba(255,70,70,.22);border:1.5px solid #ff4d4d;color:#ff6b6b;-webkit-text-fill-color:#ff6b6b;font-weight:700;" title="Not in rider pool">${u.pos}. ${escHtml(u.name)} <span style="font-size:10px;color:#ff6b6b;-webkit-text-fill-color:#ff6b6b;opacity:.95;">(not in pool)</span></div>`
+      });
+    }
+  });
   chips.sort((a,b) => a.pos - b.pos);
   const rows = chips.map(c => c.html).join("");
 
