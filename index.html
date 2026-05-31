@@ -1135,6 +1135,13 @@
       padding-top: 10px;
       border-top: 1px solid var(--border-2);
     }
+    /* Inline finish-history row — quick scan of past finishes per rider */
+    .sub-picker-history {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+    }
     .rider-stats-header {
       display: flex;
       gap: 12px;
@@ -1302,7 +1309,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v9.10</span>
+            <span class="version-badge" id="versionBadge">v9.11</span>
           </div>
         </div>
       </div>
@@ -1767,7 +1774,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.10</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.11</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -3044,15 +3051,34 @@ function openSubPicker(teamId, injuredRiderId){
   if(pool.length === 0){
     list.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">No eligible riders available.</div>`;
   } else {
+    // Pre-compute the submitted rounds once for all riders
+    const submittedRounds = Object.keys(state.roundResults)
+      .map(Number)
+      .filter(rn => state.roundResults[rn]?.positions)
+      .sort((a,b) => a - b);
+
     list.innerHTML = pool.map(r => {
       const picks = pickMap[r.id];
       const tag = picks && picks.length ? `Pick #${picks.join(", #")}` : "Undrafted";
+
+      // Inline finish history — every logged finish, comma-separated
+      let historyHtml = "";
+      if(submittedRounds.length > 0){
+        const finishes = submittedRounds
+          .map(rn => state.roundResults[rn].positions[r.id])
+          .filter(f => f); // skip rounds the rider didn't race
+        if(finishes.length > 0){
+          historyHtml = `<div class="sub-picker-history">Finishes: ${finishes.join(", ")}</div>`;
+        }
+      }
+
       return `
         <div class="sub-picker-option" data-rider-id="${r.id}">
           <div class="sub-picker-option-main">
             <span class="sub-picker-option-name">${escHtml(r.name)}</span>
             <span class="sub-picker-option-tag">${tag}</span>
           </div>
+          ${historyHtml}
           <div class="sub-picker-option-stats" id="subStats_${r.id}"></div>
         </div>
       `;
