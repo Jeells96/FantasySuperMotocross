@@ -1302,7 +1302,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v9.8</span>
+            <span class="version-badge" id="versionBadge">v9.9</span>
           </div>
         </div>
       </div>
@@ -1767,7 +1767,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.8</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.9</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -3631,6 +3631,7 @@ function buildPositionDropdowns(){
   for(let pos=1; pos<=22; pos++){
     const wrap = document.createElement("div");
     wrap.className = "pos-row";
+    wrap.id = `posrow_${pos}`;
     const label = document.createElement("div");
     label.className = "pos-label" + (pos<=3?" top3":"");
     label.textContent = pos;
@@ -3639,10 +3640,58 @@ function buildPositionDropdowns(){
     sel.innerHTML = `<option value="">—</option>` +
       [...state.riders].sort((a,b)=>a.name.localeCompare(b.name))
         .map(r=>`<option value="${r.id}">${escHtml(r.name)}</option>`).join("");
-    sel.onchange = () => { validateDropdownDuplicates(); updateResultsPreview(); };
+    sel.onchange = () => { validateDropdownDuplicates(); updateResultsPreview(); renderUnmatchedOverlay(); };
     wrap.append(label, sel);
     container.appendChild(wrap);
   }
+}
+
+// For finishing positions 1-22 where the paste matched a name not in our pool,
+// show the unmatched name in red INSTEAD of the empty dropdown — so users see
+// who actually finished there even though they don't score for the league.
+function renderUnmatchedOverlay(){
+  // Clear any prior overlays
+  document.querySelectorAll(".unmatched-overlay").forEach(el => el.remove());
+  // Reset opacity on previously-overlaid selects
+  for(let pos=1; pos<=22; pos++){
+    const sel = document.getElementById(`pos_${pos}`);
+    if(sel) sel.style.display = "";
+  }
+  if(!Array.isArray(pendingUnmatchedRiders) || pendingUnmatchedRiders.length === 0) return;
+
+  pendingUnmatchedRiders.forEach(u => {
+    if(u.pos < 1 || u.pos > 22) return;
+    const wrap = document.getElementById(`posrow_${u.pos}`);
+    const sel = document.getElementById(`pos_${u.pos}`);
+    if(!wrap || !sel) return;
+    // If the dropdown has a selected rider (shouldn't happen for unmatched), keep dropdown
+    if(sel.value) return;
+    // Replace dropdown visually with a red box showing the unmatched name
+    sel.style.display = "none";
+    const overlay = document.createElement("div");
+    overlay.className = "unmatched-overlay";
+    overlay.title = "Not in your rider pool";
+    overlay.style.cssText = `
+      flex:1;
+      background: rgba(255,70,70,.18);
+      border: 1.5px solid #ff4d4d;
+      color: #ff6b6b;
+      -webkit-text-fill-color: #ff6b6b;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    `;
+    overlay.innerHTML = `
+      <span>${escHtml(u.name)}</span>
+      <span style="font-size:10px;opacity:.9;color:#ff6b6b;-webkit-text-fill-color:#ff6b6b;">not in pool</span>
+    `;
+    wrap.appendChild(overlay);
+  });
 }
 
 function getPositionsFromDropdowns(){
@@ -3700,6 +3749,7 @@ function clearPositionDropdowns(){
   document.getElementById("holeshotSelect2").value="";
   document.getElementById("holeshotNote").className="hs-note unknown";
   document.getElementById("holeshotNote").textContent="Holeshot: select for each moto if known";
+  renderUnmatchedOverlay();
   updateResultsPreview();
 }
 
@@ -3788,7 +3838,8 @@ function renderResultsPage(){
 function loadResultsForCurrentRound(){
   const round = Number(document.getElementById("resultsRoundSelect")?.value || state.meta.currentRound);
   const rr = state.roundResults[round];
-  pendingUnmatchedRiders = []; // unmatched is per-paste, not per-round
+  // Restore previously-saved unmatched riders for this round, if any
+  pendingUnmatchedRiders = Array.isArray(rr?.unmatchedRiders) ? rr.unmatchedRiders.slice() : [];
   // Always start by clearing
   for(let pos=1; pos<=22; pos++){
     const s = document.getElementById(`pos_${pos}`);
@@ -3834,6 +3885,7 @@ function loadResultsForCurrentRound(){
     document.getElementById("holeshotNote").textContent = `Holeshot: ${names}`;
   }
   validateDropdownDuplicates();
+  renderUnmatchedOverlay();
 }
 
 // ═══════════════════════════════════════════════════
@@ -3982,6 +4034,7 @@ function applyPastedResults(rows){
     }
   });
   validateDropdownDuplicates();
+  renderUnmatchedOverlay();
   updateResultsPreview();
   return { matched, unmatched };
 }
@@ -4173,7 +4226,9 @@ function submitResults(){
 
   state.roundResults[round] = {
     submitted:true, round,
-    positions, holeshotRiderId, holeshotRiderId2, wildcardPosition:wildcard, teamPoints: {}
+    positions, holeshotRiderId, holeshotRiderId2, wildcardPosition:wildcard, teamPoints: {},
+    // Riders parsed from the paste but not in the pool — persisted for display only
+    unmatchedRiders: pendingUnmatchedRiders.slice()
   };
 
   // Pre-wildcard is now superseded by saved result
@@ -4191,7 +4246,6 @@ function submitResults(){
   if(round >= currentDisplay){
     state.meta.viewerWildcardRound = round;
   }
-  pendingUnmatchedRiders = []; // clear paste tracking once submitted
   saveState("submit-results"); renderAll();
   logMessage(`Round ${round} results submitted.`, "success");
 }
