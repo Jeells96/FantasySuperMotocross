@@ -1291,7 +1291,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v9.5</span>
+            <span class="version-badge" id="versionBadge">v9.6</span>
           </div>
         </div>
       </div>
@@ -1424,7 +1424,8 @@
         <h2>Results Admin</h2>
         <div class="toolbar">
           <select id="resultsRoundSelect"></select>
-          <button class="btn secondary" id="openResultsSiteBtn" type="button">🔗 Open supercrosslive.com</button>
+          <button class="btn secondary" id="openResultsSiteBtn" type="button">🔗 supercrosslive.com</button>
+          <button class="btn secondary" id="openMxResultsBtn" type="button">🔗 promotocross.com</button>
         </div>
 
         <!-- PIN LOCK BANNER (shown when locked) -->
@@ -1755,7 +1756,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.5</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.6</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -3831,6 +3832,14 @@ function dedupeDoubledName(raw){
 }
 
 function parsePastedResults(text){
+  // Try Format A first: tab-separated one-line rows ("1\tJett Lawrence Jett Lawrence\t...")
+  const tab = parsePastedResultsTabular(text);
+  if(tab.length > 0) return tab;
+  // Fall back to Format B: multi-line blocks (one rider spans ~5-6 lines)
+  return parsePastedResultsMultiline(text);
+}
+
+function parsePastedResultsTabular(text){
   const lines = text.split(/\r?\n/).map(l => l.replace(/\s+$/,"")).filter(l => l.trim());
   const rows = [];
   lines.forEach(line => {
@@ -3840,9 +3849,42 @@ function parsePastedResults(text){
     const pos = parseInt(cols[0], 10);
     if(!pos || pos < 1) return;
     const name = dedupeDoubledName(cols[1]);
-    if(!name) return;
+    // Require alpha characters so we don't accept e.g. "1 - 1" as a name
+    if(!name || !/[a-zA-Z]/.test(name)) return;
     rows.push({ position: pos, name });
   });
+  return rows;
+}
+
+// Format B parser: blocks separated by a pure-number "position" line.
+// Each block looks like:
+//   1
+//   Hunter Lawrence
+//   Hunter Lawrence
+//   Landsborough, Australia Australia
+//   1 - 1
+//   Honda
+function parsePastedResultsMultiline(text){
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length);
+  const rows = [];
+  let i = 0;
+  while (i < lines.length) {
+    // A position line is JUST digits (1-99). The motos line "1 - 1" won't match.
+    if (/^\d{1,3}$/.test(lines[i])) {
+      const pos = parseInt(lines[i], 10);
+      if (pos >= 1 && pos <= 99 && i + 1 < lines.length) {
+        const name1 = lines[i + 1];
+        if (name1 && name1.length > 2 && /[a-zA-Z]/.test(name1)) {
+          rows.push({ position: pos, name: dedupeDoubledName(name1) });
+          // Skip past this rider's block — advance until we find the next pos line
+          i += 2;
+          while (i < lines.length && !/^\d{1,3}$/.test(lines[i])) i++;
+          continue;
+        }
+      }
+    }
+    i++;
+  }
   return rows;
 }
 
@@ -4726,6 +4768,9 @@ function wireEvents(){
 
   document.getElementById("openResultsSiteBtn").onclick = () => {
     window.open(state.settings?.resultsSourceUrl || "https://www.supercrosslive.com/results/", "_blank");
+  };
+  document.getElementById("openMxResultsBtn").onclick = () => {
+    window.open("https://promotocross.com/races", "_blank");
   };
 
   document.getElementById("pdfFileInput").onchange = (e)=>{
