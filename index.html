@@ -1309,7 +1309,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v9.13</span>
+            <span class="version-badge" id="versionBadge">v9.14</span>
           </div>
         </div>
       </div>
@@ -1532,10 +1532,14 @@
           <button class="btn" id="displayWildcardBtn">📣 Display on Standings</button>
         </div>
         <div id="reshuffleSection" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(232,183,48,.08);border-left:3px solid var(--gold);border-radius:4px;">
-          <div class="small" style="margin-bottom:6px;">
-            <strong>No one hit the wildcard.</strong> <span id="reshuffleStatus"></span>
+          <div class="small" style="margin-bottom:8px;">
+            <strong>Wildcard Reshuffle</strong> <span id="reshuffleStatus" class="muted"></span>
           </div>
-          <button class="btn" id="reshuffleWildcardBtn" style="background:var(--gold);color:#000;">🎲 Reshuffle Wildcard</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input type="number" id="reshuffleManualInput" placeholder="Position" style="max-width:110px;" />
+            <button class="btn" id="reshuffleManualBtn" style="background:var(--gold);color:#000;">Set Reshuffle</button>
+            <button class="btn secondary" id="reshuffleWildcardBtn">🎲 Random</button>
+          </div>
         </div>
         </div><!-- /resultsEditArea -->
       </div>
@@ -1796,7 +1800,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.13</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.14</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -4398,15 +4402,15 @@ function renderResultsPage(){
   updateResultsPreview();
 }
 
-// Show or hide the reshuffle wildcard section based on whether it's needed
-// for the currently-selected round.
+// Show the reshuffle wildcard section whenever a round has results submitted
+// (with a wildcard set). Provides both random and manual entry options.
 function renderReshuffleSection(){
   const section = document.getElementById("reshuffleSection");
   if(!section) return;
   const round = Number(document.getElementById("resultsRoundSelect")?.value || 0);
   const rr = state.roundResults[round];
-  // Only show if round is fully submitted AND no team hit the most recent wildcard
-  if(!rr?.positions || !rr.wildcardPosition || didAnyTeamHitWildcard(rr)){
+  // Only show after the round has been submitted with positions AND a wildcard
+  if(!rr?.positions || !rr.wildcardPosition){
     section.style.display = "none";
     return;
   }
@@ -4415,10 +4419,11 @@ function renderReshuffleSection(){
   const wcPositions = getAllWildcardPositions(rr);
   const statusEl = document.getElementById("reshuffleStatus");
   if(statusEl){
-    const reshuffleLabel = reshuffles.length === 0
-      ? `Original wildcard: P${rr.wildcardPosition}`
-      : `Tried positions: ${wcPositions.join(", ")} (${reshuffles.length} reshuffle${reshuffles.length>1?'s':''} so far)`;
-    statusEl.textContent = reshuffleLabel;
+    if(reshuffles.length === 0){
+      statusEl.textContent = `(Original: P${rr.wildcardPosition})`;
+    } else {
+      statusEl.textContent = `(Tried: ${wcPositions.join(", ")} — ${reshuffles.length} reshuffle${reshuffles.length>1?'s':''})`;
+    }
   }
 }
 
@@ -5600,15 +5605,10 @@ function wireEvents(){
       logMessage("Set the original wildcard before reshuffling.", "error");
       return;
     }
-    if(didAnyTeamHitWildcard(rr)){
-      logMessage("A team already hit the wildcard — no reshuffle needed.", "info");
-      return;
-    }
     const s = state.settings || DEFAULT_STATE.settings;
     const lo = s.wildcardMin || 10;
     const hi = s.wildcardMax || 18;
     if(!Array.isArray(rr.wildcardReshuffles)) rr.wildcardReshuffles = [];
-    // Pick a position not already tried
     const tried = new Set(getAllWildcardPositions(rr));
     const available = [];
     for(let p = lo; p <= hi; p++){ if(!tried.has(p)) available.push(p); }
@@ -5618,6 +5618,36 @@ function wireEvents(){
     }
     const newPos = available[Math.floor(Math.random() * available.length)];
     rr.wildcardReshuffles.push(newPos);
+    recalcAllRoundPoints();
+    saveState("reshuffle-wildcard");
+    renderAll();
+    const reshuffleNum = rr.wildcardReshuffles.length;
+    logMessage(`Reshuffle ${reshuffleNum}: wildcard is now P${newPos}.`, "success");
+  };
+  document.getElementById("reshuffleManualBtn").onclick = () => {
+    const round = Number(document.getElementById("resultsRoundSelect").value);
+    if(!round){ logMessage("Select a round first.", "error"); return; }
+    const rr = state.roundResults[round];
+    if(!rr?.wildcardPosition){
+      logMessage("Set the original wildcard before reshuffling.", "error");
+      return;
+    }
+    const input = document.getElementById("reshuffleManualInput");
+    const newPos = Number(input.value);
+    const s = state.settings || DEFAULT_STATE.settings;
+    const lo = s.wildcardMin || 10;
+    const hi = s.wildcardMax || 18;
+    if(!newPos || newPos < lo || newPos > hi){
+      logMessage(`Reshuffle position must be between ${lo} and ${hi}.`, "error");
+      return;
+    }
+    if(!Array.isArray(rr.wildcardReshuffles)) rr.wildcardReshuffles = [];
+    if(getAllWildcardPositions(rr).includes(newPos)){
+      logMessage(`P${newPos} has already been used for this round.`, "error");
+      return;
+    }
+    rr.wildcardReshuffles.push(newPos);
+    input.value = "";
     recalcAllRoundPoints();
     saveState("reshuffle-wildcard");
     renderAll();
