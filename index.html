@@ -1309,7 +1309,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v9.11</span>
+            <span class="version-badge" id="versionBadge">v9.12</span>
           </div>
         </div>
       </div>
@@ -1380,6 +1380,18 @@
           <tbody></tbody>
         </table>
       </div>
+    </div>
+
+    <!-- ─── SCORING RULES (read-only display, lives at bottom of standings) ─── -->
+    <div class="panel">
+      <h2>Scoring Rules</h2>
+      <div id="scoringRulesDisplay" class="small" style="line-height:1.7;"></div>
+    </div>
+
+    <!-- ─── LEAGUE HISTORY (archived seasons) ─── -->
+    <div class="panel">
+      <h2>League History</h2>
+      <div id="leagueHistoryDisplay"></div>
     </div>
   </section>
 
@@ -1758,6 +1770,10 @@
       </summary>
       <div class="settings-body">
         <div class="small" style="margin-bottom:12px;">
+          <strong>End Season</strong> archives the current season (final standings + every rider's race results) into League History, then clears draft picks, replacements, and results so you can run a fresh draft. Settings, team names, and the rider pool are preserved.
+        </div>
+        <button class="btn" id="endSeasonBtn" style="background:var(--gold);color:#000;margin-bottom:14px;">🏁 End Season &amp; Archive</button>
+        <div class="small" style="margin-bottom:12px;">
           <strong>Clear Draft Only</strong> wipes all picks and injury replacements but keeps team names, rider pool, and race results.
         </div>
         <button class="btn secondary" id="clearDraftBtn" style="margin-bottom:14px;">Clear Draft Only</button>
@@ -1774,7 +1790,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.11</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.12</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -1880,6 +1896,12 @@ const DEFAULT_STATE = {
     { pdfName: "RJ Hampshire",     riderId: 19 }
   ],
   messageLog: [],
+  // Archived past seasons — populated when user taps "End Season" in Settings.
+  // Each entry: { id, year, type ("supercross"|"motocross"), endedAt,
+  //   teams: [{id, name, totalPoints}],
+  //   riderStats: {[riderId]: { name, finishes: [{round, position}], avg, raced, totalRaces }},
+  //   roundResults: { ... full snapshot ... } }
+  seasonHistory: [],
   settings: {
     resultsSourceUrl: "https://www.supercrosslive.com/results/",
     // Default scoring table — index 0 unused, indexes 1..14 are explicit
@@ -1917,6 +1939,7 @@ function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
 function migrateState(merged){
   if(!Array.isArray(merged.riderAliases)) merged.riderAliases = deepClone(DEFAULT_STATE.riderAliases);
   if(!Array.isArray(merged.messageLog))   merged.messageLog = [];
+  if(!Array.isArray(merged.seasonHistory)) merged.seasonHistory = [];
   if(typeof merged.preWildcards !== "object" || merged.preWildcards === null) merged.preWildcards = {};
   if(typeof merged.randomizedWildcards !== "object" || merged.randomizedWildcards === null) merged.randomizedWildcards = {};
   // Meta migration — ensure new fields exist
@@ -2671,6 +2694,8 @@ function renderAll(){
   renderWildcardPanel();
   renderStandings();
   renderRoundTotals();
+  renderScoringRulesDisplay();
+  renderLeagueHistory();
   renderDraftControls();
   renderRiderGrid();
   renderNowPicking();
@@ -2796,6 +2821,74 @@ function renderRoundTotals(){
   // Wire row clicks → team breakdown popup
   tbody.querySelectorAll(".standings-row").forEach(row => {
     row.onclick = () => openTeamBreakdownPopup(Number(row.dataset.teamId));
+  });
+}
+
+// Read-only display of current scoring rules at the bottom of the Standings page.
+function renderScoringRulesDisplay(){
+  const host = document.getElementById("scoringRulesDisplay");
+  if(!host) return;
+  const s = state.settings || DEFAULT_STATE.settings;
+  const pt = s.pointsTable || [];
+
+  // Build a position → points list — show all positions through wildcardMax
+  const maxPos = s.wildcardMax || 22;
+  const ptsRows = [];
+  for(let pos = 1; pos <= maxPos; pos++){
+    const pts = pt[pos] != null ? pt[pos] : s.pointsLowerTier;
+    ptsRows.push(`P${pos}: <strong>${pts}</strong>`);
+  }
+  // Group into columns of ~7 per row for readability
+  const pointsList = ptsRows.join("  ·  ");
+
+  host.innerHTML = `
+    <div style="margin-bottom:8px;"><strong>Holeshot bonus:</strong> +${s.holeshotBonus} per moto won</div>
+    <div style="margin-bottom:8px;"><strong>Wildcard bonus:</strong> +${s.wildcardBonus} (wildcard pos ${s.wildcardMin}–${s.wildcardMax})</div>
+    <div style="margin-bottom:8px;"><strong>Injury sub points:</strong> ${s.standbyPercent}% of the rider's score (rounded)</div>
+    <div style="margin-top:10px;color:var(--muted);">Finishing position points:</div>
+    <div style="margin-top:4px;font-family:monospace;font-size:11px;line-height:1.8;">${pointsList}</div>
+  `;
+}
+
+// League History panel — lists archived past seasons with a button to view standings.
+function renderLeagueHistory(){
+  const host = document.getElementById("leagueHistoryDisplay");
+  if(!host) return;
+  const seasons = Array.isArray(state.seasonHistory) ? state.seasonHistory : [];
+  if(seasons.length === 0){
+    host.innerHTML = `<div class="small muted">No past seasons yet. Use Settings → End Season to archive the current season once it's complete.</div>`;
+    return;
+  }
+
+  // Sort newest first
+  const sorted = [...seasons].sort((a,b) => (b.endedAt||0) - (a.endedAt||0));
+
+  host.innerHTML = sorted.map(season => {
+    const typeLabel = season.type === "supercross" ? "Supercross" : "Motocross";
+    const winner = season.teams?.[0];
+    return `
+      <div class="history-row" data-season-id="${season.id}" style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        padding:10px 12px;
+        background:var(--panel-2);
+        border:1px solid var(--border-2);
+        border-radius:8px;
+        margin-bottom:6px;
+        cursor:pointer;
+      ">
+        <div>
+          <div style="font-weight:700;">${season.year} ${escHtml(typeLabel)}</div>
+          <div class="small muted">${winner ? `🏆 ${escHtml(winner.name)} (${winner.totalPoints} pts)` : "—"}</div>
+        </div>
+        <div class="small" style="color:var(--accent);">View →</div>
+      </div>
+    `;
+  }).join("");
+
+  host.querySelectorAll(".history-row").forEach(row => {
+    row.onclick = () => openSeasonHistoryPopup(row.dataset.seasonId);
   });
 }
 
@@ -3438,8 +3531,25 @@ function openRiderPopup(riderId){
     }).join("");
   }
 
-  document.getElementById("popupContent").innerHTML = pickSection + assignSection;
+  // Check if this rider has any archived season history
+  const hasHistory = (state.seasonHistory || []).some(s => {
+    const stats = s.riderStats || {};
+    return Object.values(stats).some(r => r.name === rider.name && r.raced > 0);
+  });
+  const historySection = hasHistory ? `
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-2);">
+      <button class="btn secondary" id="viewRiderHistoryBtn" style="width:100%;">📜 View Past Season Results</button>
+    </div>
+  ` : "";
+
+  document.getElementById("popupContent").innerHTML = pickSection + assignSection + historySection;
   document.getElementById("riderPopup").classList.add("show");
+
+  // Wire history button (if present)
+  const histBtn = document.getElementById("viewRiderHistoryBtn");
+  if(histBtn){
+    histBtn.onclick = () => openRiderHistoryPopup(rider.name);
+  }
 
   // Wire team pick buttons
   document.querySelectorAll(".team-pick-btn").forEach(btn => {
@@ -3582,6 +3692,264 @@ function openTeamBreakdownPopup(teamId){
 }
 
 function closePopup(){ document.getElementById("riderPopup").classList.remove("show"); }
+
+// ═══════════════════════════════════════════════════
+//  SEASON HISTORY — popups and the End Season flow
+// ═══════════════════════════════════════════════════
+
+// Open a popup showing the final standings + key info for an archived season.
+function openSeasonHistoryPopup(seasonId){
+  const season = state.seasonHistory.find(s => s.id === seasonId);
+  if(!season) return;
+  const typeLabel = season.type === "supercross" ? "Supercross" : "Motocross";
+
+  document.getElementById("popupRiderName").textContent = `${season.year} ${typeLabel}`;
+  const totalRounds = Object.keys(season.roundResults || {}).filter(r => season.roundResults[r]?.positions).length;
+  document.getElementById("popupRiderTeam").innerHTML = `${totalRounds} rounds · ${(season.teams||[]).length} teams`;
+
+  let html = `<div style="margin-top:8px;"><h3 style="margin-bottom:8px;">Final Standings</h3>`;
+  html += `<table style="width:100%;border-collapse:collapse;">`;
+  html += `<thead><tr style="text-align:left;border-bottom:1px solid var(--border);">
+    <th style="padding:6px 4px;font-size:11px;text-transform:uppercase;color:var(--muted);">#</th>
+    <th style="padding:6px 4px;font-size:11px;text-transform:uppercase;color:var(--muted);">Team</th>
+    <th style="padding:6px 4px;font-size:11px;text-transform:uppercase;color:var(--muted);text-align:right;">Points</th>
+  </tr></thead><tbody>`;
+  (season.teams || []).forEach((t, i) => {
+    const trophy = i === 0 ? "🏆 " : "";
+    html += `<tr style="border-bottom:1px solid var(--border-2);">
+      <td style="padding:8px 4px;font-weight:700;color:${i<3?'var(--gold)':'var(--muted)'};">${i+1}</td>
+      <td style="padding:8px 4px;">${trophy}${escHtml(t.name)}</td>
+      <td style="padding:8px 4px;text-align:right;font-weight:700;">${t.totalPoints}</td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  // Top 10 riders by total points scored that season
+  const riderStats = season.riderStats || {};
+  const topRiders = Object.entries(riderStats)
+    .map(([rid, stats]) => ({ id: rid, ...stats }))
+    .filter(r => r.raced > 0)
+    .sort((a, b) => b.totalPoints - a.totalPoints)
+    .slice(0, 10);
+  if(topRiders.length > 0){
+    html += `<div style="margin-top:18px;"><h3 style="margin-bottom:8px;">Top Riders (by points)</h3>`;
+    html += `<div style="display:grid;gap:4px;">`;
+    topRiders.forEach((r, i) => {
+      html += `<div class="history-rider-row" data-rider-name="${escHtml(r.name)}" style="
+        display:flex;justify-content:space-between;padding:6px 8px;
+        background:var(--panel-2);border-radius:6px;cursor:pointer;font-size:12px;">
+        <span><strong>${i+1}.</strong> ${escHtml(r.name)}</span>
+        <span class="muted">avg ${r.avg.toFixed(1)} · ${r.raced} races · <strong style="color:var(--text);">${r.totalPoints} pts</strong></span>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  document.getElementById("popupContent").innerHTML = html;
+  document.getElementById("riderPopup").classList.add("show");
+
+  // Wire rider rows to open the rider history popup
+  document.getElementById("popupContent").querySelectorAll(".history-rider-row").forEach(row => {
+    row.onclick = () => openRiderHistoryPopup(row.dataset.riderName);
+  });
+}
+
+// Open a popup showing a rider's historical finishes across all archived seasons.
+// Includes filter dropdowns for year and season type.
+function openRiderHistoryPopup(riderName){
+  if(!riderName) return;
+  const seasons = (state.seasonHistory || []).filter(s => {
+    const stats = s.riderStats || {};
+    return Object.values(stats).some(r => r.name === riderName && r.raced > 0);
+  });
+  if(seasons.length === 0){
+    logMessage(`No archived race history for ${riderName}.`, "info");
+    return;
+  }
+
+  // Available filter options
+  const years = [...new Set(seasons.map(s => s.year))].sort((a,b) => b-a);
+  const types = [...new Set(seasons.map(s => s.type))].sort();
+
+  document.getElementById("popupRiderName").textContent = riderName;
+  document.getElementById("popupRiderTeam").textContent = `Historical race results`;
+
+  const yearOpts = `<option value="all">All years</option>` + years.map(y => `<option value="${y}">${y}</option>`).join("");
+  const typeOpts = `<option value="all">All seasons</option>` + types.map(t => `<option value="${t}">${t==="supercross"?"Supercross":"Motocross"}</option>`).join("");
+
+  document.getElementById("popupContent").innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <select id="riderHistYearFilter">${yearOpts}</select>
+      <select id="riderHistTypeFilter">${typeOpts}</select>
+    </div>
+    <div id="riderHistContent"></div>
+  `;
+  document.getElementById("riderPopup").classList.add("show");
+
+  const refresh = () => {
+    const y = document.getElementById("riderHistYearFilter").value;
+    const t = document.getElementById("riderHistTypeFilter").value;
+    renderRiderHistoryContent(riderName, y, t);
+  };
+  document.getElementById("riderHistYearFilter").onchange = refresh;
+  document.getElementById("riderHistTypeFilter").onchange = refresh;
+  refresh();
+}
+
+// Render the filtered content inside the rider history popup.
+function renderRiderHistoryContent(riderName, yearFilter, typeFilter){
+  const host = document.getElementById("riderHistContent");
+  if(!host) return;
+  const seasons = (state.seasonHistory || []).filter(s => {
+    if(yearFilter !== "all" && String(s.year) !== String(yearFilter)) return false;
+    if(typeFilter !== "all" && s.type !== typeFilter) return false;
+    return true;
+  });
+
+  let totalRaces = 0, totalFinishSum = 0, totalPoints = 0;
+  const blocks = [];
+  seasons.forEach(s => {
+    const stats = (s.riderStats || {});
+    const entry = Object.values(stats).find(r => r.name === riderName);
+    if(!entry || entry.raced === 0) return;
+    totalRaces += entry.raced;
+    totalFinishSum += entry.avg * entry.raced;
+    totalPoints += entry.totalPoints || 0;
+    const finishes = (entry.finishes || []).map(f => `R${f.round}: <strong>P${f.position}</strong>`).join(" · ");
+    blocks.push(`
+      <div style="margin-bottom:14px;">
+        <div style="font-weight:700;margin-bottom:4px;">${s.year} ${s.type === "supercross" ? "Supercross" : "Motocross"}</div>
+        <div class="small muted" style="margin-bottom:6px;">${entry.raced} races · avg <strong style="color:var(--text);">${entry.avg.toFixed(1)}</strong> · <strong style="color:var(--text);">${entry.totalPoints||0} pts</strong></div>
+        <div class="small" style="line-height:1.7;">${finishes}</div>
+      </div>
+    `);
+  });
+
+  const overallAvg = totalRaces > 0 ? (totalFinishSum / totalRaces).toFixed(1) : "—";
+  let html = `
+    <div style="background:var(--panel-2);padding:10px 12px;border-radius:8px;margin-bottom:14px;">
+      <div class="small muted" style="margin-bottom:2px;">Filtered totals</div>
+      <div><strong>${totalRaces}</strong> races · avg position <strong>${overallAvg}</strong> · <strong>${totalPoints}</strong> total pts</div>
+    </div>
+  `;
+  html += blocks.length > 0 ? blocks.join("") : `<div class="small muted">No data for the selected filters.</div>`;
+  host.innerHTML = html;
+}
+
+// END SEASON action — archive current season into seasonHistory and clear draft.
+function endSeason(){
+  // Need at least one submitted round to be meaningful
+  const submittedRounds = Object.keys(state.roundResults).filter(r => state.roundResults[r]?.positions);
+  if(submittedRounds.length === 0){
+    logMessage("No race results to archive yet.", "error");
+    return;
+  }
+
+  // Build year + type picker
+  const currentYear = new Date().getFullYear();
+  const yearOpts = [];
+  for(let y = currentYear; y >= currentYear - 6; y--){
+    yearOpts.push(`<option value="${y}">${y}</option>`);
+  }
+
+  document.getElementById("popupRiderName").textContent = "End Season";
+  document.getElementById("popupRiderTeam").textContent = `Archive ${submittedRounds.length} rounds and prep for next season`;
+  document.getElementById("popupContent").innerHTML = `
+    <div style="display:grid;gap:12px;margin-top:8px;">
+      <div>
+        <label class="small" style="display:block;margin-bottom:4px;">Season Year</label>
+        <select id="endSeasonYear">${yearOpts.join("")}</select>
+      </div>
+      <div>
+        <label class="small" style="display:block;margin-bottom:4px;">Season Type</label>
+        <select id="endSeasonType">
+          <option value="supercross">Supercross</option>
+          <option value="motocross">Motocross</option>
+        </select>
+      </div>
+      <div class="small muted" style="background:rgba(232,183,48,.08);border-left:3px solid var(--gold);padding:8px 10px;border-radius:4px;">
+        Archives final standings, every rider's race results, and saves to League History. Then clears all draft picks, replacements, and race results so you can start a fresh draft. Settings, team names, and rider pool are kept.
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn red" id="confirmEndSeasonBtn" style="flex:1;">Archive &amp; Reset</button>
+        <button class="btn secondary" id="cancelEndSeasonBtn" style="flex:1;">Cancel</button>
+      </div>
+    </div>
+  `;
+  document.getElementById("riderPopup").classList.add("show");
+
+  document.getElementById("cancelEndSeasonBtn").onclick = closePopup;
+  document.getElementById("confirmEndSeasonBtn").onclick = () => {
+    const year = Number(document.getElementById("endSeasonYear").value);
+    const type = document.getElementById("endSeasonType").value;
+    closePopup();
+    finalizeEndSeason(year, type);
+  };
+}
+
+// After user picks year/type, actually do the archive + reset.
+function finalizeEndSeason(year, type){
+  // Make sure standings/points are up to date
+  recalcAllRoundPoints();
+
+  // Build final team standings snapshot
+  const standings = computeStandings();
+  const teamsSnapshot = standings.map(s => ({
+    id: s.teamId,
+    name: teamById(s.teamId)?.name || "—",
+    totalPoints: s.total
+  }));
+
+  // Build rider stats — every rider that finished in at least one race
+  const riderStats = {};
+  state.riders.forEach(r => {
+    const finishes = [];
+    let totalPoints = 0;
+    Object.keys(state.roundResults).forEach(rk => {
+      const rr = state.roundResults[rk];
+      if(!rr?.positions) return;
+      const pos = rr.positions[r.id];
+      if(!pos) return;
+      finishes.push({ round: Number(rk), position: pos });
+      const base = pointsForFinish(pos);
+      let bonus = 0;
+      if(rr.holeshotRiderId === r.id) bonus += state.settings.holeshotBonus;
+      if(rr.holeshotRiderId2 === r.id) bonus += state.settings.holeshotBonus;
+      if(Number(rr.wildcardPosition) === Number(pos)) bonus += state.settings.wildcardBonus;
+      totalPoints += base + bonus;
+    });
+    finishes.sort((a,b) => a.round - b.round);
+    const raced = finishes.length;
+    const avg = raced > 0 ? finishes.reduce((sum, f) => sum + f.position, 0) / raced : 0;
+    riderStats[r.id] = { name: r.name, finishes, raced, avg, totalPoints };
+  });
+
+  const season = {
+    id: `${year}-${type}-${Date.now()}`,
+    year, type,
+    endedAt: Date.now(),
+    teams: teamsSnapshot,
+    riderStats,
+    roundResults: deepClone(state.roundResults)
+  };
+
+  if(!Array.isArray(state.seasonHistory)) state.seasonHistory = [];
+  state.seasonHistory.push(season);
+
+  // Now clear current season data
+  state.draftPicks = [];
+  state.replacements = [];
+  state.roundResults = {};
+  state.preWildcards = {};
+  state.randomizedWildcards = {};
+  state.meta.currentRound = 1;
+  state.meta.viewerWildcardRound = 1;
+
+  saveState("end-season");
+  recalcAllRoundPoints();
+  renderAll();
+  logMessage(`${year} ${type === "supercross" ? "Supercross" : "Motocross"} season archived. Ready for next draft.`, "success");
+}
 
 // ═══════════════════════════════════════════════════
 //  DRAFT ACTIONS
@@ -5142,6 +5510,7 @@ function wireEvents(){
   document.getElementById("addAliasBtn").onclick = addAlias;
 
   // NEW: clear draft from settings
+  document.getElementById("endSeasonBtn").onclick = endSeason;
   document.getElementById("clearDraftBtn").onclick = clearDraftOnly;
 
   // NEW: message log
