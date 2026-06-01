@@ -1309,7 +1309,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v9.14</span>
+            <span class="version-badge" id="versionBadge">v9.15</span>
           </div>
         </div>
       </div>
@@ -1800,7 +1800,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.14</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.15</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -2635,14 +2635,18 @@ function pointsForFinish(pos){
   return 0;
 }
 
-// Returns all wildcard positions for a round — the original plus any reshuffles.
+// Returns all wildcard positions for a round — the original plus the latest reshuffle (if any).
 // A rider whose finish matches ANY of these earns the wildcard bonus.
+// Note: only one reshuffle can be active at a time. Setting a new reshuffle overwrites the previous.
 function getAllWildcardPositions(rr){
   if(!rr) return [];
   const out = [];
   if(rr.wildcardPosition) out.push(Number(rr.wildcardPosition));
-  if(Array.isArray(rr.wildcardReshuffles)){
-    rr.wildcardReshuffles.forEach(p => { if(p) out.push(Number(p)); });
+  if(rr.wildcardReshuffle) out.push(Number(rr.wildcardReshuffle));
+  // Backward compat: older saves may have an array
+  if(Array.isArray(rr.wildcardReshuffles) && rr.wildcardReshuffles.length){
+    const last = rr.wildcardReshuffles[rr.wildcardReshuffles.length - 1];
+    if(last && !out.includes(Number(last))) out.push(Number(last));
   }
   return out;
 }
@@ -2843,10 +2847,17 @@ function renderWildcardPanel(){
   }
   const rr = state.roundResults[round];
   const saved = rr?.wildcardPosition;
+  const reshuffle = rr?.wildcardReshuffle;
   if(saved){
-    valEl.textContent = String(saved);
+    if(reshuffle){
+      valEl.innerHTML = `${saved} <span style="font-size:.55em;color:var(--muted);">→</span> <span style="color:var(--gold);">${reshuffle}</span>`;
+    } else {
+      valEl.textContent = String(saved);
+    }
     valEl.style.color = "var(--gold)";
-    noteEl.textContent = `Round ${round} Wildcard`;
+    noteEl.textContent = reshuffle
+      ? `Round ${round} Wildcard (reshuffled)`
+      : `Round ${round} Wildcard`;
     noteEl.style.color = "var(--text)";
   } else {
     valEl.textContent = "—";
@@ -3745,10 +3756,11 @@ function openTeamBreakdownPopup(teamId){
           </div>`;
         }
         const bits = [`P${r.finish}`, `${r.base} base`];
-        if(r.hs) bits.push(`<span class="bonus-hs">+5 HS</span>`);
-        if(r.wc) bits.push(`<span class="bonus-wc">+15 WC</span>`);
+        if(r.hs) bits.push(`<span class="bonus-hs">+${r.hs} HS</span>`);
+        if(r.wc) bits.push(`<span class="bonus-wc">+${r.wc} WC</span>`);
         if(r.usedStandby && r.rawTotal !== r.total){
-          bits.push(`<span class="muted">${r.rawTotal} × 75% = ${r.total}</span>`);
+          const pct = state.settings?.standbyPercent || 75;
+          bits.push(`<span class="muted">${r.rawTotal} × ${pct}% = ${r.total}</span>`);
         }
         return `<div class="rider-line">
           <div class="rider-bits">
@@ -4309,29 +4321,27 @@ function updateResultsPreview(){
   const round = Number(document.getElementById("resultsRoundSelect")?.value||state.meta.currentRound);
 
   let positions, holeshotRiderId, holeshotRiderId2, wildcard;
-  let wildcardReshuffles = [];
+  let wildcardReshuffle = 0;
   if(resultsUnlocked){
-    // Unlocked — preview reflects the live dropdowns being edited
     positions = getPositionsFromDropdowns();
     holeshotRiderId = Number(document.getElementById("holeshotSelect")?.value||0);
     holeshotRiderId2 = Number(document.getElementById("holeshotSelect2")?.value||0);
     wildcard = Number(document.getElementById("wildcardInput")?.value||0);
-    // Still pull reshuffles from saved state — they only exist after submit
     const rr = state.roundResults[round];
-    wildcardReshuffles = (rr?.wildcardReshuffles || []).slice();
+    wildcardReshuffle = Number(rr?.wildcardReshuffle || 0);
   } else {
     const rr = state.roundResults[round];
     positions = rr?.positions || {};
     holeshotRiderId = rr?.holeshotRiderId || 0;
     holeshotRiderId2 = rr?.holeshotRiderId2 || 0;
     wildcard = rr?.wildcardPosition || 0;
-    wildcardReshuffles = (rr?.wildcardReshuffles || []).slice();
+    wildcardReshuffle = Number(rr?.wildcardReshuffle || 0);
   }
 
-  // All wildcard positions (original + any reshuffles)
+  // All wildcard positions (original + single reshuffle)
   const allWcPositions = [];
   if(wildcard) allWcPositions.push(Number(wildcard));
-  wildcardReshuffles.forEach(p => allWcPositions.push(Number(p)));
+  if(wildcardReshuffle) allWcPositions.push(wildcardReshuffle);
 
   const hsIds = [holeshotRiderId, holeshotRiderId2].filter(Boolean);
   const chips = [];
@@ -4352,15 +4362,14 @@ function updateResultsPreview(){
   chips.sort((a,b) => a.pos - b.pos);
   const rows = chips.map(c => c.html).join("");
 
-  // Wildcard line — show original plus reshuffles inline
+  // Wildcard line — show original plus current reshuffle (if any)
   let wcLine;
   if(!wildcard){
     wcLine = `<strong>—</strong>`;
-  } else if(wildcardReshuffles.length === 0){
+  } else if(!wildcardReshuffle){
     wcLine = `<strong>${wildcard}</strong>`;
   } else {
-    const reshuffleStr = wildcardReshuffles.map((p,i) => `Reshuffle ${i+1}: <strong>${p}</strong>`).join(" · ");
-    wcLine = `Original: <strong>${wildcard}</strong> · ${reshuffleStr}`;
+    wcLine = `Original: <strong>${wildcard}</strong> · Reshuffle: <strong style="color:var(--gold);">${wildcardReshuffle}</strong>`;
   }
 
   const hsNames = hsIds.map(id => riderById(id)?.name || "—").join(" & ");
@@ -4415,14 +4424,13 @@ function renderReshuffleSection(){
     return;
   }
   section.style.display = "block";
-  const reshuffles = Array.isArray(rr.wildcardReshuffles) ? rr.wildcardReshuffles : [];
-  const wcPositions = getAllWildcardPositions(rr);
+  const reshuffle = rr.wildcardReshuffle;
   const statusEl = document.getElementById("reshuffleStatus");
   if(statusEl){
-    if(reshuffles.length === 0){
+    if(!reshuffle){
       statusEl.textContent = `(Original: P${rr.wildcardPosition})`;
     } else {
-      statusEl.textContent = `(Tried: ${wcPositions.join(", ")} — ${reshuffles.length} reshuffle${reshuffles.length>1?'s':''})`;
+      statusEl.textContent = `(Original: P${rr.wildcardPosition} · Current reshuffle: P${reshuffle})`;
     }
   }
 }
@@ -4818,18 +4826,16 @@ function submitResults(){
     }
   }
 
-  // Preserve existing wildcard reshuffles if the original wildcard isn't changing.
-  // If the wildcard value changed, reshuffles no longer make sense — start fresh.
+  // Preserve existing wildcard reshuffle if the original wildcard isn't changing.
+  // If the wildcard value changed, the reshuffle no longer makes sense — clear it.
   const existing = state.roundResults[round];
   const sameWildcard = existing?.wildcardPosition === wildcard;
-  const carriedReshuffles = (sameWildcard && Array.isArray(existing?.wildcardReshuffles))
-    ? existing.wildcardReshuffles.slice()
-    : [];
+  const carriedReshuffle = sameWildcard ? (existing?.wildcardReshuffle || 0) : 0;
 
   state.roundResults[round] = {
     submitted:true, round,
     positions, holeshotRiderId, holeshotRiderId2, wildcardPosition:wildcard, teamPoints: {},
-    wildcardReshuffles: carriedReshuffles,
+    wildcardReshuffle: carriedReshuffle,
     // Riders parsed from the paste but not in the pool — persisted for display only
     unmatchedRiders: pendingUnmatchedRiders.slice()
   };
@@ -5608,21 +5614,22 @@ function wireEvents(){
     const s = state.settings || DEFAULT_STATE.settings;
     const lo = s.wildcardMin || 10;
     const hi = s.wildcardMax || 18;
-    if(!Array.isArray(rr.wildcardReshuffles)) rr.wildcardReshuffles = [];
-    const tried = new Set(getAllWildcardPositions(rr));
+    // Pick a random position different from the original and the current reshuffle
+    const taken = new Set([rr.wildcardPosition, rr.wildcardReshuffle].filter(Boolean).map(Number));
     const available = [];
-    for(let p = lo; p <= hi; p++){ if(!tried.has(p)) available.push(p); }
+    for(let p = lo; p <= hi; p++){ if(!taken.has(p)) available.push(p); }
     if(available.length === 0){
-      logMessage("All wildcard positions in range have been tried already.", "error");
+      logMessage("No other positions available in the wildcard range.", "error");
       return;
     }
     const newPos = available[Math.floor(Math.random() * available.length)];
-    rr.wildcardReshuffles.push(newPos);
+    rr.wildcardReshuffle = newPos;
+    // Clean up legacy array if it exists
+    if(rr.wildcardReshuffles) delete rr.wildcardReshuffles;
     recalcAllRoundPoints();
     saveState("reshuffle-wildcard");
     renderAll();
-    const reshuffleNum = rr.wildcardReshuffles.length;
-    logMessage(`Reshuffle ${reshuffleNum}: wildcard is now P${newPos}.`, "success");
+    logMessage(`Wildcard reshuffled to P${newPos}.`, "success");
   };
   document.getElementById("reshuffleManualBtn").onclick = () => {
     const round = Number(document.getElementById("resultsRoundSelect").value);
@@ -5641,18 +5648,17 @@ function wireEvents(){
       logMessage(`Reshuffle position must be between ${lo} and ${hi}.`, "error");
       return;
     }
-    if(!Array.isArray(rr.wildcardReshuffles)) rr.wildcardReshuffles = [];
-    if(getAllWildcardPositions(rr).includes(newPos)){
-      logMessage(`P${newPos} has already been used for this round.`, "error");
+    if(Number(rr.wildcardPosition) === newPos){
+      logMessage(`P${newPos} is already the original wildcard.`, "error");
       return;
     }
-    rr.wildcardReshuffles.push(newPos);
+    rr.wildcardReshuffle = newPos;
+    if(rr.wildcardReshuffles) delete rr.wildcardReshuffles;
     input.value = "";
     recalcAllRoundPoints();
     saveState("reshuffle-wildcard");
     renderAll();
-    const reshuffleNum = rr.wildcardReshuffles.length;
-    logMessage(`Reshuffle ${reshuffleNum}: wildcard is now P${newPos}.`, "success");
+    logMessage(`Wildcard reshuffled to P${newPos}.`, "success");
   };
   document.getElementById("deleteRoundResultsBtn").onclick = deleteRoundResults;
   const updateHsNote = () => {
