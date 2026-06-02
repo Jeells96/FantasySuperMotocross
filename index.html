@@ -1309,7 +1309,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v9.15</span>
+            <span class="version-badge" id="versionBadge">v9.16</span>
           </div>
         </div>
       </div>
@@ -1773,6 +1773,25 @@
       </div>
     </details>
 
+    <details class="settings-panel">
+      <summary>
+        <span>Diagnostics</span>
+        <span class="chev">▼</span>
+      </summary>
+      <div class="settings-body">
+        <div class="small" style="margin-bottom:10px;">
+          Tools for debugging. The log shows what the app is doing — use Inspect Round to dump the raw data for a round (helpful for sync/scoring issues).
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <button class="btn secondary" id="diagRecalcBtn">🔄 Force Recalc &amp; Save</button>
+          <button class="btn secondary" id="diagInspectRoundBtn">🔍 Inspect Round</button>
+          <button class="btn secondary" id="diagInspectStateBtn">🗂 Inspect Full State</button>
+          <button class="btn secondary btn-mini" id="diagClearLogBtn">Clear Log</button>
+        </div>
+        <pre id="diagLog" style="background:#000;color:#0f0;font-family:monospace;font-size:10px;padding:10px;border-radius:6px;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-all;border:1px solid var(--border-2);min-height:80px;"></pre>
+      </div>
+    </details>
+
     <details class="settings-panel danger-panel">
       <summary>
         <span style="color:#ff9898;">Reset / Clear All</span>
@@ -1800,7 +1819,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.15</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.16</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -2635,6 +2654,17 @@ function pointsForFinish(pos){
   return 0;
 }
 
+// Returns the current single reshuffle position for a round (or 0 if none).
+// Handles both new (wildcardReshuffle) and legacy (wildcardReshuffles array) formats.
+function getCurrentReshuffle(rr){
+  if(!rr) return 0;
+  if(rr.wildcardReshuffle) return Number(rr.wildcardReshuffle);
+  if(Array.isArray(rr.wildcardReshuffles) && rr.wildcardReshuffles.length){
+    return Number(rr.wildcardReshuffles[rr.wildcardReshuffles.length - 1]);
+  }
+  return 0;
+}
+
 // Returns all wildcard positions for a round — the original plus the latest reshuffle (if any).
 // A rider whose finish matches ANY of these earns the wildcard bonus.
 // Note: only one reshuffle can be active at a time. Setting a new reshuffle overwrites the previous.
@@ -2847,7 +2877,7 @@ function renderWildcardPanel(){
   }
   const rr = state.roundResults[round];
   const saved = rr?.wildcardPosition;
-  const reshuffle = rr?.wildcardReshuffle;
+  const reshuffle = getCurrentReshuffle(rr);
   if(saved){
     if(reshuffle){
       valEl.innerHTML = `${saved} <span style="font-size:.55em;color:var(--muted);">→</span> <span style="color:var(--gold);">${reshuffle}</span>`;
@@ -4328,14 +4358,14 @@ function updateResultsPreview(){
     holeshotRiderId2 = Number(document.getElementById("holeshotSelect2")?.value||0);
     wildcard = Number(document.getElementById("wildcardInput")?.value||0);
     const rr = state.roundResults[round];
-    wildcardReshuffle = Number(rr?.wildcardReshuffle || 0);
+    wildcardReshuffle = getCurrentReshuffle(rr);
   } else {
     const rr = state.roundResults[round];
     positions = rr?.positions || {};
     holeshotRiderId = rr?.holeshotRiderId || 0;
     holeshotRiderId2 = rr?.holeshotRiderId2 || 0;
     wildcard = rr?.wildcardPosition || 0;
-    wildcardReshuffle = Number(rr?.wildcardReshuffle || 0);
+    wildcardReshuffle = getCurrentReshuffle(rr);
   }
 
   // All wildcard positions (original + single reshuffle)
@@ -4421,10 +4451,17 @@ function renderReshuffleSection(){
   // Only show after the round has been submitted with positions AND a wildcard
   if(!rr?.positions || !rr.wildcardPosition){
     section.style.display = "none";
+    if(typeof diagLog === "function"){
+      diagLog(`Reshuffle hidden for R${round}`, {
+        hasResults: !!rr?.positions,
+        hasWildcard: !!rr?.wildcardPosition,
+        unlocked: resultsUnlocked
+      });
+    }
     return;
   }
   section.style.display = "block";
-  const reshuffle = rr.wildcardReshuffle;
+  const reshuffle = getCurrentReshuffle(rr);
   const statusEl = document.getElementById("reshuffleStatus");
   if(statusEl){
     if(!reshuffle){
@@ -5261,6 +5298,83 @@ function clearAllData(){
   );
 }
 
+// Diagnostics — writes to both browser console and the on-screen Diagnostics panel.
+function diagLog(label, data){
+  const ts = new Date().toLocaleTimeString();
+  const line = `[${ts}] ${label}` + (data !== undefined ? `\n${typeof data === 'string' ? data : JSON.stringify(data, null, 2)}` : '');
+  console.log(line);
+  const el = document.getElementById("diagLog");
+  if(el){
+    el.textContent = line + "\n\n" + el.textContent;
+    // Trim to last 8k chars so it doesn't blow up
+    if(el.textContent.length > 8000) el.textContent = el.textContent.slice(0, 8000) + "\n…[truncated]";
+  }
+}
+
+function diagInspectRound(){
+  const round = Number(document.getElementById("resultsRoundSelect")?.value || state.meta?.currentRound || 1);
+  const rr = state.roundResults[round];
+  if(!rr){
+    diagLog(`Round ${round}: no data`);
+    return;
+  }
+  const allWc = getAllWildcardPositions(rr);
+  const currentReshuffle = getCurrentReshuffle(rr);
+  const summary = {
+    round,
+    wildcardPosition: rr.wildcardPosition,
+    wildcardReshuffle: rr.wildcardReshuffle,
+    wildcardReshuffles_legacy: rr.wildcardReshuffles,
+    allWildcardPositions: allWc,
+    currentReshuffleHelper: currentReshuffle,
+    holeshotRiderId: rr.holeshotRiderId,
+    holeshotRiderId2: rr.holeshotRiderId2,
+    teamFlags: rr.teamFlags,
+    teamPoints: rr.teamPoints,
+    submittedPositions: rr.positions ? Object.keys(rr.positions).length : 0
+  };
+  diagLog(`Inspect Round ${round}`, summary);
+}
+
+function diagInspectState(){
+  diagLog("State fingerprint", {
+    teams: state.teams?.length,
+    riders: state.riders?.length,
+    draftPicks: state.draftPicks?.length,
+    replacements: state.replacements?.length,
+    activeReplacements: state.replacements?.filter(r => r.active !== false).length,
+    submittedRounds: Object.keys(state.roundResults || {}).filter(r => state.roundResults[r]?.positions).length,
+    settings: {
+      holeshotBonus: state.settings?.holeshotBonus,
+      wildcardBonus: state.settings?.wildcardBonus,
+      wildcardMin: state.settings?.wildcardMin,
+      wildcardMax: state.settings?.wildcardMax,
+      standbyPercent: state.settings?.standbyPercent
+    },
+    seasonHistory: state.seasonHistory?.length || 0,
+    viewerWildcardRound: state.meta?.viewerWildcardRound
+  });
+}
+
+function diagForceRecalc(){
+  diagLog("Force recalc starting…");
+  // Migrate any legacy wildcardReshuffles arrays to the single field
+  let migrated = 0;
+  Object.keys(state.roundResults).forEach(rk => {
+    const rr = state.roundResults[rk];
+    if(Array.isArray(rr.wildcardReshuffles) && rr.wildcardReshuffles.length && !rr.wildcardReshuffle){
+      rr.wildcardReshuffle = Number(rr.wildcardReshuffles[rr.wildcardReshuffles.length - 1]);
+      delete rr.wildcardReshuffles;
+      migrated++;
+    }
+  });
+  if(migrated > 0) diagLog(`Migrated ${migrated} round(s) from legacy reshuffles array to single field`);
+  recalcAllRoundPoints();
+  saveState("force-recalc");
+  renderAll();
+  diagLog("Force recalc done — all rounds recalculated and saved");
+}
+
 function escHtml(str){
   return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
@@ -5680,6 +5794,7 @@ function wireEvents(){
   document.getElementById("wildcardInput").oninput = updateResultsPreview;
   document.getElementById("resultsRoundSelect").onchange = () => {
     loadResultsForCurrentRound();
+    renderReshuffleSection();
     updateResultsPreview();
   };
   document.getElementById("saveTeamsBtn").onclick = saveTeamNames;
@@ -5691,6 +5806,13 @@ function wireEvents(){
   document.getElementById("saveDraftOrderBtn").onclick = saveDraftOrder;
   document.getElementById("randomizeDraftOrderBtn").onclick = randomizeDraftOrder;
   document.getElementById("clearAllBtn").onclick = clearAllData;
+  document.getElementById("diagRecalcBtn").onclick = diagForceRecalc;
+  document.getElementById("diagInspectRoundBtn").onclick = diagInspectRound;
+  document.getElementById("diagInspectStateBtn").onclick = diagInspectState;
+  document.getElementById("diagClearLogBtn").onclick = () => {
+    const el = document.getElementById("diagLog");
+    if(el) el.textContent = "";
+  };
   document.getElementById("clearLocalCacheBtn").onclick = () => {
     customConfirm(
       "Clear this device's local cache and reload the page? Cloud data won't be affected.",
