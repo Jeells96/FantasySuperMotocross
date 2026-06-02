@@ -1309,7 +1309,7 @@
           <div style="margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="conn-dot" id="connDot"></span>
             <span class="conn-label" id="connLabel">Connecting…</span>
-            <span class="version-badge" id="versionBadge">v9.16</span>
+            <span class="version-badge" id="versionBadge">v9.17</span>
           </div>
         </div>
       </div>
@@ -1780,8 +1780,12 @@
       </summary>
       <div class="settings-body">
         <div class="small" style="margin-bottom:10px;">
-          Tools for debugging. The log shows what the app is doing — use Inspect Round to dump the raw data for a round (helpful for sync/scoring issues).
+          Tools for debugging. <strong>Verbose mode</strong> logs every click and key action — leave it on while testing a feature, turn off afterwards.
         </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer;">
+          <input type="checkbox" id="diagVerboseToggle" style="width:18px;height:18px;" />
+          <strong>Verbose logging</strong>
+        </label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
           <button class="btn secondary" id="diagRecalcBtn">🔄 Force Recalc &amp; Save</button>
           <button class="btn secondary" id="diagInspectRoundBtn">🔍 Inspect Round</button>
@@ -1819,7 +1823,7 @@
 
   </section>
 
-  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.16</strong> • Built <span id="versionBuildDate"></span></div>
+  <div class="footer-note">Fantasy SuperMotocross League <strong>v9.17</strong> • Built <span id="versionBuildDate"></span></div>
 </div>
 
 <!-- ─── CONFIRM MODAL ─── -->
@@ -2183,6 +2187,7 @@ function applyResultsLockState(){
 }
 
 function unlockResults(){
+  vlog(`unlockResults attempt`);
   const input = document.getElementById("resultsPinInput");
   const msg = document.getElementById("resultsPinMsg");
   const val = (input?.value || "").trim();
@@ -2198,6 +2203,7 @@ function unlockResults(){
 }
 
 function lockResults(){
+  vlog(`lockResults`);
   resultsUnlocked = false;
   applyResultsLockState();
   logMessage("Results editing locked.", "info");
@@ -2246,6 +2252,7 @@ let bootChooserPending = null; // holds { remoteState }
 // Show welcome screen. Both buttons load the cloud (remote) data — they only DIFFER
 // in their displayed text, which is customizable in Settings.
 function showBootChooser({remoteState}){
+  vlog(`showBootChooser`, stateFingerprint(remoteState));
   bootChooserPending = { remoteState };
   const s = (state.settings || DEFAULT_STATE.settings);
   const ds = DEFAULT_STATE.settings;
@@ -2322,6 +2329,7 @@ function saveState(reason, options){
   reason = reason || "(unspecified)";
   options = options || {};
   const fp = stateFingerprint();
+  vlog(`saveState [${reason}]`, fp);
   const isEmpty = (fp.picks === 0 && fp.rounds === 0 && fp.reps === 0);
 
   // Defense: never save an accidental empty state after seeing real data.
@@ -2465,6 +2473,7 @@ function startFirestoreListener(){
         // Diagnostic: log every remote adoption so we can see live syncs happening
         const wc = state.meta?.viewerWildcardRound;
         addEphemeralLog(`✓ Synced [${reason || "?"}] · WC view: R${wc || "—"} · ${fp.picks}p ${fp.rounds}r`, "info");
+        vlog(`Firestore SYNC adopted`, { reason, savedBy, fp });
 
         clearTimeout(renderDebounce);
         renderDebounce = setTimeout(() => {
@@ -2706,6 +2715,7 @@ function didAnyTeamHitWildcard(rr){
 }
 function recalcAllRoundPoints(){
   const s = state.settings || DEFAULT_STATE.settings;
+  vlog(`recalcAllRoundPoints`, { HS: s.holeshotBonus, WC: s.wildcardBonus, standby: s.standbyPercent });
   const HS = s.holeshotBonus || 0;
   const WC = s.wildcardBonus || 0;
   const PCT = (s.standbyPercent || 75) / 100;
@@ -3698,6 +3708,7 @@ function openRiderPopup(riderId){
 function pickRiderForTeam(riderId, teamId){
   const rider = riderById(riderId);
   const team = teamById(teamId);
+  vlog(`pickRiderForTeam`, { rider: rider?.name, team: team?.name });
   if(!rider || !team) return;
   const teamPicks = state.draftPicks.filter(p => p.teamId === teamId);
   const nextRound = teamPicks.length + 1;
@@ -3967,6 +3978,7 @@ function renderRiderHistoryContent(riderName, yearFilter, typeFilter){
 
 // END SEASON action — archive current season into seasonHistory and clear draft.
 function endSeason(){
+  vlog(`endSeason called`);
   // Need at least one submitted round to be meaningful
   const submittedRounds = Object.keys(state.roundResults).filter(r => state.roundResults[r]?.positions);
   if(submittedRounds.length === 0){
@@ -4106,6 +4118,7 @@ function clearDraftOnly(){
   );
 }
 function addReplacement(teamId, origId, repId){
+  vlog(`addReplacement`, { team: teamById(teamId)?.name, orig: riderById(origId)?.name, rep: riderById(repId)?.name });
   if(!teamId||!origId||!repId){ logMessage("Select team, injured rider, and sub.", "error"); return false; }
 
   // Check: does this rider already have an active sub?
@@ -4138,6 +4151,7 @@ function addReplacement(teamId, origId, repId){
   return true;
 }
 function restoreOriginalRider(teamId, origId){
+  vlog(`restoreOriginalRider`, { team: teamById(teamId)?.name, orig: riderById(origId)?.name });
   const rep = state.replacements.find(r=>r.teamId===teamId&&r.originalRiderId===origId&&r.active);
   if(!rep){ logMessage("No active sub found.", "error"); return; }
   rep.active = false;
@@ -4451,17 +4465,12 @@ function renderReshuffleSection(){
   // Only show after the round has been submitted with positions AND a wildcard
   if(!rr?.positions || !rr.wildcardPosition){
     section.style.display = "none";
-    if(typeof diagLog === "function"){
-      diagLog(`Reshuffle hidden for R${round}`, {
-        hasResults: !!rr?.positions,
-        hasWildcard: !!rr?.wildcardPosition,
-        unlocked: resultsUnlocked
-      });
-    }
+    vlog(`reshuffleSection hidden`, { round, hasResults: !!rr?.positions, hasWildcard: !!rr?.wildcardPosition });
     return;
   }
   section.style.display = "block";
   const reshuffle = getCurrentReshuffle(rr);
+  vlog(`reshuffleSection visible`, { round, original: rr.wildcardPosition, reshuffle });
   const statusEl = document.getElementById("reshuffleStatus");
   if(statusEl){
     if(!reshuffle){
@@ -4845,6 +4854,7 @@ function submitResults(){
   const wildcard = Number(document.getElementById("wildcardInput").value);
   const holeshotRiderId = Number(document.getElementById("holeshotSelect").value||0);
   const holeshotRiderId2 = Number(document.getElementById("holeshotSelect2").value||0);
+  vlog(`submitResults`, { round, wildcard, holeshotRiderId, holeshotRiderId2 });
 
   if(!round) { logMessage("Select a round.", "error"); return; }
   const wcMin = state.settings?.wildcardMin || 10;
@@ -4898,6 +4908,7 @@ function submitResults(){
 
 function deleteRoundResults(){
   const round = Number(document.getElementById("resultsRoundSelect").value);
+  vlog(`deleteRoundResults`, { round });
   if(!round) return;
   if(!state.roundResults[round]) { logMessage("No saved results for this round.", "error"); return; }
   customConfirm(
@@ -5298,17 +5309,63 @@ function clearAllData(){
   );
 }
 
+// Verbose mode — when on, every click and key action is logged. Persisted in localStorage so
+// it survives reloads while debugging. Off by default.
+let DIAG_VERBOSE = false;
+try { DIAG_VERBOSE = localStorage.getItem("diag_verbose") === "1"; } catch(e){}
+
 // Diagnostics — writes to both browser console and the on-screen Diagnostics panel.
-function diagLog(label, data){
+// "verbose" calls only log when verbose mode is on, so the panel doesn't drown in noise.
+function diagLog(label, data, opts){
+  opts = opts || {};
+  if(opts.verbose && !DIAG_VERBOSE) return;
   const ts = new Date().toLocaleTimeString();
-  const line = `[${ts}] ${label}` + (data !== undefined ? `\n${typeof data === 'string' ? data : JSON.stringify(data, null, 2)}` : '');
+  const line = `[${ts}] ${label}` + (data !== undefined ? `  ${typeof data === 'string' ? data : JSON.stringify(data)}` : '');
   console.log(line);
   const el = document.getElementById("diagLog");
   if(el){
-    el.textContent = line + "\n\n" + el.textContent;
-    // Trim to last 8k chars so it doesn't blow up
-    if(el.textContent.length > 8000) el.textContent = el.textContent.slice(0, 8000) + "\n…[truncated]";
+    el.textContent = line + "\n" + el.textContent;
+    if(el.textContent.length > 12000) el.textContent = el.textContent.slice(0, 12000) + "\n…[truncated]";
   }
+}
+
+// Shortcut for click/action logs that only fire in verbose mode.
+function vlog(label, data){ diagLog(label, data, { verbose: true }); }
+
+// Describe a clicked element for the log — prefer id, then text content, then tag.
+function describeClickTarget(el){
+  if(!el) return "?";
+  // Walk up to find the nearest meaningful element (button, a, [role=button], or one with id)
+  let n = el;
+  let depth = 0;
+  while(n && depth < 5){
+    if(n.id) return `#${n.id}`;
+    if(n.tagName === "BUTTON" || n.tagName === "A"){
+      const txt = (n.textContent || "").trim().slice(0, 40);
+      return `<${n.tagName.toLowerCase()}> "${txt}"`;
+    }
+    n = n.parentElement;
+    depth++;
+  }
+  return `<${el.tagName?.toLowerCase() || "?"}>`;
+}
+
+// Install a global click listener that logs every click in verbose mode.
+function installClickLogger(){
+  document.addEventListener("click", (e) => {
+    if(!DIAG_VERBOSE) return;
+    vlog(`CLICK ${describeClickTarget(e.target)}`);
+  }, true); // capture so we see clicks even on elements with their own handlers
+  // Also log key changes on select/input elements
+  document.addEventListener("change", (e) => {
+    if(!DIAG_VERBOSE) return;
+    const t = e.target;
+    if(!t) return;
+    const ident = t.id ? `#${t.id}` : `<${t.tagName?.toLowerCase()}>`;
+    let val = t.value;
+    if(t.type === "password") val = "***";
+    vlog(`CHANGE ${ident} = ${val}`);
+  }, true);
 }
 
 function diagInspectRound(){
@@ -5813,6 +5870,16 @@ function wireEvents(){
     const el = document.getElementById("diagLog");
     if(el) el.textContent = "";
   };
+  // Verbose mode toggle
+  const verboseChk = document.getElementById("diagVerboseToggle");
+  if(verboseChk){
+    verboseChk.checked = DIAG_VERBOSE;
+    verboseChk.onchange = () => {
+      DIAG_VERBOSE = verboseChk.checked;
+      try { localStorage.setItem("diag_verbose", DIAG_VERBOSE ? "1" : "0"); } catch(e){}
+      diagLog(`Verbose logging ${DIAG_VERBOSE ? "ON" : "OFF"}`);
+    };
+  }
   document.getElementById("clearLocalCacheBtn").onclick = () => {
     customConfirm(
       "Clear this device's local cache and reload the page? Cloud data won't be affected.",
@@ -5949,6 +6016,8 @@ lastCommittedSnapshot = captureSnapshot();
 recalcAllRoundPoints();
 renderAll();
 wireEvents();
+installClickLogger();
+vlog(`App initialized`, stateFingerprint());
 
 // Show the build timestamp (year-month-day) in the footer
 try {
@@ -5959,6 +6028,7 @@ try {
 
 // 2. Start Firestore live listener — will update state + re-render when data arrives
 startFirestoreListener();
+vlog(`Firestore listener started`);
 </script>
 
 </body>
