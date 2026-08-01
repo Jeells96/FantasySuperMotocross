@@ -1406,7 +1406,7 @@
       </div>
       <div id="draftOrderStrip" class="draft-strip" style="display:none;"></div>
       <div class="small muted" style="margin-bottom:10px;">
-        Tap a rider to pick them for a team. First pick = Round 1, second = Round 2, third = 🔄 Reverse Pick (choose a drafted rider — not your own — who scores when they finish badly).
+        Tap a rider to pick them for a team. First pick = Round 1, second = Round 2, third = 🔄 Reverse Pick (choose any drafted rider — even your own — who scores more the worse they finish).
       </div>
       <div class="toolbar">
         <input id="riderSearch" placeholder="Search riders…" />
@@ -1695,7 +1695,7 @@
         <h3 style="font-size:13px;margin-bottom:8px;">Points by Finish Position</h3>
         <div id="pointsTableInputs" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px;"></div>
 
-        <div class="small" style="margin:14px 0 6px;color:var(--gold);"><strong>🔄 Reverse Pick points (P1–P22)</strong> — negative for good finishes, positive for bad ones</div>
+        <div class="small" style="margin:14px 0 6px;color:var(--gold);"><strong>🔄 Reverse Pick points (P1–P22)</strong> — higher points for worse finishes; customize freely</div>
         <div id="reverseTableInputs" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px;"></div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
@@ -1989,10 +1989,9 @@ const DEFAULT_STATE = {
     // Points for positions 15 through wildcardMax (default 22)
     pointsLowerTier: 1,
     // Reverse Pick scoring — index 0 unused, indexes 1..22 explicit.
-    // Rewards bad finishes, punishes good ones: round(0.8 × (position − 12)).
-    // Tuned against real season data so the reverse round offsets the
-    // advantage of the top draft slots without flipping it.
-    reversePointsTable: [0, -9, -8, -7, -6, -6, -5, -4, -3, -2, -2, -1, 0, 1, 2, 2, 3, 4, 5, 6, 6, 7, 8],
+    // All positive: a win pays nothing, and the worse the finish the more it
+    // pays, flat 12 from P15 back. Fully customizable in Settings.
+    reversePointsTable: [0, 0, 1, 2, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 12, 12, 12, 12, 12, 12],
     holeshotBonus: 5,
     wildcardBonus: 15,
     wildcardMin: 10,
@@ -2049,6 +2048,12 @@ function migrateState(merged){
     merged.settings.pointsTable = deepClone(DEFAULT_STATE.settings.pointsTable);
   }
   if(!Array.isArray(merged.settings.reversePointsTable) || merged.settings.reversePointsTable.length < 23){
+    merged.settings.reversePointsTable = deepClone(DEFAULT_STATE.settings.reversePointsTable);
+  }
+  // One-time migration: replace the short-lived negative-scale default with the
+  // current all-positive default. Custom tables are left alone.
+  const OLD_REVERSE_DEFAULT = "0,-9,-8,-7,-6,-6,-5,-4,-3,-2,-2,-1,0,1,2,2,3,4,5,6,6,7,8";
+  if(merged.settings.reversePointsTable.join(",") === OLD_REVERSE_DEFAULT){
     merged.settings.reversePointsTable = deepClone(DEFAULT_STATE.settings.reversePointsTable);
   }
   return merged;
@@ -3112,7 +3117,7 @@ function renderScoringRulesDisplay(){
         <div style="padding-left:12px;">🩹 <strong>Injury subs:</strong> a standby rider scores ${s.standbyPercent}% of the points (rounded)</div>
       </div>
       <div style="display:grid;gap:6px;">
-        <div><strong style="color:var(--gold);">🔄 Your Reverse Pick</strong> is a rider from the drafted pool (not your own). They score the gold column — <strong>the worse they finish, the more you get</strong>. A P12 finish is worth nothing, a bad day pays, a podium costs you. No bonuses, no subs, and 0 points when they don't race.</div>
+        <div><strong style="color:var(--gold);">🔄 Your Reverse Pick</strong> is any rider from the drafted pool — even one of your own. They score the gold column — <strong>the worse they finish, the more you get</strong>: a win pays nothing, a bad day pays big. No bonuses, no subs, and 0 points when they don't race. Each rider can only be one team's Reverse Pick.</div>
       </div>
       <div style="display:flex;gap:24px;flex-wrap:wrap;">
         ${makeTable(rows.slice(0, 11))}
@@ -3768,26 +3773,26 @@ function openRiderPopup(riderId){
     state.teams.forEach(team => {
       const teamPicks = state.draftPicks.filter(p => p.teamId === team.id);
       const pickCount = teamPicks.length;
-      const alreadyHasRider = teamPicks.some(p => p.riderId === riderId);
+      const existing = teamPicks.find(p => p.riderId === riderId);
+      // Label for a slot this rider already fills on this team
+      const heldLabel = existing ? (existing.round === 3 ? "✓ Reverse" : `✓ R${existing.round}`) : "";
 
       let sub = "", cls = "green", disabled = false;
 
-      if(alreadyHasRider){
-        const existing = teamPicks.find(p => p.riderId === riderId);
-        sub = existing.round === 3 ? "✓ Reverse" : `✓ R${existing.round}`;
-        cls = "secondary"; disabled = true;
-      } else if(pickCount >= 3){
-        sub = "FULL";
+      if(pickCount >= 3){
+        sub = heldLabel || "FULL";
         cls = "secondary"; disabled = true;
       } else {
-        // First round slot this team hasn't filled (handles gaps after removals)
+        // First round slot this team hasn't filled (handles gaps after removals).
+        // Reverse-picking your OWN rider is allowed, so an existing R1/R2 pick
+        // only blocks when validateDraft says so for the open slot.
         const nextRound = [1,2,3].find(r => !teamPicks.some(p => p.round === r));
         const err = validateDraft(team.id, nextRound, riderId);
         if(err){
-          sub = "unavailable";
+          sub = heldLabel || "unavailable";
           cls = "secondary"; disabled = true;
         } else if(nextRound === 3){
-          sub = "→ Reverse Pick 🔄";
+          sub = existing ? "→ Reverse own rider 🔄" : "→ Reverse Pick 🔄";
           cls = "green"; disabled = false;
         } else {
           sub = `→ Round ${nextRound}`;
@@ -4279,11 +4284,10 @@ function validateDraft(teamId, round, riderId){
     if(getRound2Count(riderId)>=2) return "Rider is already locked (picked twice in Round 2).";
   }
   if(round===3){
-    // Reverse Pick: choose from riders already drafted in Rounds 1–2…
+    // Reverse Pick: choose from riders already drafted in Rounds 1–2 —
+    // including your own riders (a legitimate hedge play)…
     if(!state.draftPicks.some(p=>p.riderId===riderId && p.round<=2)) return "Reverse Picks must come from the drafted rider pool.";
-    // …but not one of your own riders…
-    if(state.draftPicks.some(p=>p.teamId===teamId&&p.riderId===riderId&&p.round<=2)) return "You can't Reverse Pick your own rider.";
-    // …and each rider can only be somebody's Reverse Pick once.
+    // …but each rider can only be somebody's Reverse Pick once.
     if(state.draftPicks.some(p=>p.riderId===riderId&&p.round===3)) return "That rider is already someone's Reverse Pick.";
   }
   return "";
