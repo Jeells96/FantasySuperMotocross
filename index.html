@@ -1458,6 +1458,25 @@
           <button class="btn secondary" id="openMxResultsBtn" type="button">🔗 promotocross.com</button>
         </div>
 
+        <!-- ─── AUTO-RESULTS AUTOPILOT CARD ─── -->
+        <div id="autoPilotCard" style="margin:14px 0;padding:14px;border:1px solid var(--border);border-radius:12px;background:linear-gradient(135deg, rgba(232,183,48,.08), rgba(255,77,26,.05)) , var(--panel-2);">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-size:18px;">🤖</span>
+            <strong style="font-size:14px;flex:1;">Auto-Results</strong>
+            <span id="autoPilotBadge"></span>
+          </div>
+          <div class="small" id="autoPilotStatus" style="margin-top:8px;color:var(--muted);"></div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;">
+            <select id="autoPilotSeries" style="max-width:190px;">
+              <option value="auto">Series: Auto-detect</option>
+              <option value="sx">Series: Supercross</option>
+              <option value="mx">Series: Pro Motocross</option>
+            </select>
+            <button class="btn secondary btn-mini" id="autoPilotCheckBtn" type="button">🔎 Check Now</button>
+            <button class="btn secondary btn-mini" id="autoPilotToggleBtn" type="button">Turn Off</button>
+          </div>
+        </div>
+
         <!-- PIN LOCK BANNER (shown when locked) -->
         <div id="resultsLockBanner" style="margin:14px 0;padding:14px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
@@ -1938,6 +1957,9 @@ const DEFAULT_STATE = {
   // Tracks which rounds have already had their wildcard randomized — locks future randomization
   // { "1": true, "2": true, ... }
   randomizedWildcards: {},
+  // Auto-Results autopilot — fetches, scores, and submits official results hands-free.
+  // ingested: { [eventId]: { round, name, at, skipped? } } — events already handled
+  autoResults: { enabled: true, series: "auto", ingested: {} },
   riderAliases: [
     { pdfName: "R.J. Hampshire",   riderId: 19 },
     { pdfName: "RJ Hampshire",     riderId: 19 }
@@ -1989,6 +2011,10 @@ function migrateState(merged){
   if(!Array.isArray(merged.seasonHistory)) merged.seasonHistory = [];
   if(typeof merged.preWildcards !== "object" || merged.preWildcards === null) merged.preWildcards = {};
   if(typeof merged.randomizedWildcards !== "object" || merged.randomizedWildcards === null) merged.randomizedWildcards = {};
+  if(typeof merged.autoResults !== "object" || merged.autoResults === null) merged.autoResults = deepClone(DEFAULT_STATE.autoResults);
+  if(merged.autoResults.enabled === undefined) merged.autoResults.enabled = true;
+  if(!merged.autoResults.series) merged.autoResults.series = "auto";
+  if(typeof merged.autoResults.ingested !== "object" || merged.autoResults.ingested === null) merged.autoResults.ingested = {};
   // Meta migration — ensure new fields exist
   if(!merged.meta) merged.meta = deepClone(DEFAULT_STATE.meta);
   if(!merged.meta.viewerWildcardRound) merged.meta.viewerWildcardRound = 1;
@@ -4467,6 +4493,7 @@ function renderResultsPage(){
   applyResultsLockState();
   renderReshuffleSection();
   updateResultsPreview();
+  renderAutoPilotCard();
 }
 
 // Show the reshuffle wildcard section whenever a round has results submitted
@@ -4866,6 +4893,55 @@ function pickLatestCompletedEvent(events){
   return events.find(ev => ev.date && ev.date <= now) || events[0] || null;
 }
 
+// Fetch an event's official results: box scores first (auto-detecting our
+// class by rider-pool match count), then the live-timing feed as a Supercross
+// fallback. Returns { rows, matches, sourceNote } or null if nothing usable.
+// opts.requireMainEvent restricts the SX live-feed fallback to a main-event
+// session — the autopilot uses it so a heat race can never be auto-scored.
+async function fetchOfficialEventResults(series, event, opts){
+  opts = opts || {};
+  const site = RESULTS_SITES[series];
+  const progress = opts.onProgress || (() => {});
+  let best = null;
+  try {
+    progress(`Loading ${event.name}…`);
+    const classIds = parseEventClassIds(
+      await fetchResultsPage(`${site.base}/results/?p=view_event&id=${event.id}`)
+    );
+    for(const classId of classIds.slice(0, 4)){
+      progress(`Reading box score (class ${classId})…`);
+      let rows;
+      try {
+        rows = parseBoxScore(await fetchResultsPage(
+          `${site.base}/results/?p=box_score_report&id=${event.id}&class_id=${classId}`
+        ));
+      } catch(err){ continue; }
+      const matches = rows.filter(r => resolveNameToRider(r.name)).length;
+      if(!best || matches > best.matches) best = { rows, matches, sourceNote: "" };
+      // A clear majority match means we found our class — stop early
+      if(matches >= 10) break;
+    }
+  } catch(err){ /* fall through to the live-feed fallback below */ }
+
+  // Supercross fallback — the SX site's box scores often error out, but the
+  // live-timing feed carries the main-event order on race night.
+  if((!best || best.matches < 3) && series === "sx"){
+    progress("Box score unavailable — trying the live timing feed…");
+    try {
+      const feed = await fetchLiveFeedRows("sx");
+      const matches = feed.rows.filter(r => resolveNameToRider(r.name)).length;
+      const isMainEvent = /main event/i.test(feed.session);
+      if(matches >= 3 && (!best || matches > best.matches) && (isMainEvent || !opts.requireMainEvent)){
+        best = {
+          rows: feed.rows, matches,
+          sourceNote: feed.session ? ` (live timing — ${feed.session})` : " (live timing)"
+        };
+      }
+    } catch(err){ /* keep whatever the box scores produced */ }
+  }
+  return best;
+}
+
 async function autoFetchResults(){
   const btn = document.getElementById("autoFetchBtn");
   const series = document.getElementById("autoFetchSeries")?.value || "mx";
@@ -4890,45 +4966,11 @@ async function autoFetchResults(){
     if(!event) throw new Error("Couldn't determine which event to load");
     renderAutoFetchEventOptions(events, event.id);
 
-    // 3) Event page → class ids → box scores. Keep whichever class's box
-    //    score matches our rider pool best.
-    let best = null;
-    let sourceNote = "";
-    try {
-      setAutoFetchMsg(`Loading ${event.name}…`);
-      const classIds = parseEventClassIds(
-        await fetchResultsPage(`${site.base}/results/?p=view_event&id=${event.id}`)
-      );
-      for(const classId of classIds.slice(0, 4)){
-        setAutoFetchMsg(`Reading box score (class ${classId})…`);
-        let rows;
-        try {
-          rows = parseBoxScore(await fetchResultsPage(
-            `${site.base}/results/?p=box_score_report&id=${event.id}&class_id=${classId}`
-          ));
-        } catch(err){ continue; }
-        const matches = rows.filter(r => resolveNameToRider(r.name)).length;
-        if(!best || matches > best.matches) best = { rows, matches };
-        // A clear majority match means we found our class — stop early
-        if(matches >= 10) break;
-      }
-    } catch(err){ /* fall through to the live-feed fallback below */ }
-
-    // 4) Supercross fallback — the SX site's box scores often error out, but
-    //    the live-timing feed carries the main-event order on race night.
-    if((!best || best.matches < 3) && series === "sx"){
-      setAutoFetchMsg("Box score unavailable — trying the live timing feed…");
-      try {
-        const feed = await fetchLiveFeedRows("sx");
-        const matches = feed.rows.filter(r => resolveNameToRider(r.name)).length;
-        if(matches >= 3 && (!best || matches > best.matches)){
-          best = { rows: feed.rows, matches };
-          sourceNote = feed.session ? ` (live timing — ${feed.session})` : " (live timing)";
-        }
-      } catch(err){ /* keep whatever the box scores produced */ }
-    }
+    // 3) Fetch the event's official results (shared with the autopilot)
+    const best = await fetchOfficialEventResults(series, event, { onProgress: setAutoFetchMsg });
     if(!best || !best.rows.length) throw new Error(`No results posted yet for ${event.name} — try again later`);
     if(best.matches < 3) throw new Error("Results found, but almost no names match your rider pool — wrong class or wrong series?");
+    const sourceNote = best.sourceNote || "";
 
     // 5) Fill finishing order through the same pipeline as pasted results
     const { matched, unmatched } = applyPastedResults(best.rows);
@@ -4962,6 +5004,348 @@ async function autoFetchResults(){
   } finally {
     btn.disabled = false;
   }
+}
+
+// ═══════════════════════════════════════════════════
+//  AUTO-RESULTS AUTOPILOT
+//  Fully hands-free: watches the official schedule, and when a race
+//  finishes it fetches the box score, submits the round, draws the
+//  wildcard (reshuffling until a team actually receives the bonus),
+//  advances the round, and announces next week's wildcard.
+// ═══════════════════════════════════════════════════
+let autoPilotBusy = false;
+let autoPilotLastCheckAt = 0;
+let autoPilotNote = "";
+let autoPilotNextUp = "";
+let autoPilotProgress = "";
+
+const AUTOPILOT_CHECK_MS = 20 * 60 * 1000; // re-check every 20 minutes
+
+function resolveAutoSeries(){
+  const pref = state.autoResults?.series || "auto";
+  if(pref === "sx" || pref === "mx") return pref;
+  // Auto: Supercross runs Jan–Apr; Pro Motocross / SMX the rest of the year
+  return (new Date().getMonth() <= 3) ? "sx" : "mx";
+}
+
+// First round (from currentRound onward) that has no submitted positions.
+function autoPilotTargetRound(){
+  const total = state.meta.totalRounds || 17;
+  const start = Math.min(Math.max(Number(state.meta.currentRound) || 1, 1), total);
+  for(let r = start; r <= total; r++){
+    if(!state.roundResults[r]?.positions) return r;
+  }
+  return null;
+}
+
+// Title-case an ALL-CAPS box-score name ("HUNTER LAWRENCE" → "Hunter Lawrence"),
+// preserving initials like "R.J." — same rules as the manual add-to-pool flow.
+function titleCaseRiderName(raw){
+  return String(raw).trim().split(/\s+/).map(w => {
+    if(w.length <= 1) return w.toUpperCase();
+    if(/^[A-Z]\.[A-Z]\.?$/i.test(w)) return w.toUpperCase();
+    if(/^[A-Z]{2,3}$/.test(w)) return w; // RJ, JT, etc.
+    return w[0].toUpperCase() + w.slice(1).toLowerCase();
+  }).join(" ");
+}
+
+// Silently add a rider from official results to the pool (with an alias for
+// the raw ALL-CAPS name) so every finisher scores. Returns the rider.
+function autoAddRiderToPool(rawName){
+  const titleCased = titleCaseRiderName(rawName);
+  const norm = normalizeRiderName(titleCased);
+  const existing = state.riders.find(r => normalizeRiderName(r.name) === norm);
+  if(existing) return existing;
+  const maxId = state.riders.reduce((m, r) => Math.max(m, r.id), 0);
+  const rider = { id: maxId + 1, name: titleCased, realTeam: "—" };
+  state.riders.push(rider);
+  if(!state.riderAliases) state.riderAliases = [];
+  if(rawName !== titleCased && !state.riderAliases.some(a => a.pdfName === rawName)){
+    state.riderAliases.push({ pdfName: rawName, riderId: rider.id });
+  }
+  return rider;
+}
+
+async function autoPilotCheck(opts){
+  opts = opts || {};
+  if(autoPilotBusy) return;
+  if(!state.autoResults) return;
+  if(!opts.manual && !state.autoResults.enabled) return;
+  // Never act on stale local data — wait until the cloud state is authoritative
+  // (bootChoiceMade flips after the first server-confirmed snapshot is adopted)
+  if(!bootChoiceMade){
+    autoPilotNote = "Waiting for cloud sync…";
+    renderAutoPilotCard();
+    return;
+  }
+  autoPilotBusy = true;
+  autoPilotProgress = "Checking for new results…";
+  renderAutoPilotCard();
+  try {
+    const series = resolveAutoSeries();
+    const site = RESULTS_SITES[series];
+    const events = parseEventsList(await fetchResultsPage(`${site.base}/events/`));
+    const now = new Date();
+    const dated = events.filter(e => e.date);
+    const completed = dated.filter(e => e.date <= now).sort((a, b) => b.date - a.date);
+    const upcoming  = dated.filter(e => e.date >  now).sort((a, b) => a.date - b.date);
+    autoPilotNextUp = upcoming.length
+      ? `${upcoming[0].name} · ${upcoming[0].date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+      : "";
+    const latest = completed[0];
+    if(!latest){ autoPilotNote = `No completed ${site.label} events found.`; return; }
+
+    const ar = state.autoResults;
+    if(ar.ingested[latest.id]){
+      const rec = ar.ingested[latest.id];
+      autoPilotNote = rec.skipped
+        ? "Armed — the next race will be scored automatically."
+        : `Up to date — ${rec.name || latest.name} scored into Round ${rec.round} ✓`;
+      return;
+    }
+
+    const round = autoPilotTargetRound();
+    const ageDays = (now - latest.date) / 86400000;
+
+    // First activation: don't back-fill an old race. Only auto-score events
+    // from the past 8 days into an open round; older ones get marked handled.
+    if(ageDays > 8 || round === null){
+      ar.ingested[latest.id] = { skipped: true, name: latest.name, at: Date.now() };
+      saveState("auto-results-arm", { skipUndo: true });
+      autoPilotNote = round === null
+        ? "Every round already has results — armed for next season."
+        : "Armed — the next race will be scored automatically.";
+      return;
+    }
+
+    // Courtesy: don't submit under the admin's feet on this device
+    if(resultsUnlocked && !opts.manual){
+      autoPilotNote = "Paused — the results editor is unlocked on this device.";
+      return;
+    }
+
+    autoPilotProgress = `${latest.name} just finished — fetching official results…`;
+    renderAutoPilotCard();
+    const res = await fetchOfficialEventResults(series, latest, {
+      requireMainEvent: true,
+      onProgress: t => { autoPilotProgress = t; renderAutoPilotCard(); }
+    });
+
+    // Quality gate — only auto-submit complete, well-matched official results
+    const looksComplete = res && res.rows.length >= 15 && res.matches >= 6 &&
+      [1, 2, 3, 4, 5].every(p => res.rows.some(r => r.position === p));
+    if(!looksComplete){
+      autoPilotNote = `${latest.name} is done — waiting for official results to post…`;
+      return;
+    }
+
+    autoPilotApply(round, latest, res);
+  } catch(err){
+    autoPilotNote = `Check failed (${err.message}) — will retry.`;
+    diagLog("autoPilotCheck error", { message: err.message });
+  } finally {
+    autoPilotLastCheckAt = Date.now();
+    autoPilotBusy = false;
+    autoPilotProgress = "";
+    renderAutoPilotCard();
+  }
+}
+
+// Apply fetched official results to a round — mirrors submitResults exactly,
+// then runs the wildcard draw/reshuffle and round advancement.
+function autoPilotApply(round, event, res){
+  // Re-check: a cloud sync may have landed results while we were fetching
+  if(state.roundResults[round]?.positions || state.autoResults.ingested[event.id]){
+    autoPilotNote = "Round was scored elsewhere while checking — nothing to do.";
+    return;
+  }
+  const s = state.settings || DEFAULT_STATE.settings;
+  const lo = s.wildcardMin || 10, hi = s.wildcardMax || 18;
+
+  // Finishing order — auto-add unknown top-22 finishers so everyone scores
+  const positions = {};
+  const usedPos = new Set();
+  const addedNames = [];
+  res.rows.forEach(row => {
+    if(row.position < 1 || row.position > 22 || usedPos.has(row.position)) return;
+    let rider = resolveNameToRider(row.name);
+    if(!rider){
+      rider = autoAddRiderToPool(row.name);
+      if(rider) addedNames.push(rider.name);
+    }
+    if(rider && !Object.prototype.hasOwnProperty.call(positions, rider.id)){
+      positions[rider.id] = row.position;
+      usedPos.add(row.position);
+    }
+  });
+  if(Object.keys(positions).length < 10){
+    autoPilotNote = "Results looked incomplete — holding off for now.";
+    return;
+  }
+
+  // Holeshots — the rider who led the start (position 1) in each moto
+  const hsIds = [0, 0];
+  for(let moto = 0; moto < 2; moto++){
+    const leader = res.rows.find(r => r.starts && r.starts[moto] === 1);
+    const rider = leader ? resolveNameToRider(leader.name) : null;
+    if(rider) hsIds[moto] = rider.id;
+  }
+
+  // Wildcard — honor a pre-announced wildcard for this round, else draw fresh
+  const existing = state.roundResults[round];
+  let wildcard = Number(existing?.wildcardPosition) || Number(state.preWildcards?.[round]) || 0;
+  let wildcardWasPreset = !!wildcard;
+  if(!wildcard || wildcard < lo || wildcard > hi){
+    wildcard = lo + Math.floor(Math.random() * (hi - lo + 1));
+    wildcardWasPreset = false;
+  }
+
+  state.roundResults[round] = {
+    submitted: true, round,
+    positions,
+    holeshotRiderId: hsIds[0], holeshotRiderId2: hsIds[1],
+    wildcardPosition: wildcard, wildcardReshuffle: 0,
+    teamPoints: {}, unmatchedRiders: [],
+    autoSubmitted: true, sourceEventId: event.id, sourceEventName: event.name
+  };
+  if(state.preWildcards && state.preWildcards[round]) delete state.preWildcards[round];
+  recalcAllRoundPoints();
+
+  // Wildcard reshuffle — if no team received the bonus, keep redrawing
+  // (each new draw replaces the previous reshuffle, matching the manual 🎲)
+  // until a team lands on it or the whole range has been tried.
+  const rr = state.roundResults[round];
+  const trail = [wildcard];
+  if(!didAnyTeamHitWildcard(rr)){
+    const tried = new Set([wildcard]);
+    for(;;){
+      const avail = [];
+      for(let p = lo; p <= hi; p++){ if(!tried.has(p)) avail.push(p); }
+      if(!avail.length) break;
+      const pick = avail[Math.floor(Math.random() * avail.length)];
+      tried.add(pick);
+      rr.wildcardReshuffle = pick;
+      trail.push(pick);
+      recalcAllRoundPoints();
+      if(didAnyTeamHitWildcard(rr)) break;
+    }
+    if(!didAnyTeamHitWildcard(rr)){
+      // No position in the range could pay out — keep the original draw only
+      rr.wildcardReshuffle = 0;
+      trail.length = 1;
+      recalcAllRoundPoints();
+    }
+  }
+
+  // Advance the league and announce next week's wildcard on Standings
+  if(round >= state.meta.currentRound && round < state.meta.totalRounds){
+    state.meta.currentRound = round + 1;
+  }
+  const next = round + 1;
+  let nextWildcard = 0;
+  if(next <= state.meta.totalRounds && !state.roundResults[next]?.positions){
+    nextWildcard = Number(state.roundResults[next]?.wildcardPosition) || Number(state.preWildcards?.[next]) || 0;
+    if(!nextWildcard){
+      nextWildcard = lo + Math.floor(Math.random() * (hi - lo + 1));
+      if(state.roundResults[next]){
+        state.roundResults[next].wildcardPosition = nextWildcard;
+      } else {
+        state.roundResults[next] = {
+          submitted: false, round: next, positions: null,
+          wildcardPosition: nextWildcard, teamPoints: {}, teamFlags: {}
+        };
+      }
+    }
+    state.meta.viewerWildcardRound = next;
+  } else {
+    state.meta.viewerWildcardRound = round;
+  }
+
+  state.autoResults.ingested[event.id] = { round, name: event.name, at: Date.now() };
+  saveState("auto-results");
+  renderAll();
+
+  // ── Tell the story ──
+  const winners = state.teams.filter(t => rr.teamFlags?.[t.id]?.wc).map(t => t.name);
+  const hsNames = hsIds.filter(Boolean).map(id => riderById(id)?.name).filter(Boolean);
+  logMessage(`🤖 ${event.name} — results auto-scored into Round ${round}${res.sourceNote || ""}!`, "success");
+  if(hsNames.length){
+    addEphemeralLog(`🚀 Holeshot${hsNames.length > 1 ? "s" : ""}: ${hsNames.join(" & ")} (+${s.holeshotBonus} each)`, "info");
+  }
+  let wcStory;
+  if(trail.length === 1){
+    wcStory = winners.length
+      ? `🎯 Wildcard P${wildcard}${wildcardWasPreset ? "" : " (drawn)"} — ${winners.join(" & ")} +${s.wildcardBonus}!`
+      : `🎲 Wildcard P${wildcard} — no team could receive it this round.`;
+  } else {
+    wcStory = `🎲 Wildcard P${trail[0]} — nobody home. Reshuffled: ${trail.slice(1).map(p => "P" + p).join(" → ")}` +
+      (winners.length ? ` — ${winners.join(" & ")} +${s.wildcardBonus}!` : "");
+  }
+  logMessage(wcStory, winners.length ? "success" : "info");
+  if(nextWildcard) addEphemeralLog(`📣 Round ${next} wildcard announced: P${nextWildcard}`, "info");
+  if(addedNames.length) addEphemeralLog(`➕ Added to rider pool: ${addedNames.join(", ")}`, "info");
+
+  autoPilotNote = `${event.name} scored into Round ${round} ✓`;
+}
+
+function renderAutoPilotCard(){
+  const card = document.getElementById("autoPilotCard");
+  if(!card) return;
+  const enabled = !!state.autoResults?.enabled;
+  const badge = document.getElementById("autoPilotBadge");
+  if(badge){
+    badge.textContent = enabled ? "ON" : "OFF";
+    badge.style.cssText = "font-size:10px;font-weight:800;letter-spacing:1px;padding:3px 9px;border-radius:999px;" +
+      (enabled
+        ? "background:rgba(70,200,120,.15);color:#4dd88a;border:1px solid rgba(70,200,120,.4);"
+        : "background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border);");
+  }
+  const toggleBtn = document.getElementById("autoPilotToggleBtn");
+  if(toggleBtn) toggleBtn.textContent = enabled ? "Turn Off" : "Turn On";
+  const seriesSel = document.getElementById("autoPilotSeries");
+  if(seriesSel) seriesSel.value = state.autoResults?.series || "auto";
+
+  const status = document.getElementById("autoPilotStatus");
+  if(!status) return;
+  const lines = [];
+  if(autoPilotBusy && autoPilotProgress){
+    lines.push(`⏳ ${autoPilotProgress}`);
+  } else if(!enabled){
+    lines.push("Off — results must be entered manually below.");
+  } else {
+    const series = resolveAutoSeries();
+    const lastChk = autoPilotLastCheckAt
+      ? new Date(autoPilotLastCheckAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+      : "just started";
+    lines.push(`Watching ${RESULTS_SITES[series].label} · Last check: ${lastChk}`);
+    if(autoPilotNote) lines.push(autoPilotNote);
+    if(autoPilotNextUp) lines.push(`📅 Next race: ${autoPilotNextUp}`);
+  }
+  status.innerHTML = lines.map(l => `<div style="margin-top:2px;">${escHtml(l)}</div>`).join("");
+}
+
+// Kicks off the autopilot: first check right after the cloud sync lands,
+// then a steady heartbeat, plus a check whenever the tab is reopened.
+function startAutoPilot(){
+  const bootWait = setInterval(() => {
+    if(bootChoiceMade){
+      clearInterval(bootWait);
+      renderAutoPilotCard();
+      if(state.autoResults?.enabled) autoPilotCheck({});
+    }
+  }, 1500);
+  setInterval(() => {
+    if(!state.autoResults?.enabled) return;
+    if(Date.now() - autoPilotLastCheckAt < AUTOPILOT_CHECK_MS) return;
+    autoPilotCheck({});
+  }, 60 * 1000);
+  document.addEventListener("visibilitychange", () => {
+    if(!document.hidden && state.autoResults?.enabled &&
+       Date.now() - autoPilotLastCheckAt > 5 * 60 * 1000){
+      // Give the visibility re-sync a moment to land first
+      setTimeout(() => autoPilotCheck({}), 2500);
+    }
+  });
 }
 
 function parsePdfText(text){
@@ -5946,6 +6330,23 @@ function wireEvents(){
     window.open("https://results.promotocross.com/results/", "_blank");
   };
 
+  // Auto-Results autopilot card
+  document.getElementById("autoPilotToggleBtn").onclick = () => {
+    if(!state.autoResults) state.autoResults = { enabled: true, series: "auto", ingested: {} };
+    state.autoResults.enabled = !state.autoResults.enabled;
+    saveState("auto-results-toggle", { skipUndo: true });
+    renderAutoPilotCard();
+    logMessage(`🤖 Auto-Results turned ${state.autoResults.enabled ? "ON" : "OFF"}.`, "info");
+    if(state.autoResults.enabled) autoPilotCheck({ manual: true });
+  };
+  document.getElementById("autoPilotSeries").onchange = (e) => {
+    if(!state.autoResults) state.autoResults = { enabled: true, series: "auto", ingested: {} };
+    state.autoResults.series = e.target.value;
+    saveState("auto-results-series", { skipUndo: true });
+    renderAutoPilotCard();
+  };
+  document.getElementById("autoPilotCheckBtn").onclick = () => autoPilotCheck({ manual: true });
+
   // Auto-fetch official results
   const seriesSel = document.getElementById("autoFetchSeries");
   // Default series by calendar: Supercross runs Jan–Apr, Pro Motocross May onward
@@ -6305,6 +6706,11 @@ try {
 // 2. Start Firestore live listener — will update state + re-render when data arrives
 startFirestoreListener();
 vlog(`Firestore listener started`);
+
+// 3. Start the Auto-Results autopilot — waits for the first cloud sync, then
+// checks for freshly-finished races now and on a steady heartbeat.
+startAutoPilot();
+vlog(`Auto-Results autopilot started`);
 </script>
 
 </body>
