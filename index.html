@@ -1478,6 +1478,20 @@
           <button class="btn secondary btn-mini" id="resultsLockBtn" type="button">🔒 Lock</button>
         </div>
 
+        <!-- ─── AUTO-FETCH OFFICIAL RESULTS ─── -->
+        <div style="margin-bottom:14px;padding:12px 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;">
+          <label class="small" style="display:block;margin-bottom:8px;"><strong>⚡ Auto-Fetch Official Results</strong> <span class="muted">— pulls the box score straight from the official results site</span></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <select id="autoFetchSeries" style="max-width:170px;">
+              <option value="mx">Pro Motocross</option>
+              <option value="sx">Supercross</option>
+            </select>
+            <select id="autoFetchEvent" style="max-width:260px;display:none;"></select>
+            <button class="btn green" id="autoFetchBtn" type="button">⚡ Fetch Results</button>
+          </div>
+          <div class="small" id="autoFetchMsg" style="margin-top:6px;"></div>
+        </div>
+
         <div style="margin-bottom:14px;">
           <label class="small" style="display:block;margin-bottom:6px;">Paste Race Results (text)</label>
           <textarea id="pasteResultsInput" rows="5" placeholder="Paste the full results table here (copied from the results website)…" style="font-family:monospace;font-size:11px;resize:vertical;width:100%;"></textarea>
@@ -4701,6 +4715,255 @@ function resolveNameToRider(rawName){
   return state.riders.find(r => normalizeRiderName(r.name) === norm) || null;
 }
 
+// ═══════════════════════════════════════════════════
+//  AUTO-FETCH OFFICIAL RESULTS
+//  Pulls the official box score from the series results site
+//  (results.promotocross.com / results.supercrosslive.com),
+//  matches rider names against the pool (incl. aliases), and
+//  fills the Finishing Order + holeshot dropdowns for review.
+// ═══════════════════════════════════════════════════
+const RESULTS_SITES = {
+  mx: { base: "https://results.promotocross.com", label: "Pro Motocross" },
+  sx: { base: "https://results.supercrosslive.com", label: "Supercross" }
+};
+
+// Official live-timing JSON feeds (CORS-enabled). Used as a Supercross
+// fallback: the SX site's box scores are unreliable, but on race night the
+// feed holds the main-event running order — which IS the round result in SX.
+const LIVE_FEEDS = {
+  mx: "https://americanmotocrosslive.com/xml/mx/RaceResults.json",
+  sx: "https://americansupercrosslive.com/xml/sx/RaceResults.json"
+};
+
+async function fetchLiveFeedRows(series){
+  const data = JSON.parse(await fetchResultsPage(LIVE_FEEDS[series]));
+  const rows = (data.B || [])
+    .map(b => ({ position: Number(b.A), name: String(b.F || "").trim(), starts: [] }))
+    .filter(r => r.position >= 1 && r.position <= 99 && /[A-Za-z]/.test(r.name));
+  return { rows, session: String(data.S || ""), track: String(data.T || data.E || "") };
+}
+
+// The official sites don't send CORS headers, so try direct first,
+// then fall back through public CORS proxies until one works.
+const CORS_PROXY_WRAPPERS = [
+  u => u,
+  u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+  u => "https://corsproxy.io/?url=" + encodeURIComponent(u),
+  u => "https://api.codetabs.com/v1/proxy?quest=" + u
+];
+
+async function fetchResultsPage(url){
+  let lastErr = null;
+  for(const wrap of CORS_PROXY_WRAPPERS){
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 15000);
+      const resp = await fetch(wrap(url), { signal: ctrl.signal });
+      clearTimeout(timer);
+      if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const text = await resp.text();
+      // Sanity check — proxies sometimes return their own error pages
+      if(text.length < 500) throw new Error("Response too short");
+      return text;
+    } catch(err){
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error("All fetch attempts failed");
+}
+
+// Parse the /events/ page → [{id, name, date}] newest-first (site order).
+function parseEventsList(html){
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const seen = new Set();
+  const events = [];
+  doc.querySelectorAll('a[href*="view_event"]').forEach(a => {
+    const m = (a.getAttribute("href") || "").match(/id=(\d+)/);
+    if(!m || seen.has(m[1])) return;
+    seen.add(m[1]);
+    const name = a.textContent.trim();
+    if(!name) return;
+    // Date lives in the same table row as the event link
+    let date = null;
+    const row = a.closest("tr");
+    const dm = row ? row.textContent.match(/[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}/) : null;
+    if(dm){
+      const d = new Date(dm[0]);
+      if(!isNaN(d)) date = d;
+    }
+    events.push({ id: m[1], name, date });
+  });
+  return events;
+}
+
+// Parse an event page → unique box-score class ids (one per race class).
+function parseEventClassIds(html){
+  const ids = [];
+  const re = /box_score_report&(?:amp;)?id=\d+&(?:amp;)?class_id=(\d+)(?!\S*export)/g;
+  let m;
+  while((m = re.exec(html))){
+    if(!ids.includes(m[1])) ids.push(m[1]);
+  }
+  return ids;
+}
+
+// Parse a box-score page → [{position, name, starts:[m1Start, m2Start, ...]}].
+// Row layout: POS | # | BIKE | RIDER | QUAL | START×N | LAPS LED×N | FINISH×N | POINTS
+function parseBoxScore(html){
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  // The page also carries a season-stats table (AVGQUAL, MOTOWINS, …) whose
+  // rows look similar — only the true box score has plain QUAL + RIDER headers.
+  const tables = Array.from(doc.querySelectorAll("table"));
+  const boxTable = tables.find(t => {
+    const ths = Array.from(t.querySelectorAll("th")).map(th => th.textContent.trim().toUpperCase());
+    return ths.includes("QUAL") && ths.includes("RIDER");
+  }) || tables[0];
+  const rows = [];
+  if(!boxTable) return rows;
+  boxTable.querySelectorAll("tr").forEach(tr => {
+    const tds = tr.querySelectorAll("td");
+    // 6 fixed columns + 3 groups of N motos → N = (len-6)/3, at least 1 moto (9 cells)
+    if(tds.length < 9) return;
+    const pos = parseInt(tds[0].textContent.trim(), 10);
+    if(!pos || pos < 1 || pos > 99) return;
+    const nameCell = tr.querySelector("td.w-100") || tds[3];
+    const name = nameCell ? nameCell.textContent.trim() : "";
+    if(!name || !/[A-Za-z]/.test(name)) return;
+    const motos = Math.floor((tds.length - 6) / 3);
+    const starts = [];
+    for(let i = 0; i < motos; i++){
+      starts.push(parseInt(tds[5 + i].textContent.trim(), 10) || 0);
+    }
+    rows.push({ position: pos, name, starts });
+  });
+  return rows;
+}
+
+// Cache of fetched event lists, keyed by series ("mx"/"sx")
+const autoFetchEventsCache = {};
+
+function setAutoFetchMsg(text, color){
+  const el = document.getElementById("autoFetchMsg");
+  if(el){ el.textContent = text; el.style.color = color || "var(--muted)"; }
+}
+
+function renderAutoFetchEventOptions(events, selectedId){
+  const sel = document.getElementById("autoFetchEvent");
+  if(!sel) return;
+  sel.innerHTML = events.map(ev => {
+    const d = ev.date ? ` (${ev.date.toLocaleDateString(undefined,{month:"short",day:"numeric"})})` : "";
+    return `<option value="${ev.id}">${escHtml(ev.name)}${d}</option>`;
+  }).join("");
+  if(selectedId) sel.value = selectedId;
+  sel.style.display = "";
+}
+
+// Pick the most recent event that has already happened.
+// Lists are newest-first and include future rounds, so take the first
+// event dated today-or-earlier; fall back to the first entry.
+function pickLatestCompletedEvent(events){
+  const now = new Date();
+  return events.find(ev => ev.date && ev.date <= now) || events[0] || null;
+}
+
+async function autoFetchResults(){
+  const btn = document.getElementById("autoFetchBtn");
+  const series = document.getElementById("autoFetchSeries")?.value || "mx";
+  const site = RESULTS_SITES[series];
+  btn.disabled = true;
+  try {
+    // 1) Event list (cached per series after first fetch)
+    let events = autoFetchEventsCache[series];
+    if(!events){
+      setAutoFetchMsg(`Loading ${site.label} schedule…`);
+      events = parseEventsList(await fetchResultsPage(`${site.base}/events/`));
+      if(!events.length) throw new Error("No events found on the results site");
+      autoFetchEventsCache[series] = events;
+    }
+
+    // 2) Which event? Use the dropdown pick if visible, else latest completed.
+    const evSel = document.getElementById("autoFetchEvent");
+    let event = (evSel.style.display !== "none" && evSel.value)
+      ? events.find(e => e.id === evSel.value)
+      : null;
+    if(!event) event = pickLatestCompletedEvent(events);
+    if(!event) throw new Error("Couldn't determine which event to load");
+    renderAutoFetchEventOptions(events, event.id);
+
+    // 3) Event page → class ids → box scores. Keep whichever class's box
+    //    score matches our rider pool best.
+    let best = null;
+    let sourceNote = "";
+    try {
+      setAutoFetchMsg(`Loading ${event.name}…`);
+      const classIds = parseEventClassIds(
+        await fetchResultsPage(`${site.base}/results/?p=view_event&id=${event.id}`)
+      );
+      for(const classId of classIds.slice(0, 4)){
+        setAutoFetchMsg(`Reading box score (class ${classId})…`);
+        let rows;
+        try {
+          rows = parseBoxScore(await fetchResultsPage(
+            `${site.base}/results/?p=box_score_report&id=${event.id}&class_id=${classId}`
+          ));
+        } catch(err){ continue; }
+        const matches = rows.filter(r => resolveNameToRider(r.name)).length;
+        if(!best || matches > best.matches) best = { rows, matches };
+        // A clear majority match means we found our class — stop early
+        if(matches >= 10) break;
+      }
+    } catch(err){ /* fall through to the live-feed fallback below */ }
+
+    // 4) Supercross fallback — the SX site's box scores often error out, but
+    //    the live-timing feed carries the main-event order on race night.
+    if((!best || best.matches < 3) && series === "sx"){
+      setAutoFetchMsg("Box score unavailable — trying the live timing feed…");
+      try {
+        const feed = await fetchLiveFeedRows("sx");
+        const matches = feed.rows.filter(r => resolveNameToRider(r.name)).length;
+        if(matches >= 3 && (!best || matches > best.matches)){
+          best = { rows: feed.rows, matches };
+          sourceNote = feed.session ? ` (live timing — ${feed.session})` : " (live timing)";
+        }
+      } catch(err){ /* keep whatever the box scores produced */ }
+    }
+    if(!best || !best.rows.length) throw new Error(`No results posted yet for ${event.name} — try again later`);
+    if(best.matches < 3) throw new Error("Results found, but almost no names match your rider pool — wrong class or wrong series?");
+
+    // 5) Fill finishing order through the same pipeline as pasted results
+    const { matched, unmatched } = applyPastedResults(best.rows);
+
+    // 6) Holeshots — start position 1 in each moto
+    const hsSelects = ["holeshotSelect", "holeshotSelect2"];
+    const hsNames = [];
+    for(let moto = 0; moto < 2; moto++){
+      const leader = best.rows.find(r => r.starts[moto] === 1);
+      const rider = leader ? resolveNameToRider(leader.name) : null;
+      const sel = document.getElementById(hsSelects[moto]);
+      if(sel) sel.value = rider ? String(rider.id) : "";
+      if(rider) hsNames.push(rider.name);
+    }
+    const note = document.getElementById("holeshotNote");
+    if(note && hsNames.length){
+      note.className = "hs-note detected";
+      note.textContent = `Holeshot: ${hsNames.join(" & ")} (auto-detected from start position)`;
+    }
+    updateResultsPreview();
+
+    let msg = `${event.name}${sourceNote}: filled ${matched.length} rider${matched.length !== 1 ? "s" : ""}.`;
+    if(hsNames.length) msg += ` Holeshot${hsNames.length > 1 ? "s" : ""}: ${hsNames.join(" & ")}.`;
+    if(unmatched.length) msg += ` ${unmatched.length} name(s) not in your pool — shown in red.`;
+    msg += " Review, set the wildcard, then Submit.";
+    setAutoFetchMsg(msg, matched.length ? "var(--green)" : "var(--gold)");
+    logMessage(`Auto-fetched ${site.label} results for ${event.name}: ${matched.length} riders matched.`, "success");
+  } catch(err){
+    setAutoFetchMsg(`Fetch failed: ${err.message}. You can still paste results manually below.`, "var(--red)");
+    diagLog("autoFetchResults error", { message: err.message });
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function parsePdfText(text){
   const isTripleCrown = /450\s*OVERALL\s*RESULTS/i.test(text);
   const lines = text.split(/\r?\n/);
@@ -5682,6 +5945,19 @@ function wireEvents(){
   document.getElementById("openMxResultsBtn").onclick = () => {
     window.open("https://results.promotocross.com/results/", "_blank");
   };
+
+  // Auto-fetch official results
+  const seriesSel = document.getElementById("autoFetchSeries");
+  // Default series by calendar: Supercross runs Jan–Apr, Pro Motocross May onward
+  seriesSel.value = (new Date().getMonth() <= 3) ? "sx" : "mx";
+  seriesSel.onchange = () => {
+    // Different series → different schedule; hide the stale event list
+    const evSel = document.getElementById("autoFetchEvent");
+    evSel.style.display = "none";
+    evSel.innerHTML = "";
+    setAutoFetchMsg("");
+  };
+  document.getElementById("autoFetchBtn").onclick = autoFetchResults;
 
   document.getElementById("pdfFileInput").onchange = (e)=>{
     const file = e.target.files?.[0];
