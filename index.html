@@ -1475,6 +1475,10 @@
             <button class="btn secondary btn-mini" id="autoPilotCheckBtn" type="button">🔎 Check Now</button>
             <button class="btn secondary btn-mini" id="autoPilotToggleBtn" type="button">Turn Off</button>
           </div>
+          <div id="autoPilotNewSeasonWrap" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(232,183,48,.10);border-left:3px solid var(--gold);border-radius:4px;">
+            <div class="small" id="autoPilotNewSeasonText" style="margin-bottom:8px;"></div>
+            <button class="btn" id="autoPilotNewSeasonBtn" type="button" style="background:var(--gold);color:#000;">🏁 Start New Season…</button>
+          </div>
         </div>
 
         <!-- PIN LOCK BANNER (shown when locked) -->
@@ -1958,9 +1962,11 @@ const DEFAULT_STATE = {
   // { "1": true, "2": true, ... }
   randomizedWildcards: {},
   // Auto-Results autopilot — fetches, scores, and submits official results hands-free.
-  // seasonKey: "<year>-<series>" of the season being tracked; a change triggers rollover
+  // seasonKey: "<year>-<series>" of the season being tracked
+  // pendingSeason: a newer season was detected — offered behind the PIN, never automatic
+  // roundNames: { "1": "Anaheim 1", ... } so the UI can show real race names
   // ingested: { [eventId]: { round, name, at, done?, skipped?, attempts? } }
-  autoResults: { enabled: true, series: "auto", seasonKey: "", ingested: {} },
+  autoResults: { enabled: true, series: "auto", seasonKey: "", pendingSeason: "", roundNames: {}, ingested: {} },
   riderAliases: [
     { pdfName: "R.J. Hampshire",   riderId: 19 },
     { pdfName: "RJ Hampshire",     riderId: 19 }
@@ -2021,6 +2027,8 @@ function migrateState(merged){
   if(merged.autoResults.enabled === undefined) merged.autoResults.enabled = true;
   if(!merged.autoResults.series) merged.autoResults.series = "auto";
   if(typeof merged.autoResults.seasonKey !== "string") merged.autoResults.seasonKey = "";
+  if(typeof merged.autoResults.pendingSeason !== "string") merged.autoResults.pendingSeason = "";
+  if(typeof merged.autoResults.roundNames !== "object" || merged.autoResults.roundNames === null) merged.autoResults.roundNames = {};
   if(typeof merged.autoResults.ingested !== "object" || merged.autoResults.ingested === null) merged.autoResults.ingested = {};
   // Meta migration — ensure new fields exist
   if(!merged.meta) merged.meta = deepClone(DEFAULT_STATE.meta);
@@ -2908,7 +2916,7 @@ function renderStandings(){
       <td>${escHtml(s.riders[0]?.displayName||"—")}</td>
       <td>${escHtml(s.riders[1]?.displayName||"—")}</td>
       <td><strong>${s.total}</strong></td>
-      <td class="muted">${s.latestRound ? `Rnd ${s.latestRound}` : "—"}</td>
+      <td class="muted">${s.latestRound ? escHtml(shortRoundName(s.latestRound) || `Rnd ${s.latestRound}`) : "—"}</td>
     </tr>`;
   }).join("");
   // Wire click → team breakdown popup
@@ -2943,13 +2951,13 @@ function renderWildcardPanel(){
     }
     valEl.style.color = "var(--gold)";
     noteEl.textContent = reshuffle
-      ? `Round ${round} Wildcard (reshuffled)`
-      : `Round ${round} Wildcard`;
+      ? `${roundLabel(round)} Wildcard (reshuffled)`
+      : `${roundLabel(round)} Wildcard`;
     noteEl.style.color = "var(--text)";
   } else {
     valEl.textContent = "—";
     valEl.style.color = "var(--muted)";
-    noteEl.textContent = `Round ${round} — no wildcard saved yet.`;
+    noteEl.textContent = `${roundLabel(round)} — no wildcard saved yet.`;
     noteEl.style.color = "var(--muted)";
   }
 
@@ -2980,7 +2988,10 @@ function renderRoundTotals(){
     .sort((a,b) => b - a); // descending: newest leftmost, oldest rightmost
 
   // Header: # | Team | Total | R<latest> | ... | R<earliest>
-  thead.innerHTML = `<tr><th style="width:28px;">#</th><th>Team</th><th>Total</th>${submittedRounds.map(r=>`<th>R${r}</th>`).join("")}</tr>`;
+  thead.innerHTML = `<tr><th style="width:28px;">#</th><th>Team</th><th>Total</th>${submittedRounds.map(r=>{
+    const nm = shortRoundName(r);
+    return `<th title="${escHtml(nm ? `Round ${r} — ${roundName(r)}` : `Round ${r}`)}" style="white-space:nowrap;font-size:10px;">${escHtml(nm || ("R"+r))}</th>`;
+  }).join("")}</tr>`;
 
   if(submittedRounds.length === 0){
     tbody.innerHTML = `<tr><td colspan="3" class="muted" style="text-align:center;padding:14px;">No race results yet</td></tr>`;
@@ -3862,7 +3873,7 @@ function openTeamBreakdownPopup(teamId){
       return `
         <div class="round-card">
           <div class="round-card-head">
-            <div class="round-card-title">Round ${rd.round}</div>
+            <div class="round-card-title">${escHtml(roundLabel(rd.round))}</div>
             <div class="round-card-total">${rd.total} pts</div>
           </div>
           ${riderLines}
@@ -4467,7 +4478,7 @@ function updateResultsPreview(){
 
   const hsNames = hsIds.map(id => riderById(id)?.name || "—").join(" & ");
   document.getElementById("resultsPreview").innerHTML = `
-    <div style="margin-bottom:10px;"><strong>Round ${round}</strong>${!resultsUnlocked?' <span class="small muted">(view only)</span>':''}</div>
+    <div style="margin-bottom:10px;"><strong>${escHtml(roundLabel(round))}</strong>${!resultsUnlocked?' <span class="small muted">(view only)</span>':''}</div>
     <div class="small muted" style="margin-bottom:8px;">Wildcard: ${wcLine}</div>
     <div class="small muted" style="margin-bottom:10px;">Holeshot: <strong>${hsNames||"Unknown"}</strong></div>
     <div>${rows||'<span class="muted">No results for this round yet.</span>'}</div>
@@ -4479,7 +4490,9 @@ function renderResultsPage(){
     const rr = state.roundResults[r.round];
     let marker = "";
     if(rr?.positions) marker = " ✓";
-    return `<option value="${r.round}">Round ${r.round}${marker}</option>`;
+    const nm = shortRoundName(r.round);
+    const label = nm ? `R${r.round} · ${nm}` : `Round ${r.round}`;
+    return `<option value="${r.round}">${escHtml(label)}${marker}</option>`;
   }).join("");
   const sel = document.getElementById("resultsRoundSelect");
   const currentSelection = sel.value;
@@ -5202,9 +5215,28 @@ async function getActiveSeasonPlan(){
   return plans.sort((a, b) => b.last - a.last)[0];
 }
 
-// A new series-season was detected (SX→MX, or a new year): archive the finished
-// season into League History and reset for a fresh draft. Everything valuable is
-// preserved in Season History, and the whole action is undoable.
+// Real race names for a round ("Anaheim 1"), captured from the official schedule.
+function roundName(n){
+  const nm = state.autoResults?.roundNames?.[n] || state.autoResults?.roundNames?.[String(n)];
+  return nm ? String(nm) : "";
+}
+// Compact form for tables/chips: "Washougal National - Washougal, WA" → "Washougal"
+function shortRoundName(n){
+  const nm = roundName(n);
+  if(!nm) return "";
+  return nm.split(" - ")[0]
+    .replace(/\s+(National|Classic|Championship)$/i, "")
+    .trim();
+}
+// "Round 3 · Anaheim 2" when a name is known, otherwise "Round 3"
+function roundLabel(n){
+  const nm = shortRoundName(n);
+  return nm ? `Round ${n} · ${nm}` : `Round ${n}`;
+}
+
+// Archive the finished season into League History and reset for a fresh draft.
+// Only ever called from the PIN-protected "Start New Season" action — never
+// automatically — so standings can't vanish without someone asking.
 function applySeasonRollover(plan){
   const prevKey = state.autoResults.seasonKey;
   const hadResults = Object.keys(state.roundResults).some(k => state.roundResults[k]?.positions);
@@ -5214,7 +5246,11 @@ function applySeasonRollover(plan){
     logMessage(`🏁 ${prevYear} ${seasonTypeFor(prevSeries) === "supercross" ? "Supercross" : "Motocross"} season archived to League History. Draft when you're ready — races will backfill automatically.`, "success");
   }
   state.autoResults.seasonKey = plan.key;
+  state.autoResults.pendingSeason = "";
   state.autoResults.ingested = {};
+  const names = {};
+  plan.rounds.forEach(e => { names[e.round] = e.name; });
+  state.autoResults.roundNames = names;
   state.meta.season = plan.year;
   state.meta.totalRounds = plan.rounds.length;
   state.meta.currentRound = 1;
@@ -5269,6 +5305,19 @@ async function autoPilotCheck(opts){
     const plan = await getActiveSeasonPlan();
     if(!plan){ autoPilotNote = "Couldn't reach the official schedule — will retry."; return; }
     autoPilotPlan = plan;
+    const now = new Date();
+    const site = RESULTS_SITES[plan.series];
+
+    // Remember the real race names so the whole app can show "Anaheim 1"
+    // instead of "Round 1". Only stored for the season we're actually tracking.
+    if(state.autoResults.seasonKey === plan.key || !state.autoResults.seasonKey){
+      const names = {};
+      plan.rounds.forEach(e => { names[e.round] = e.name; });
+      if(JSON.stringify(names) !== JSON.stringify(state.autoResults.roundNames || {})){
+        state.autoResults.roundNames = names;
+        saveState("auto-round-names", { skipUndo: true });
+      }
+    }
 
     // ── Season tracking: adopt on first run, roll over when the series/year changes ──
     if(!state.autoResults.seasonKey){
@@ -5278,10 +5327,26 @@ async function autoPilotCheck(opts){
       }
       saveState("auto-season-adopt", { skipUndo: true });
     } else if(state.autoResults.seasonKey !== plan.key){
-      applySeasonRollover(plan);
-      // A rollover legitimately leaves the league empty until the next draft
-      saveState("auto-season-rollover", { allowEmpty: true });
-      renderAll();
+      const hasSeasonData = state.draftPicks.length ||
+        Object.keys(state.roundResults).some(k => state.roundResults[k]?.positions);
+      if(!hasSeasonData){
+        // Nothing to preserve — switch over quietly
+        state.autoResults.seasonKey = plan.key;
+        state.autoResults.ingested = {};
+        state.autoResults.pendingSeason = "";
+        state.meta.season = plan.year;
+        state.meta.totalRounds = plan.rounds.length;
+        saveState("auto-season-adopt", { skipUndo: true });
+      } else {
+        // A season is in progress. Never archive it automatically — offer the
+        // reset behind the PIN and leave the standings untouched until then.
+        if(state.autoResults.pendingSeason !== plan.key){
+          state.autoResults.pendingSeason = plan.key;
+          saveState("auto-season-pending", { skipUndo: true });
+        }
+        autoPilotNote = `New season available: ${plan.year} ${site.label}. Your current standings are untouched — use “Start New Season” below when you're ready to draft.`;
+        return;
+      }
     } else {
       // Keep the round count in step as the schedule publishes, never below what's scored
       const scored = Object.keys(state.roundResults)
@@ -5293,8 +5358,6 @@ async function autoPilotCheck(opts){
       }
     }
 
-    const now = new Date();
-    const site = RESULTS_SITES[plan.series];
     const upcoming = plan.rounds.find(e => e.date > now);
     autoPilotNextUp = upcoming
       ? `R${upcoming.round} ${upcoming.name} · ${upcoming.date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
@@ -5574,6 +5637,21 @@ function renderAutoPilotCard(){
   if(toggleBtn) toggleBtn.textContent = enabled ? "Turn Off" : "Turn On";
   const seriesSel = document.getElementById("autoPilotSeries");
   if(seriesSel) seriesSel.value = state.autoResults?.series || "auto";
+
+  // New-season offer — PIN protected, shown only when a newer season is detected
+  const nsWrap = document.getElementById("autoPilotNewSeasonWrap");
+  if(nsWrap){
+    const pending = state.autoResults?.pendingSeason || "";
+    if(pending){
+      const [py, ps] = pending.split("-");
+      nsWrap.style.display = "block";
+      document.getElementById("autoPilotNewSeasonText").innerHTML =
+        `<strong>${escHtml(py)} ${escHtml(RESULTS_SITES[ps]?.label || ps)}</strong> has started. ` +
+        `Archiving moves the current standings into League History and clears the draft so you can pick again. Nothing happens until you confirm with the PIN.`;
+    } else {
+      nsWrap.style.display = "none";
+    }
+  }
 
   const status = document.getElementById("autoPilotStatus");
   if(!status) return;
@@ -6618,6 +6696,32 @@ function wireEvents(){
     renderAutoPilotCard();
   };
   document.getElementById("autoPilotCheckBtn").onclick = () => autoPilotCheck({ manual: true });
+  document.getElementById("autoPilotNewSeasonBtn").onclick = () => {
+    const pending = state.autoResults?.pendingSeason || "";
+    if(!pending){ logMessage("No new season detected yet.", "info"); return; }
+    const [py, ps] = pending.split("-");
+    const label = `${py} ${RESULTS_SITES[ps]?.label || ps}`;
+    // Prefer the freshly-detected plan; fall back to re-detecting on confirm
+    requirePin(
+      `Archive the current season and start ${label}? Final standings are saved to League History, then draft picks and results are cleared.`,
+      async () => {
+        let plan = (autoPilotPlan && autoPilotPlan.key === pending) ? autoPilotPlan : null;
+        if(!plan){
+          try { plan = await getActiveSeasonPlan(); } catch(err){ plan = null; }
+        }
+        if(!plan || plan.key !== pending){
+          logMessage("Couldn't load the new season's schedule — try again in a moment.", "error");
+          return;
+        }
+        applySeasonRollover(plan);
+        saveState("season-rollover", { allowEmpty: true });
+        renderAll();
+        logMessage(`🏁 ${label} started. Draft your teams — every race already run will fill in automatically.`, "success");
+        autoPilotCheck({ manual: true });
+      },
+      { title: "Start New Season", okText: "Archive & Start" }
+    );
+  };
 
   // Auto-fetch official results
   const seriesSel = document.getElementById("autoFetchSeries");
