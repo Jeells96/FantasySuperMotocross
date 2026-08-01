@@ -1990,8 +1990,10 @@ const DEFAULT_STATE = {
     pointsLowerTier: 1,
     // Reverse Pick scoring — index 0 unused, indexes 1..22 explicit.
     // All positive: a win pays nothing, and the worse the finish the more it
-    // pays, flat 12 from P15 back. Fully customizable in Settings.
-    reversePointsTable: [0, 0, 1, 2, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 12, 12, 12, 12, 12, 12],
+    // pays, climbing all the way to P22 rather than flattening out. Simulated
+    // against a real season, the rising tail is what pulls the last few draft
+    // slots back toward the pack. Fully customizable in Settings.
+    reversePointsTable: [0, 0, 1, 2, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
     holeshotBonus: 5,
     wildcardBonus: 15,
     wildcardMin: 10,
@@ -2050,10 +2052,13 @@ function migrateState(merged){
   if(!Array.isArray(merged.settings.reversePointsTable) || merged.settings.reversePointsTable.length < 23){
     merged.settings.reversePointsTable = deepClone(DEFAULT_STATE.settings.reversePointsTable);
   }
-  // One-time migration: replace the short-lived negative-scale default with the
-  // current all-positive default. Custom tables are left alone.
-  const OLD_REVERSE_DEFAULT = "0,-9,-8,-7,-6,-6,-5,-4,-3,-2,-2,-1,0,1,2,2,3,4,5,6,6,7,8";
-  if(merged.settings.reversePointsTable.join(",") === OLD_REVERSE_DEFAULT){
+  // One-time migration: bring superseded default reverse tables up to the
+  // current default. Anything hand-edited is left exactly as the league set it.
+  const LEGACY_REVERSE_DEFAULTS = [
+    "0,-9,-8,-7,-6,-6,-5,-4,-3,-2,-2,-1,0,1,2,2,3,4,5,6,6,7,8",       // negative scale
+    "0,0,1,2,2,3,4,4,5,6,7,8,9,10,11,12,12,12,12,12,12,12,12"          // flat tail from P15
+  ];
+  if(LEGACY_REVERSE_DEFAULTS.includes(merged.settings.reversePointsTable.join(","))){
     merged.settings.reversePointsTable = deepClone(DEFAULT_STATE.settings.reversePointsTable);
   }
   return merged;
