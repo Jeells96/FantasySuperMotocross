@@ -1373,6 +1373,7 @@
               <th>Team</th>
               <th>Rider 1</th>
               <th>Rider 2</th>
+              <th title="Reverse Pick — scores when they finish badly">🔄 Reverse</th>
               <th>Total</th>
               <th>Last Rnd</th>
             </tr>
@@ -1405,7 +1406,7 @@
       </div>
       <div id="draftOrderStrip" class="draft-strip" style="display:none;"></div>
       <div class="small muted" style="margin-bottom:10px;">
-        Tap a rider to pick them for a team. First pick on a team = Round 1, second = Round 2.
+        Tap a rider to pick them for a team. First pick = Round 1, second = Round 2, third = 🔄 Reverse Pick (choose a drafted rider — not your own — who scores when they finish badly).
       </div>
       <div class="toolbar">
         <input id="riderSearch" placeholder="Search riders…" />
@@ -1693,6 +1694,9 @@
 
         <h3 style="font-size:13px;margin-bottom:8px;">Points by Finish Position</h3>
         <div id="pointsTableInputs" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px;"></div>
+
+        <div class="small" style="margin:14px 0 6px;color:var(--gold);"><strong>🔄 Reverse Pick points (P1–P22)</strong> — negative for good finishes, positive for bad ones</div>
+        <div id="reverseTableInputs" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px;"></div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
           <div>
@@ -1984,6 +1988,11 @@ const DEFAULT_STATE = {
     pointsTable: [0, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2],
     // Points for positions 15 through wildcardMax (default 22)
     pointsLowerTier: 1,
+    // Reverse Pick scoring — index 0 unused, indexes 1..22 explicit.
+    // Rewards bad finishes, punishes good ones: round(0.8 × (position − 12)).
+    // Tuned against real season data so the reverse round offsets the
+    // advantage of the top draft slots without flipping it.
+    reversePointsTable: [0, -9, -8, -7, -6, -6, -5, -4, -3, -2, -2, -1, 0, 1, 2, 2, 3, 4, 5, 6, 6, 7, 8],
     holeshotBonus: 5,
     wildcardBonus: 15,
     wildcardMin: 10,
@@ -2038,6 +2047,9 @@ function migrateState(merged){
   merged.settings = Object.assign(defaultSettings, merged.settings || {});
   if(!Array.isArray(merged.settings.pointsTable) || merged.settings.pointsTable.length < 15){
     merged.settings.pointsTable = deepClone(DEFAULT_STATE.settings.pointsTable);
+  }
+  if(!Array.isArray(merged.settings.reversePointsTable) || merged.settings.reversePointsTable.length < 23){
+    merged.settings.reversePointsTable = deepClone(DEFAULT_STATE.settings.reversePointsTable);
   }
   return merged;
 }
@@ -2652,7 +2664,8 @@ function buildStandbyChain(teamId, draftedRiderId){
 
 function getTeamCurrentRiders(teamId){
   // Returns the 2 drafted (original) riders along with their full standby chain.
-  const picks = state.draftPicks.filter(p => p.teamId===teamId).sort((a,b)=>a.round-b.round);
+  // Round 3 (Reverse Pick) is scored separately and never gets subs/chains.
+  const picks = state.draftPicks.filter(p => p.teamId===teamId && p.round <= 2).sort((a,b)=>a.round-b.round);
   return picks.slice(0,2).map(pick => {
     const chain = buildStandbyChain(teamId, pick.riderId);
     const lastInChain = chain[chain.length - 1];
@@ -2702,7 +2715,7 @@ function getTeamEffectiveRidersForRound(teamId, roundResult){
   });
 }
 function getTeamOriginalRiders(teamId){
-  return state.draftPicks.filter(p=>p.teamId===teamId).sort((a,b)=>a.round-b.round).map(p=>riderById(p.riderId)).filter(Boolean);
+  return state.draftPicks.filter(p=>p.teamId===teamId && p.round<=2).sort((a,b)=>a.round-b.round).map(p=>riderById(p.riderId)).filter(Boolean);
 }
 function getRoundOrder(round){ return round===1 ? [...state.draftOrder] : [...state.draftOrder].reverse(); }
 
@@ -2716,6 +2729,23 @@ function pointsForFinish(pos){
   if(pos>=1 && pos<=14) return table[pos] || 0;
   if(pos>=15 && pos<=22) return s.pointsLowerTier || 1;
   return 0;
+}
+
+// Reverse Pick scoring — the worse the finish, the more it pays.
+// P12 is the zero line; better than 12th costs points, worse earns them.
+// A reverse rider who doesn't race scores nothing.
+function reversePointsForFinish(pos){
+  pos = Number(pos);
+  if(pos < 1 || pos > 22) return 0;
+  const s = state.settings || DEFAULT_STATE.settings;
+  const table = s.reversePointsTable || DEFAULT_STATE.settings.reversePointsTable;
+  const v = Number(table[pos]);
+  return isNaN(v) ? 0 : v;
+}
+
+// A team's Round 3 pick — their Reverse Rider (or null before that round is drafted)
+function getTeamReversePick(teamId){
+  return state.draftPicks.find(p => p.teamId === Number(teamId) && p.round === 3) || null;
 }
 
 // Returns the current single reshuffle position for a round (or 0 if none).
@@ -2803,8 +2833,16 @@ function recalcAllRoundPoints(){
           missingRider = true;
         }
       });
+      // Reverse Pick — scores its own inverted table; no bonuses, no subs
+      let revPts = 0;
+      const revPick = getTeamReversePick(team.id);
+      if(revPick){
+        const revFinish = rr.positions[revPick.riderId];
+        if(revFinish) revPts = reversePointsForFinish(revFinish);
+      }
+      total += revPts;
       tp[team.id] = total;
-      flags[team.id] = { hs: hadHoleshot, wc: hadWildcard, missing: missingRider };
+      flags[team.id] = { hs: hadHoleshot, wc: hadWildcard, missing: missingRider, rev: revPts };
     });
     rr.teamPoints = tp;
     rr.teamFlags = flags;
@@ -2824,7 +2862,9 @@ function computeStandings(){
       total += pts;
       if(pts>0) latestRound = Math.max(latestRound, rn);
     });
-    return { teamId:team.id, teamName:team.name, riders:getTeamCurrentRiders(team.id), total, latestRound, roundTotals, roundFlags };
+    const revPick = getTeamReversePick(team.id);
+    return { teamId:team.id, teamName:team.name, riders:getTeamCurrentRiders(team.id), total, latestRound, roundTotals, roundFlags,
+      reverseRiderName: revPick ? (riderById(revPick.riderId)?.name || "Unknown") : null };
   }).sort((a,b) => b.total-a.total || a.teamName.localeCompare(b.teamName));
 }
 
@@ -2865,8 +2905,19 @@ function computeTeamBreakdown(teamId){
         originalName: slot.originalName
       };
     });
-    const roundTotal = riderLines.reduce((s,r)=>s+r.total, 0);
-    breakdown.push({ round: rn, riders: riderLines, total: roundTotal, wildcardPosition: rr.wildcardPosition });
+    // Reverse Pick line — inverted scoring, no bonuses/subs
+    let reverseLine = null;
+    const revPick = getTeamReversePick(teamId);
+    if(revPick){
+      const revFinish = rr.positions[revPick.riderId];
+      reverseLine = {
+        name: riderById(revPick.riderId)?.name || "Unknown",
+        finish: revFinish || null,
+        total: revFinish ? reversePointsForFinish(revFinish) : 0
+      };
+    }
+    const roundTotal = riderLines.reduce((s,r)=>s+r.total, 0) + (reverseLine ? reverseLine.total : 0);
+    breakdown.push({ round: rn, riders: riderLines, reverseLine, total: roundTotal, wildcardPosition: rr.wildcardPosition });
   }
   return breakdown;
 }
@@ -2915,6 +2966,7 @@ function renderStandings(){
       <td><strong>${escHtml(s.teamName)}</strong></td>
       <td>${escHtml(s.riders[0]?.displayName||"—")}</td>
       <td>${escHtml(s.riders[1]?.displayName||"—")}</td>
+      <td>${s.reverseRiderName ? `<span style="color:var(--gold);">🔄 ${escHtml(s.reverseRiderName)}</span>` : '<span class="muted">—</span>'}</td>
       <td><strong>${s.total}</strong></td>
       <td class="muted">${s.latestRound ? escHtml(shortRoundName(s.latestRound) || `Rnd ${s.latestRound}`) : "—"}</td>
     </tr>`;
@@ -3026,23 +3078,47 @@ function renderScoringRulesDisplay(){
   if(!host) return;
   const s = state.settings || DEFAULT_STATE.settings;
   const pt = s.pointsTable || [];
+  const rt = s.reversePointsTable || DEFAULT_STATE.settings.reversePointsTable;
 
-  // Build a position → points list — show all positions through wildcardMax
-  const maxPos = s.wildcardMax || 22;
-  const ptsRows = [];
-  for(let pos = 1; pos <= maxPos; pos++){
-    const pts = pt[pos] != null ? pt[pos] : s.pointsLowerTier;
-    ptsRows.push(`P${pos}: <strong>${pts}</strong>`);
+  // Side-by-side table: position | normal rider pts | reverse rider pts
+  const rows = [];
+  for(let pos = 1; pos <= 22; pos++){
+    const fwd = pos <= 14 ? (pt[pos] != null ? pt[pos] : 0) : (s.pointsLowerTier != null ? s.pointsLowerTier : 1);
+    const rev = Number(rt[pos]) || 0;
+    const revColor = rev > 0 ? "var(--gold)" : (rev < 0 ? "var(--red)" : "var(--muted)");
+    rows.push(`<tr>
+      <td style="padding:3px 10px;color:var(--muted);">P${pos}</td>
+      <td style="padding:3px 10px;text-align:center;"><strong>${fwd}</strong></td>
+      <td style="padding:3px 10px;text-align:center;color:${revColor};"><strong>${rev > 0 ? "+" : ""}${rev}</strong></td>
+    </tr>`);
   }
-  // Group into columns of ~7 per row for readability
-  const pointsList = ptsRows.join("  ·  ");
+  // Split into two columns of 11 positions each
+  const makeTable = (slice) => `
+    <table style="border-collapse:collapse;font-family:monospace;font-size:12px;width:auto;min-width:0;">
+      <thead><tr>
+        <th style="padding:3px 10px;text-align:left;color:var(--muted);font-size:10px;">FINISH</th>
+        <th style="padding:3px 10px;color:var(--muted);font-size:10px;">RIDERS 1–2</th>
+        <th style="padding:3px 10px;color:var(--gold);font-size:10px;">🔄 REVERSE</th>
+      </tr></thead>
+      <tbody>${slice.join("")}</tbody>
+    </table>`;
 
   host.innerHTML = `
-    <div style="margin-bottom:8px;"><strong>Holeshot bonus:</strong> +${s.holeshotBonus} per moto won</div>
-    <div style="margin-bottom:8px;"><strong>Wildcard bonus:</strong> +${s.wildcardBonus} (wildcard pos ${s.wildcardMin}–${s.wildcardMax})</div>
-    <div style="margin-bottom:8px;"><strong>Injury sub points:</strong> ${s.standbyPercent}% of the rider's score (rounded)</div>
-    <div style="margin-top:10px;color:var(--muted);">Finishing position points:</div>
-    <div style="margin-top:4px;font-family:monospace;font-size:11px;line-height:1.8;">${pointsList}</div>
+    <div style="display:grid;gap:14px;">
+      <div style="display:grid;gap:6px;">
+        <div><strong>Your two main riders</strong> score the “Riders 1–2” column for their finish, plus bonuses:</div>
+        <div style="padding-left:12px;">🚀 <strong>Holeshot:</strong> +${s.holeshotBonus} per moto holeshot won</div>
+        <div style="padding-left:12px;">🎯 <strong>Wildcard:</strong> +${s.wildcardBonus} for finishing exactly on the wildcard position (drawn P${s.wildcardMin}–P${s.wildcardMax}, reshuffled until someone gets it)</div>
+        <div style="padding-left:12px;">🩹 <strong>Injury subs:</strong> a standby rider scores ${s.standbyPercent}% of the points (rounded)</div>
+      </div>
+      <div style="display:grid;gap:6px;">
+        <div><strong style="color:var(--gold);">🔄 Your Reverse Pick</strong> is a rider from the drafted pool (not your own). They score the gold column — <strong>the worse they finish, the more you get</strong>. A P12 finish is worth nothing, a bad day pays, a podium costs you. No bonuses, no subs, and 0 points when they don't race.</div>
+      </div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;">
+        ${makeTable(rows.slice(0, 11))}
+        ${makeTable(rows.slice(11))}
+      </div>
+    </div>
   `;
 }
 
@@ -3546,16 +3622,18 @@ function renderNowPicking(){
   const nameEl   = document.getElementById("nowPickingName");
   if(!banner) return;
 
-  // Build the full snake draft sequence: R1 in order, R2 reversed
+  // Build the full draft sequence: R1 in order, R2 reversed (snake),
+  // R3 (Reverse Pick) stays reversed — the original last pick goes first again.
   const r1Order = [...state.draftOrder];
   const r2Order = [...state.draftOrder].reverse();
-  const fullOrder = [...r1Order, ...r2Order]; // 20 picks total for 10 teams
+  const r3Order = [...state.draftOrder].reverse();
+  const fullOrder = [...r1Order, ...r2Order, ...r3Order]; // 30 picks for 10 teams
 
   // Find the first slot not yet filled
   let nextPickIndex = -1;
   for(let i = 0; i < fullOrder.length; i++){
     const teamId = fullOrder[i];
-    const round  = i < state.teams.length ? 1 : 2;
+    const round  = Math.floor(i / state.teams.length) + 1;
     const hasPick = state.draftPicks.some(p => p.teamId===teamId && p.round===round);
     if(!hasPick){ nextPickIndex = i; break; }
   }
@@ -3573,18 +3651,18 @@ function renderNowPicking(){
   }
 
   const teamId   = fullOrder[nextPickIndex];
-  const round    = nextPickIndex < state.teams.length ? 1 : 2;
-  const pickNum  = nextPickIndex + 1;
-  // Label: 1.1, 1.2 ... 1.10, 2.1 ... 2.10
-  const roundNum  = round;
+  const round    = Math.floor(nextPickIndex / state.teams.length) + 1;
+  // Label: 1.1 ... 1.10, 2.1 ... 2.10, 3.1 ... 3.10
   const pickInRound = (nextPickIndex % state.teams.length) + 1;
-  const pickLabel = `Pick ${roundNum}.${pickInRound}`;
+  const pickLabel = round === 3
+    ? `Reverse Pick ${round}.${pickInRound} 🔄`
+    : `Pick ${round}.${pickInRound}`;
   const team     = teamById(teamId);
 
   banner.style.display = "block";
-  banner.style.background    = "rgba(255,77,26,.10)";
-  banner.style.borderColor   = "rgba(255,77,26,.35)";
-  nameEl.style.color         = "var(--accent)";
+  banner.style.background    = round === 3 ? "rgba(232,183,48,.10)" : "rgba(255,77,26,.10)";
+  banner.style.borderColor   = round === 3 ? "rgba(232,183,48,.4)"  : "rgba(255,77,26,.35)";
+  nameEl.style.color         = round === 3 ? "var(--gold)" : "var(--accent)";
   pickEl.textContent  = `Now Picking — ${pickLabel}`;
   nameEl.textContent  = team?.name || "Unknown";
 
@@ -3606,18 +3684,20 @@ function renderDraftStrip(fullOrder, currentIndex){
     return;
   }
 
-  const inRound2 = currentIndex >= teamsCount;
-  // The order to display for the active round
-  const roundOrder = inRound2
-    ? [...state.draftOrder].reverse()
-    : [...state.draftOrder];
-  // The display order is already reversed for Round 2, so arrows always point
+  const roundNum = Math.floor(currentIndex / teamsCount) + 1;
+  // Display order: R1 forward, R2 and R3 reversed (R3 doesn't snake back —
+  // the original last pick chooses their Reverse Rider first).
+  const roundOrder = roundNum === 1
+    ? [...state.draftOrder]
+    : [...state.draftOrder].reverse();
+  // The display order is already reversed where needed, so arrows always point
   // in the reading direction (left → right) to match the actual draft flow.
   const dirArrow = "→";
   // Index of current pick within this round (0-based)
   const idxInRound = currentIndex % teamsCount;
 
-  let html = `<div class="draft-strip-roundlabel">Round ${inRound2 ? 2 : 1}</div><div class="draft-strip-row">`;
+  const roundLabelTxt = roundNum === 3 ? "Round 3 — Reverse Pick 🔄" : `Round ${roundNum}`;
+  let html = `<div class="draft-strip-roundlabel">${roundLabelTxt}</div><div class="draft-strip-row">`;
   roundOrder.forEach((teamId, i) => {
     const team = teamById(teamId);
     const current = i === idxInRound;
@@ -3650,9 +3730,11 @@ function renderRiderGrid(){
                 : status === "TOP 10 PROTECTED" ? "rc-protected"
                 : status === "PICKED ONCE" ? "rc-picked-once"
                 : "rc-locked";
+    const revBy = state.draftPicks.find(p => p.riderId === r.id && p.round === 3);
+    const revTag = revBy ? ` <span class="status" style="background:rgba(232,183,48,.15);color:var(--gold);border:1px solid rgba(232,183,48,.4);" title="Reverse Pick — ${escHtml(teamById(revBy.teamId)?.name || "?")}">🔄 ${escHtml(teamById(revBy.teamId)?.name || "?")}</span>` : "";
     return `<div class="rider-card ${rcCls}" data-rider-id="${r.id}">
       <div class="rider-name">${escHtml(r.name)}</div>
-      <span class="status ${getRiderStatusClass(status)}">${status}</span>
+      <span class="status ${getRiderStatusClass(status)}">${status}</span>${revTag}
     </div>`;
   }).join("");
   document.querySelectorAll(".rider-card").forEach(c=>{
@@ -3671,7 +3753,12 @@ function openRiderPopup(riderId){
   document.getElementById("popupRiderTeam").innerHTML =
     `<span class="status ${getRiderStatusClass(status)}">${status}</span>`;
 
-  const pickable = (status === "AVAILABLE" || status === "PICKED ONCE");
+  // A rider can be pickable as a normal pick (rounds 1–2) or, once drafted,
+  // as another team's Reverse Pick (round 3) — so always offer the team grid
+  // and let per-team validation decide.
+  const isDrafted = state.draftPicks.some(p => p.riderId === riderId && p.round <= 2);
+  const isReversePicked = state.draftPicks.some(p => p.riderId === riderId && p.round === 3);
+  const pickable = (status === "AVAILABLE" || status === "PICKED ONCE") || (isDrafted && !isReversePicked);
 
   // Build team picker section
   let pickSection = "";
@@ -3687,17 +3774,21 @@ function openRiderPopup(riderId){
 
       if(alreadyHasRider){
         const existing = teamPicks.find(p => p.riderId === riderId);
-        sub = `✓ R${existing.round}`;
+        sub = existing.round === 3 ? "✓ Reverse" : `✓ R${existing.round}`;
         cls = "secondary"; disabled = true;
-      } else if(pickCount >= 2){
+      } else if(pickCount >= 3){
         sub = "FULL";
         cls = "secondary"; disabled = true;
       } else {
-        const nextRound = pickCount + 1;
+        // First round slot this team hasn't filled (handles gaps after removals)
+        const nextRound = [1,2,3].find(r => !teamPicks.some(p => p.round === r));
         const err = validateDraft(team.id, nextRound, riderId);
         if(err){
           sub = "unavailable";
           cls = "secondary"; disabled = true;
+        } else if(nextRound === 3){
+          sub = "→ Reverse Pick 🔄";
+          cls = "green"; disabled = false;
         } else {
           sub = `→ Round ${nextRound}`;
           cls = "green"; disabled = false;
@@ -3720,8 +3811,9 @@ function openRiderPopup(riderId){
     assignSection = `<div class="small" style="margin-top:16px;margin-bottom:6px;"><strong>Currently on:</strong></div>`;
     assignSection += assignments.map(a => {
       const teamName = teamById(a.teamId)?.name || "Unknown";
+      const roundTag = a.round === 3 ? "Reverse Pick 🔄" : `Round ${a.round}`;
       return `<div class="assignment-row">
-        <span>${escHtml(teamName)} <span class="muted">• Round ${a.round}</span></span>
+        <span>${escHtml(teamName)} <span class="muted">• ${roundTag}</span></span>
         <button class="btn red btn-mini unassign-btn" data-team-id="${a.teamId}" data-rider-id="${riderId}" data-round="${a.round}">Remove</button>
       </div>`;
     }).join("");
@@ -3769,8 +3861,8 @@ function pickRiderForTeam(riderId, teamId){
   vlog(`pickRiderForTeam`, { rider: rider?.name, team: team?.name });
   if(!rider || !team) return;
   const teamPicks = state.draftPicks.filter(p => p.teamId === teamId);
-  const nextRound = teamPicks.length + 1;
-  if(nextRound > 2){ logMessage(`${team.name} already has 2 picks.`, "error"); return; }
+  const nextRound = [1,2,3].find(r => !teamPicks.some(p => p.round === r));
+  if(!nextRound){ logMessage(`${team.name} already has all 3 picks.`, "error"); return; }
 
   const err = validateDraft(teamId, nextRound, riderId);
   if(err){ logMessage(err, "error"); return; }
@@ -3778,7 +3870,9 @@ function pickRiderForTeam(riderId, teamId){
   state.draftPicks.push({ teamId, round: nextRound, riderId });
   saveState("pick");
   recalcAllRoundPoints();
-  logMessage(`${rider.name} → ${team.name} (Round ${nextRound})`, "success");
+  logMessage(nextRound === 3
+    ? `🔄 ${rider.name} → ${team.name} (Reverse Pick — pays when he struggles)`
+    : `${rider.name} → ${team.name} (Round ${nextRound})`, "success");
   // Refresh the popup to reflect new state + rerender the grid
   renderAll();
   // Close popup after pick
@@ -3831,9 +3925,13 @@ function openTeamBreakdownPopup(teamId){
     }
     return `<span class="chip">${escHtml(r.displayName)}${chainTail}</span>`;
   }).join("");
+  const revPickTop = getTeamReversePick(teamId);
+  const revChip = revPickTop
+    ? `<span class="chip" style="border-color:rgba(232,183,48,.5);color:var(--gold);-webkit-text-fill-color:var(--gold);">🔄 ${escHtml(riderById(revPickTop.riderId)?.name || "?")}</span>`
+    : "";
 
   let bodyHtml = `
-    <div style="margin-bottom:12px;">${rostersLine || '<span class="muted">No riders drafted yet</span>'}</div>
+    <div style="margin-bottom:12px;">${(rostersLine + revChip) || '<span class="muted">No riders drafted yet</span>'}</div>
   `;
 
   if(breakdown.length === 0){
@@ -3870,6 +3968,21 @@ function openTeamBreakdownPopup(teamId){
         </div>`;
       }).join("");
 
+      let reverseLineHtml = "";
+      if(rd.reverseLine){
+        const rv = rd.reverseLine;
+        const detail = rv.finish
+          ? `finished P${rv.finish} → ${rv.total > 0 ? "+" : ""}${rv.total} reverse pts`
+          : "did not race — 0 reverse pts";
+        const sumColor = rv.total > 0 ? "var(--gold)" : (rv.total < 0 ? "var(--red)" : "var(--muted)");
+        reverseLineHtml = `<div class="rider-line">
+          <div class="rider-bits">
+            <div class="rider-main" style="color:var(--gold);">🔄 ${escHtml(rv.name)} <span class="muted" style="font-size:10px;">(Reverse Pick)</span></div>
+            <div class="rider-breakdown">${detail}</div>
+          </div>
+          <div class="rider-sum" style="color:${sumColor};">${rv.total > 0 ? "+" : ""}${rv.total}</div>
+        </div>`;
+      }
       return `
         <div class="round-card">
           <div class="round-card-head">
@@ -3877,6 +3990,7 @@ function openTeamBreakdownPopup(teamId){
             <div class="round-card-total">${rd.total} pts</div>
           </div>
           ${riderLines}
+          ${reverseLineHtml}
           <div class="small muted" style="margin-top:5px;padding-top:5px;border-top:1px solid var(--border-2);">
             Wildcard was P${rd.wildcardPosition||"—"}
           </div>
@@ -4158,11 +4272,19 @@ function finalizeEndSeason(year, type){
 function validateDraft(teamId, round, riderId){
   if(!teamId||!round||!riderId) return "Select team, round, and rider.";
   if(state.draftPicks.filter(p=>p.teamId===teamId&&p.round===round).length>=1) return `Team already has a Round ${round} pick.`;
-  if(round===1 && state.draftPicks.some(p=>p.riderId===riderId)) return "Round 1 riders must be unique.";
+  if(round===1 && state.draftPicks.some(p=>p.riderId===riderId && p.round<=2)) return "Round 1 riders must be unique.";
   if(round===2){
     if(getTop10ProtectedIds().includes(riderId)) return "Round 1 protected riders cannot be drafted in Round 2.";
-    if(state.draftPicks.some(p=>p.teamId===teamId&&p.riderId===riderId)) return "Team cannot draft the same rider twice.";
+    if(state.draftPicks.some(p=>p.teamId===teamId&&p.riderId===riderId&&p.round<=2)) return "Team cannot draft the same rider twice.";
     if(getRound2Count(riderId)>=2) return "Rider is already locked (picked twice in Round 2).";
+  }
+  if(round===3){
+    // Reverse Pick: choose from riders already drafted in Rounds 1–2…
+    if(!state.draftPicks.some(p=>p.riderId===riderId && p.round<=2)) return "Reverse Picks must come from the drafted rider pool.";
+    // …but not one of your own riders…
+    if(state.draftPicks.some(p=>p.teamId===teamId&&p.riderId===riderId&&p.round<=2)) return "You can't Reverse Pick your own rider.";
+    // …and each rider can only be somebody's Reverse Pick once.
+    if(state.draftPicks.some(p=>p.riderId===riderId&&p.round===3)) return "That rider is already someone's Reverse Pick.";
   }
   return "";
 }
@@ -4997,6 +5119,47 @@ async function fetchSeasonResultsTable(plan, anchorEvent, onProgress){
   return (best && best.matches >= 4) ? best.parsed : null;
 }
 
+// ── HOLESHOT LOOKUP (supermotocross.com) ─────────────────────────────────
+// The series' own site marks the holeshot winner on each race page with a
+// .smx-holeshot-badge. Used for Supercross, where the timing platform's
+// season table carries no start data.
+let smxSlugCache = null; // { "<year>": [slug, ...] }
+
+async function fetchSmxHoleshotName(event, year){
+  if(!smxSlugCache){
+    const idx = await fetchResultsPage("https://www.supermotocross.com/results/");
+    smxSlugCache = {};
+    const re = /\/results\/(\d{4})\/([a-z0-9-]+)\//g;
+    let m;
+    while((m = re.exec(idx))){
+      if(!smxSlugCache[m[1]]) smxSlugCache[m[1]] = [];
+      if(!smxSlugCache[m[1]].includes(m[2])) smxSlugCache[m[1]].push(m[2]);
+    }
+  }
+  const slugs = smxSlugCache[String(year)] || [];
+  if(!slugs.length) return null;
+  // Match the event name to a slug by shared tokens ("St. Louis" → st-louis)
+  const tokens = String(event.name).toLowerCase().replace(/[^a-z0-9\s-]/g, "").split(/[\s-]+/).filter(Boolean);
+  let best = null, bestScore = 0;
+  slugs.forEach(slug => {
+    const parts = slug.split("-");
+    const score = tokens.filter(t => parts.includes(t)).length;
+    if(score > bestScore || (score === bestScore && best && slug.length < best.length)){
+      if(score > 0){ best = slug; bestScore = score; }
+    }
+  });
+  if(!best) return null;
+  const page = await fetchResultsPage(
+    `https://www.supermotocross.com/results/${year}/${best}/450-main-event/`,
+    { timeout: 30000 }
+  );
+  const doc = new DOMParser().parseFromString(page, "text/html");
+  const badge = doc.querySelector(".smx-holeshot-badge");
+  const row = badge ? badge.closest("tr") : null;
+  const nameEl = row ? row.querySelector(".smx-rider-name") : null;
+  return nameEl ? nameEl.textContent.trim() : null;
+}
+
 // Cache of fetched event lists, keyed by series ("mx"/"sx")
 const autoFetchEventsCache = {};
 
@@ -5437,6 +5600,15 @@ async function autoPilotCheck(opts){
           };
         }
       }
+      // No start data (season-table path) → look up the holeshot on the
+      // series' own site, which badges the holeshot winner on each race page.
+      if(isComplete(res) && !res.rows.some(r => r.starts && r.starts.length)){
+        try {
+          onProg("Looking up the holeshot…");
+          const hsName = await fetchSmxHoleshotName(ev, plan.year);
+          if(hsName) res.holeshotName = hsName;
+        } catch(err){ diagLog("holeshot lookup failed", { event: ev.name, message: err.message }); }
+      }
       if(!isComplete(res)){
         const rec = Object.assign({ attempts: 0 }, ing[ev.id], { name: ev.name, round: ev.round });
         rec.attempts++;
@@ -5512,12 +5684,17 @@ function autoPilotApply(round, event, res, opts){
     return false;
   }
 
-  // Holeshots — the rider who led the start (position 1) in each moto
+  // Holeshots — the rider who led the start (position 1) in each moto,
+  // or the name found on the series site's race page (single-race events)
   const hsIds = [0, 0];
   for(let moto = 0; moto < 2; moto++){
     const leader = res.rows.find(r => r.starts && r.starts[moto] === 1);
     const rider = leader ? resolveNameToRider(leader.name) : null;
     if(rider) hsIds[moto] = rider.id;
+  }
+  if(!hsIds[0] && !hsIds[1] && res.holeshotName){
+    const rider = resolveNameToRider(res.holeshotName);
+    if(rider) hsIds[0] = rider.id;
   }
 
   // Wildcard — honor a pre-announced wildcard for this round, else draw fresh
@@ -6106,6 +6283,20 @@ function renderScoringInputs(){
   }
   host.innerHTML = html;
 
+  // Reverse Pick table — positions 1..22, negatives allowed
+  const revHost = document.getElementById("reverseTableInputs");
+  if(revHost){
+    const rt = s.reversePointsTable || DEFAULT_STATE.settings.reversePointsTable;
+    let rhtml = "";
+    for(let i = 1; i <= 22; i++){
+      rhtml += `<div style="display:grid;grid-template-columns:50px 1fr;gap:6px;align-items:center;">
+        <span class="small muted">P${i}</span>
+        <input type="number" class="reverse-table-input" data-pos="${i}" value="${Number(rt[i]) || 0}" />
+      </div>`;
+    }
+    revHost.innerHTML = rhtml;
+  }
+
   // Single-value inputs
   document.getElementById("pointsLowerTierInput").value = s.pointsLowerTier ?? 1;
   document.getElementById("holeshotBonusInput").value = s.holeshotBonus ?? 5;
@@ -6132,9 +6323,18 @@ function saveScoringRules(){
   if(wMin >= wMax){ logMessage("Wildcard min must be less than max.", "error"); return; }
   if(pct < 0 || pct > 200){ logMessage("Standby % must be between 0 and 200.", "error"); return; }
 
+  // Reverse Pick table (negatives allowed — "|| 0" would eat a legit 0 anyway)
+  const newReverse = [0];
+  for(let i = 1; i <= 22; i++){
+    const inp = document.querySelector(`.reverse-table-input[data-pos="${i}"]`);
+    const v = Number(inp?.value);
+    newReverse.push(isNaN(v) ? 0 : v);
+  }
+
   state.settings = Object.assign({}, state.settings, {
     pointsTable: newTable,
     pointsLowerTier: lowerTier,
+    reversePointsTable: newReverse,
     holeshotBonus: hs,
     wildcardBonus: wc,
     standbyPercent: pct,
