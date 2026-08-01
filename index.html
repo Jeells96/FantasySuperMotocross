@@ -1958,8 +1958,9 @@ const DEFAULT_STATE = {
   // { "1": true, "2": true, ... }
   randomizedWildcards: {},
   // Auto-Results autopilot — fetches, scores, and submits official results hands-free.
-  // ingested: { [eventId]: { round, name, at, skipped? } } — events already handled
-  autoResults: { enabled: true, series: "auto", ingested: {} },
+  // seasonKey: "<year>-<series>" of the season being tracked; a change triggers rollover
+  // ingested: { [eventId]: { round, name, at, done?, skipped?, attempts? } }
+  autoResults: { enabled: true, series: "auto", seasonKey: "", ingested: {} },
   riderAliases: [
     { pdfName: "R.J. Hampshire",   riderId: 19 },
     { pdfName: "RJ Hampshire",     riderId: 19 }
@@ -1990,7 +1991,12 @@ const DEFAULT_STATE = {
   }
 };
 
-const ROUND_SCHEDULE = Array.from({length:17}, (_,i) => ({ round: i+1 }));
+// Round list is derived from the season length so it tracks whichever series
+// is running (Supercross ~17 rounds, Pro Motocross ~11) with no hand-editing.
+function getRoundSchedule(){
+  const total = Math.max(1, Number(state?.meta?.totalRounds) || 17);
+  return Array.from({length: total}, (_, i) => ({ round: i + 1 }));
+}
 
 // In-memory state — always the source of truth for rendering
 let state = deepClone(DEFAULT_STATE);
@@ -2014,6 +2020,7 @@ function migrateState(merged){
   if(typeof merged.autoResults !== "object" || merged.autoResults === null) merged.autoResults = deepClone(DEFAULT_STATE.autoResults);
   if(merged.autoResults.enabled === undefined) merged.autoResults.enabled = true;
   if(!merged.autoResults.series) merged.autoResults.series = "auto";
+  if(typeof merged.autoResults.seasonKey !== "string") merged.autoResults.seasonKey = "";
   if(typeof merged.autoResults.ingested !== "object" || merged.autoResults.ingested === null) merged.autoResults.ingested = {};
   // Meta migration — ensure new fields exist
   if(!merged.meta) merged.meta = deepClone(DEFAULT_STATE.meta);
@@ -4126,7 +4133,9 @@ function finalizeEndSeason(year, type){
   state.meta.currentRound = 1;
   state.meta.viewerWildcardRound = 1;
 
-  saveState("end-season");
+  // Archiving intentionally empties picks/results, so opt past the
+  // accidental-empty-save guard — otherwise the archive never persists.
+  saveState("end-season", { allowEmpty: true });
   recalcAllRoundPoints();
   renderAll();
   logMessage(`${year} ${type === "supercross" ? "Supercross" : "Motocross"} season archived. Ready for next draft.`, "success");
@@ -4466,7 +4475,7 @@ function updateResultsPreview(){
 }
 
 function renderResultsPage(){
-  const opts = ROUND_SCHEDULE.map(r=>{
+  const opts = getRoundSchedule().map(r=>{
     const rr = state.roundResults[r.round];
     let marker = "";
     if(rr?.positions) marker = " ✓";
@@ -4772,25 +4781,35 @@ async function fetchLiveFeedRows(series){
 
 // The official sites don't send CORS headers, so try direct first,
 // then fall back through public CORS proxies until one works.
-const CORS_PROXY_WRAPPERS = [
-  u => u,
-  u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
-  u => "https://corsproxy.io/?url=" + encodeURIComponent(u),
-  u => "https://api.codetabs.com/v1/proxy?quest=" + u
+// Ordered fallbacks. Direct is tried first (instant when allowed); the rest are
+// public CORS relays. They differ in what they can carry — some choke on the
+// larger season pages — so the list is deliberately redundant.
+const CORS_PROXIES = [
+  { make: u => u },
+  { make: u => "https://proxy.cors.sh/" + u },
+  { make: u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u) },
+  { make: u => "https://api.allorigins.win/get?url=" + encodeURIComponent(u),
+    unwrap: t => { try { return JSON.parse(t).contents || ""; } catch(e){ return ""; } } },
+  { make: u => "https://corsproxy.io/?url=" + encodeURIComponent(u) },
+  { make: u => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u) }
 ];
 
-async function fetchResultsPage(url){
+async function fetchResultsPage(url, opts){
+  opts = opts || {};
+  const timeout = opts.timeout || 20000;
   let lastErr = null;
-  for(const wrap of CORS_PROXY_WRAPPERS){
+  for(const proxy of CORS_PROXIES){
     try {
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 15000);
-      const resp = await fetch(wrap(url), { signal: ctrl.signal });
-      clearTimeout(timer);
+      const timer = setTimeout(() => ctrl.abort(), timeout);
+      let resp;
+      try { resp = await fetch(proxy.make(url), { signal: ctrl.signal }); }
+      finally { clearTimeout(timer); }
       if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const text = await resp.text();
+      let text = await resp.text();
+      if(proxy.unwrap) text = proxy.unwrap(text);
       // Sanity check — proxies sometimes return their own error pages
-      if(text.length < 500) throw new Error("Response too short");
+      if(text.length < (opts.minLength || 500)) throw new Error("Response too short");
       return text;
     } catch(err){
       lastErr = err;
@@ -4864,6 +4883,105 @@ function parseBoxScore(html){
     rows.push({ position: pos, name, starts });
   });
   return rows;
+}
+
+// ── SEASON RESULTS TABLE ──────────────────────────────────────────────────
+// A series' points page carries every round's finishing position in one table,
+// and each round column states its own round number. That makes it the ideal
+// source for backfilling a whole season — and the only working source for
+// Supercross, whose per-event box scores error out on the official site.
+function parseSeriesPointsTable(html){
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const table = doc.querySelector("table");
+  if(!table) return null;
+  const allRows = Array.from(table.querySelectorAll("tr"));
+  const headerRow = allRows.find(tr => tr.querySelector("th"));
+  if(!headerRow) return null;
+  const ths = Array.from(headerRow.querySelectorAll("th"))
+    .map(th => th.textContent.replace(/\s+/g, " ").trim());
+  const riderIdx = ths.findIndex(t => /^rider$/i.test(t));
+  if(riderIdx < 0) return null;
+
+  // Round columns are headed "<round>: <event name>"
+  const roundCols = [];
+  ths.forEach((t, i) => {
+    const m = t.match(/^(\d+)\s*:\s*(.+)$/);
+    if(m) roundCols.push({ idx: i, round: Number(m[1]), name: m[2].trim() });
+  });
+  if(!roundCols.length) return null;
+
+  const byRound = {};
+  roundCols.forEach(c => { byRound[c.round] = []; });
+  allRows.forEach(tr => {
+    if(tr.querySelector("th")) return;
+    const tds = tr.querySelectorAll("td");
+    if(tds.length !== ths.length) return; // skip nested/lap sub-rows
+    const name = tds[riderIdx].textContent.replace(/\s+/g, " ").trim();
+    if(!name || !/[A-Za-z]/.test(name)) return;
+    roundCols.forEach(c => {
+      // Cells read like "22 2nd" (points + finishing position); blank = did not start
+      const m = tds[c.idx].textContent.match(/(\d+)\s*(?:st|nd|rd|th)\b/i);
+      if(m) byRound[c.round].push({ position: Number(m[1]), name, starts: [] });
+    });
+  });
+  return { byRound, columns: roundCols };
+}
+
+// Find the season table for our class. Series ids and their labels are read off
+// the event page, so nothing about the class is hard-coded year to year.
+async function fetchSeasonResultsTable(plan, anchorEvent, onProgress){
+  const site = RESULTS_SITES[plan.series];
+  const html = await fetchResultsPage(`${site.base}/results/?p=view_event&id=${anchorEvent.id}`);
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const found = [];
+  doc.querySelectorAll('a[href*="view_series_points"]').forEach(a => {
+    const href = a.getAttribute("href") || "";
+    if(/export/i.test(href)) return;
+    const m = href.match(/[?&]id=(\d+)/);
+    if(!m) return;
+    const label = (a.textContent || "").replace(/\s+/g, " ").trim();
+    const existing = found.find(f => f.id === m[1]);
+    // The same series is linked more than once; keep whichever copy is labelled
+    if(existing){ if(!existing.label && label) existing.label = label; return; }
+    found.push({ id: m[1], label });
+  });
+  if(!found.length) return null;
+
+  // Prefer the premier class for this series; ignore manufacturer/combined tables
+  const seriesWord = plan.series === "sx" ? /\bsx\b|supercross/i : /pro\s*motocross|\bmx\b/i;
+  const rank = f => {
+    if(/manufacturer/i.test(f.label)) return 9;
+    let score = 4;
+    if(/450/.test(f.label)) score -= 2;
+    if(seriesWord.test(f.label)) score -= 1;
+    if(/combined|smx|wmx/i.test(f.label)) score += 3;
+    return score;
+  };
+  found.sort((a, b) => rank(a) - rank(b));
+  // Unlabelled links give the ranking nothing to go on, so widen the search
+  const tryCount = found.some(f => f.label) ? 4 : 7;
+
+  let best = null;
+  for(const cand of found.slice(0, tryCount)){
+    if(onProgress) onProgress(`Reading season results${cand.label ? " — " + cand.label : ""}…`);
+    let parsed;
+    try {
+      parsed = parseSeriesPointsTable(await fetchResultsPage(
+        `${site.base}/results/?p=view_series_points&id=${cand.id}&event_id=${anchorEvent.id}`,
+        { timeout: 45000 }
+      ));
+    } catch(err){ continue; }
+    if(!parsed) continue;
+    // Validate against our own roster — the right table is the one our riders are in
+    let matches = 0;
+    Object.keys(parsed.byRound).forEach(rn => {
+      const n = parsed.byRound[rn].filter(r => r.position <= 22 && resolveNameToRider(r.name)).length;
+      if(n > matches) matches = n;
+    });
+    if(!best || matches > best.matches) best = { parsed, matches, label: cand.label };
+    if(matches >= 10) break;
+  }
+  return (best && best.matches >= 4) ? best.parsed : null;
 }
 
 // Cache of fetched event lists, keyed by series ("mx"/"sx")
@@ -5018,24 +5136,89 @@ let autoPilotLastCheckAt = 0;
 let autoPilotNote = "";
 let autoPilotNextUp = "";
 let autoPilotProgress = "";
+let autoPilotPlan = null;      // active season plan (see buildSeasonPlan)
+let autoPilotFollowUp = null;  // timer for continuing a multi-round back-fill
 
 const AUTOPILOT_CHECK_MS = 20 * 60 * 1000; // re-check every 20 minutes
+const AUTOPILOT_MAX_PER_CHECK = 4;         // rounds to back-fill per pass
+const AUTOPILOT_MAX_ATTEMPTS = 6;          // give up on a round after this many tries
 
-function resolveAutoSeries(){
-  const pref = state.autoResults?.series || "auto";
-  if(pref === "sx" || pref === "mx") return pref;
-  // Auto: Supercross runs Jan–Apr; Pro Motocross / SMX the rest of the year
-  return (new Date().getMonth() <= 3) ? "sx" : "mx";
+// Support classes share the schedule page but are not championship rounds.
+const SUPPORT_EVENT_RE = /moto\s*combine|wmx\b|futures|amateur|ktm\s*jr|smx\s*next|supermini|press\s*day|open\s*practice/i;
+
+function seasonTypeFor(series){ return series === "sx" ? "supercross" : "motocross"; }
+
+// Build the season plan for a series from its full event list:
+// picks the season year closest to today, keeps only championship rounds,
+// and numbers them chronologically so event → round never needs hand-mapping.
+// Championship rounds run Saturdays; support classes (Moto Combine, WMX) run
+// Friday — that plus the name filter separates them with no yearly upkeep.
+function buildSeasonPlan(series, events){
+  const dated = events.filter(e => e.date);
+  if(!dated.length) return null;
+  const now = new Date();
+  // Season year = the year of whichever event sits closest to today
+  let nearest = dated[0];
+  dated.forEach(e => {
+    if(Math.abs(e.date - now) < Math.abs(nearest.date - now)) nearest = e;
+  });
+  const year = nearest.date.getFullYear();
+
+  const inYear = dated.filter(e => e.date.getFullYear() === year && !SUPPORT_EVENT_RE.test(e.name));
+  let rounds = inYear.filter(e => e.date.getDay() === 6); // Saturday
+  // Safety net: if a series ever races off-Saturday, fall back to all events
+  if(rounds.length < Math.max(4, Math.floor(inYear.length * 0.6))) rounds = inYear;
+  if(!rounds.length) return null;
+
+  rounds = rounds.slice().sort((a, b) => a.date - b.date)
+    .map((e, i) => Object.assign({}, e, { round: i + 1 }));
+  return {
+    series, year, rounds,
+    first: rounds[0].date,
+    last: rounds[rounds.length - 1].date,
+    key: `${year}-${series}`
+  };
 }
 
-// First round (from currentRound onward) that has no submitted positions.
-function autoPilotTargetRound(){
-  const total = state.meta.totalRounds || 17;
-  const start = Math.min(Math.max(Number(state.meta.currentRound) || 1, 1), total);
-  for(let r = start; r <= total; r++){
-    if(!state.roundResults[r]?.positions) return r;
+// Decide which series is live right now by looking at the real schedules
+// rather than hard-coded month ranges, so it keeps working every year.
+async function getActiveSeasonPlan(){
+  const pref = state.autoResults?.series || "auto";
+  const candidates = (pref === "sx" || pref === "mx") ? [pref] : ["sx", "mx"];
+  const plans = [];
+  for(const s of candidates){
+    try {
+      const plan = buildSeasonPlan(s, parseEventsList(await fetchResultsPage(`${RESULTS_SITES[s].base}/events/`)));
+      if(plan) plans.push(plan);
+    } catch(err){ diagLog("season plan fetch failed", { series: s, message: err.message }); }
   }
-  return null;
+  if(!plans.length) return null;
+  if(plans.length === 1) return plans[0];
+  const now = new Date();
+  const GRACE = 10 * 86400000; // keep a season "live" briefly after its finale
+  const live = plans.filter(p => now >= p.first && now <= (p.last.getTime() + GRACE));
+  if(live.length) return live.sort((a, b) => b.first - a.first)[0]; // most recently started
+  // Between seasons — stay with whichever finished most recently
+  return plans.sort((a, b) => b.last - a.last)[0];
+}
+
+// A new series-season was detected (SX→MX, or a new year): archive the finished
+// season into League History and reset for a fresh draft. Everything valuable is
+// preserved in Season History, and the whole action is undoable.
+function applySeasonRollover(plan){
+  const prevKey = state.autoResults.seasonKey;
+  const hadResults = Object.keys(state.roundResults).some(k => state.roundResults[k]?.positions);
+  if(prevKey && hadResults){
+    const [prevYear, prevSeries] = String(prevKey).split("-");
+    finalizeEndSeason(Number(prevYear) || state.meta.season, seasonTypeFor(prevSeries));
+    logMessage(`🏁 ${prevYear} ${seasonTypeFor(prevSeries) === "supercross" ? "Supercross" : "Motocross"} season archived to League History. Draft when you're ready — races will backfill automatically.`, "success");
+  }
+  state.autoResults.seasonKey = plan.key;
+  state.autoResults.ingested = {};
+  state.meta.season = plan.year;
+  state.meta.totalRounds = plan.rounds.length;
+  state.meta.currentRound = 1;
+  state.meta.viewerWildcardRound = 1;
 }
 
 // Title-case an ALL-CAPS box-score name ("HUNTER LAWRENCE" → "Hunter Lawrence"),
@@ -5078,68 +5261,149 @@ async function autoPilotCheck(opts){
     renderAutoPilotCard();
     return;
   }
+  clearTimeout(autoPilotFollowUp);
   autoPilotBusy = true;
-  autoPilotProgress = "Checking for new results…";
+  autoPilotProgress = "Checking the official schedule…";
   renderAutoPilotCard();
   try {
-    const series = resolveAutoSeries();
-    const site = RESULTS_SITES[series];
-    const events = parseEventsList(await fetchResultsPage(`${site.base}/events/`));
+    const plan = await getActiveSeasonPlan();
+    if(!plan){ autoPilotNote = "Couldn't reach the official schedule — will retry."; return; }
+    autoPilotPlan = plan;
+
+    // ── Season tracking: adopt on first run, roll over when the series/year changes ──
+    if(!state.autoResults.seasonKey){
+      state.autoResults.seasonKey = plan.key;
+      if(!state.meta.totalRounds || state.meta.totalRounds < plan.rounds.length){
+        state.meta.totalRounds = plan.rounds.length;
+      }
+      saveState("auto-season-adopt", { skipUndo: true });
+    } else if(state.autoResults.seasonKey !== plan.key){
+      applySeasonRollover(plan);
+      // A rollover legitimately leaves the league empty until the next draft
+      saveState("auto-season-rollover", { allowEmpty: true });
+      renderAll();
+    } else {
+      // Keep the round count in step as the schedule publishes, never below what's scored
+      const scored = Object.keys(state.roundResults)
+        .filter(k => state.roundResults[k]?.positions).map(Number);
+      const want = Math.max(plan.rounds.length, scored.length ? Math.max.apply(null, scored) : 0);
+      if(state.meta.totalRounds !== want){
+        state.meta.totalRounds = want;
+        saveState("auto-total-rounds", { skipUndo: true });
+      }
+    }
+
     const now = new Date();
-    const dated = events.filter(e => e.date);
-    const completed = dated.filter(e => e.date <= now).sort((a, b) => b.date - a.date);
-    const upcoming  = dated.filter(e => e.date >  now).sort((a, b) => a.date - b.date);
-    autoPilotNextUp = upcoming.length
-      ? `${upcoming[0].name} · ${upcoming[0].date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+    const site = RESULTS_SITES[plan.series];
+    const upcoming = plan.rounds.find(e => e.date > now);
+    autoPilotNextUp = upcoming
+      ? `R${upcoming.round} ${upcoming.name} · ${upcoming.date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
       : "";
-    const latest = completed[0];
-    if(!latest){ autoPilotNote = `No completed ${site.label} events found.`; return; }
 
-    const ar = state.autoResults;
-    if(ar.ingested[latest.id]){
-      const rec = ar.ingested[latest.id];
-      autoPilotNote = rec.skipped
-        ? "Armed — the next race will be scored automatically."
-        : `Up to date — ${rec.name || latest.name} scored into Round ${rec.round} ✓`;
+    // Nothing can be scored before there are teams to score
+    if(!state.draftPicks.length){
+      autoPilotNote = `${plan.year} ${site.label} detected — waiting for your draft. Every race run so far will fill in automatically once teams are picked.`;
       return;
     }
-
-    const round = autoPilotTargetRound();
-    const ageDays = (now - latest.date) / 86400000;
-
-    // First activation: don't back-fill an old race. Only auto-score events
-    // from the past 8 days into an open round; older ones get marked handled.
-    if(ageDays > 8 || round === null){
-      ar.ingested[latest.id] = { skipped: true, name: latest.name, at: Date.now() };
-      saveState("auto-results-arm", { skipUndo: true });
-      autoPilotNote = round === null
-        ? "Every round already has results — armed for next season."
-        : "Armed — the next race will be scored automatically.";
-      return;
-    }
-
     // Courtesy: don't submit under the admin's feet on this device
     if(resultsUnlocked && !opts.manual){
       autoPilotNote = "Paused — the results editor is unlocked on this device.";
       return;
     }
 
-    autoPilotProgress = `${latest.name} just finished — fetching official results…`;
-    renderAutoPilotCard();
-    const res = await fetchOfficialEventResults(series, latest, {
-      requireMainEvent: true,
-      onProgress: t => { autoPilotProgress = t; renderAutoPilotCard(); }
-    });
-
-    // Quality gate — only auto-submit complete, well-matched official results
-    const looksComplete = res && res.rows.length >= 15 && res.matches >= 6 &&
-      [1, 2, 3, 4, 5].every(p => res.rows.some(r => r.position === p));
-    if(!looksComplete){
-      autoPilotNote = `${latest.name} is done — waiting for official results to post…`;
+    // ── Work list: every completed round not yet handled, oldest first ──
+    const ing = state.autoResults.ingested;
+    const pending = plan.rounds.filter(e =>
+      e.date <= now && !(ing[e.id] && (ing[e.id].done || ing[e.id].skipped)));
+    const doneCount = () => plan.rounds.filter(e => ing[e.id]?.done).length;
+    if(!pending.length){
+      autoPilotNote = doneCount()
+        ? `Up to date — ${doneCount()} of ${plan.rounds.length} rounds scored ✓`
+        : "Armed — the next race will be scored automatically.";
       return;
     }
 
-    autoPilotApply(round, latest, res);
+    const quiet = pending.length > 1; // back-filling: summarize instead of a toast per round
+    let scoredNow = 0, stateChanged = false, waitingOn = null;
+
+    // The season table is fetched at most once per pass and covers every round.
+    // Anchored on the latest completed event so it's fully populated.
+    const anchor = plan.rounds.filter(e => e.date <= now).slice(-1)[0];
+    let seasonTable = null, seasonTableTried = false, boxScoresBroken = false;
+    const getSeasonTable = async (onProg) => {
+      if(seasonTableTried) return seasonTable;
+      seasonTableTried = true;
+      try { seasonTable = await fetchSeasonResultsTable(plan, anchor, onProg); }
+      catch(err){ diagLog("season table fetch failed", { message: err.message }); }
+      return seasonTable;
+    };
+
+    for(const ev of pending.slice(0, AUTOPILOT_MAX_PER_CHECK)){
+      // Round already has results (entered by hand or on another device) — adopt, never overwrite
+      if(state.roundResults[ev.round]?.positions){
+        ing[ev.id] = { done: true, round: ev.round, name: ev.name, at: Date.now(), manual: true };
+        stateChanged = true;
+        continue;
+      }
+      autoPilotProgress = `Round ${ev.round} · ${ev.name}…`;
+      renderAutoPilotCard();
+      const onProg = t => { autoPilotProgress = `R${ev.round}: ${t}`; renderAutoPilotCard(); };
+      // Quality gate — only auto-submit complete, well-matched official results
+      const isComplete = r => r && r.rows.length >= 15 && r.matches >= 6 &&
+        [1, 2, 3, 4, 5].every(p => r.rows.some(x => x.position === p));
+
+      // Per-event box score first: it carries start positions, which is how we
+      // detect the holeshots. Supercross box scores are broken on the official
+      // site, so after the first miss we stop asking and use the season table.
+      let res = null;
+      if(!boxScoresBroken){
+        res = await fetchOfficialEventResults(plan.series, ev, { requireMainEvent: true, onProgress: onProg });
+        if(!isComplete(res)){
+          if(!res || res.matches < 3) boxScoresBroken = true;
+          res = null;
+        }
+      }
+      if(!res){
+        const table = await getSeasonTable(onProg);
+        const rows = table && table.byRound[ev.round];
+        if(rows && rows.length){
+          res = {
+            rows,
+            matches: rows.filter(r => r.position <= 22 && resolveNameToRider(r.name)).length,
+            sourceNote: " (official season results)"
+          };
+        }
+      }
+      if(!isComplete(res)){
+        const rec = Object.assign({ attempts: 0 }, ing[ev.id], { name: ev.name, round: ev.round });
+        rec.attempts++;
+        // Stop retrying a round whose official results never materialize
+        if(rec.attempts >= AUTOPILOT_MAX_ATTEMPTS && (now - ev.date) / 86400000 > 3){
+          rec.skipped = true;
+          addEphemeralLog(`⚠️ Round ${ev.round} (${ev.name}) — official results unavailable. Enter them manually if you want it scored.`, "warn");
+        }
+        ing[ev.id] = rec;
+        stateChanged = true;
+        if(!waitingOn) waitingOn = ev;
+        continue;
+      }
+      if(autoPilotApply(ev.round, ev, res, { quiet })) scoredNow++;
+    }
+
+    if(stateChanged && !scoredNow) saveState("auto-results-progress", { skipUndo: true });
+
+    const stillPending = pending.length - scoredNow;
+    if(scoredNow && quiet){
+      logMessage(`🤖 ${scoredNow} round${scoredNow > 1 ? "s" : ""} scored automatically — ${doneCount()} of ${plan.rounds.length} complete.`, "success");
+    }
+    if(stillPending > 0 && scoredNow){
+      autoPilotNote = `Catching up — ${stillPending} round${stillPending > 1 ? "s" : ""} to go…`;
+      autoPilotFollowUp = setTimeout(() => autoPilotCheck({}), 8000);
+    } else if(waitingOn){
+      autoPilotNote = `Round ${waitingOn.round} (${waitingOn.name}) finished — waiting for official results to post…`;
+    } else {
+      autoPilotNote = `Up to date — ${doneCount()} of ${plan.rounds.length} rounds scored ✓`;
+    }
   } catch(err){
     autoPilotNote = `Check failed (${err.message}) — will retry.`;
     diagLog("autoPilotCheck error", { message: err.message });
@@ -5153,11 +5417,13 @@ async function autoPilotCheck(opts){
 
 // Apply fetched official results to a round — mirrors submitResults exactly,
 // then runs the wildcard draw/reshuffle and round advancement.
-function autoPilotApply(round, event, res){
+function autoPilotApply(round, event, res, opts){
+  opts = opts || {};
+  const quiet = !!opts.quiet;
   // Re-check: a cloud sync may have landed results while we were fetching
-  if(state.roundResults[round]?.positions || state.autoResults.ingested[event.id]){
+  if(state.roundResults[round]?.positions || state.autoResults.ingested[event.id]?.done){
     autoPilotNote = "Round was scored elsewhere while checking — nothing to do.";
-    return;
+    return false;
   }
   const s = state.settings || DEFAULT_STATE.settings;
   const lo = s.wildcardMin || 10, hi = s.wildcardMax || 18;
@@ -5180,7 +5446,7 @@ function autoPilotApply(round, event, res){
   });
   if(Object.keys(positions).length < 10){
     autoPilotNote = "Results looked incomplete — holding off for now.";
-    return;
+    return false;
   }
 
   // Holeshots — the rider who led the start (position 1) in each moto
@@ -5261,16 +5527,19 @@ function autoPilotApply(round, event, res){
     state.meta.viewerWildcardRound = round;
   }
 
-  state.autoResults.ingested[event.id] = { round, name: event.name, at: Date.now() };
+  state.autoResults.ingested[event.id] = { done: true, round, name: event.name, at: Date.now() };
   saveState("auto-results");
   renderAll();
 
   // ── Tell the story ──
+  const announce = quiet ? addEphemeralLog : logMessage;
   const winners = state.teams.filter(t => rr.teamFlags?.[t.id]?.wc).map(t => t.name);
   const hsNames = hsIds.filter(Boolean).map(id => riderById(id)?.name).filter(Boolean);
-  logMessage(`🤖 ${event.name} — results auto-scored into Round ${round}${res.sourceNote || ""}!`, "success");
+  announce(`🤖 Round ${round} · ${event.name} — results auto-scored${res.sourceNote || ""}!`, "success");
   if(hsNames.length){
     addEphemeralLog(`🚀 Holeshot${hsNames.length > 1 ? "s" : ""}: ${hsNames.join(" & ")} (+${s.holeshotBonus} each)`, "info");
+  } else {
+    addEphemeralLog(`ℹ️ Round ${round}: no holeshot published for this race — set it by hand on the Results page if you want the bonus awarded.`, "info");
   }
   let wcStory;
   if(trail.length === 1){
@@ -5281,11 +5550,12 @@ function autoPilotApply(round, event, res){
     wcStory = `🎲 Wildcard P${trail[0]} — nobody home. Reshuffled: ${trail.slice(1).map(p => "P" + p).join(" → ")}` +
       (winners.length ? ` — ${winners.join(" & ")} +${s.wildcardBonus}!` : "");
   }
-  logMessage(wcStory, winners.length ? "success" : "info");
+  announce(wcStory, winners.length ? "success" : "info");
   if(nextWildcard) addEphemeralLog(`📣 Round ${next} wildcard announced: P${nextWildcard}`, "info");
   if(addedNames.length) addEphemeralLog(`➕ Added to rider pool: ${addedNames.join(", ")}`, "info");
 
-  autoPilotNote = `${event.name} scored into Round ${round} ✓`;
+  autoPilotNote = `Round ${round} · ${event.name} scored ✓`;
+  return true;
 }
 
 function renderAutoPilotCard(){
@@ -5313,11 +5583,13 @@ function renderAutoPilotCard(){
   } else if(!enabled){
     lines.push("Off — results must be entered manually below.");
   } else {
-    const series = resolveAutoSeries();
     const lastChk = autoPilotLastCheckAt
       ? new Date(autoPilotLastCheckAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
       : "just started";
-    lines.push(`Watching ${RESULTS_SITES[series].label} · Last check: ${lastChk}`);
+    const watching = autoPilotPlan
+      ? `${autoPilotPlan.year} ${RESULTS_SITES[autoPilotPlan.series].label} · ${autoPilotPlan.rounds.length} rounds`
+      : "Detecting season…";
+    lines.push(`Watching ${watching} · Last check: ${lastChk}`);
     if(autoPilotNote) lines.push(autoPilotNote);
     if(autoPilotNextUp) lines.push(`📅 Next race: ${autoPilotNextUp}`);
   }
